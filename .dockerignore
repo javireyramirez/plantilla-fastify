@@ -1,0 +1,9 @@
+node_modules
+.env
+.git
+.gitignore
+README.md
+docker-compose.yml
+Dockerfile
+# Evitar que suban los logs de pnpm
+pnpm-debug.log
