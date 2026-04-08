@@ -13,14 +13,12 @@ export default async function authRoutes(fastify: FastifyInstance) {
   const handler = toNodeHandler(fastify.auth);
   const bridge = authBridge(handler);
 
-  // Middleware equivalente al de Express para desarrollo
   fastify.addHook('onRequest', async (request) => {
     if (env.NODE_ENV !== 'production' && !request.headers.origin) {
       request.headers.origin = env.BACKEND_URL;
     }
   });
 
-  // Validación en sign-in — Fastify valida con schema y luego pasa a Better Auth
   app.post('/sign-in/email', {
     schema: {
       tags: ['Auth'],
@@ -31,7 +29,6 @@ export default async function authRoutes(fastify: FastifyInstance) {
     handler: bridge,
   });
 
-  // Validación en sign-up
   app.post('/sign-up/email', {
     schema: {
       tags: ['Auth'],
@@ -40,7 +37,6 @@ export default async function authRoutes(fastify: FastifyInstance) {
     handler: bridge,
   });
 
-  // Ruta protegida con validación
   app.post('/update-user', {
     schema: {
       tags: ['Auth'],
@@ -51,7 +47,6 @@ export default async function authRoutes(fastify: FastifyInstance) {
     handler: bridge,
   });
 
-  // Wildcard — captura todo lo demás de Better Auth
   app.all('/*', {
     schema: {
       tags: ['Auth'],

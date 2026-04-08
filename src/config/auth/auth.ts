@@ -11,6 +11,8 @@ import {
 import { env } from '@/config/env.js';
 import { prisma } from '@/config/prisma.js';
 
+const isProd = env.NODE_ENV === 'production';
+
 export const auth = betterAuth({
   basePath: `${env.API_PREFIX}/auth`,
 
@@ -48,14 +50,14 @@ export const auth = betterAuth({
     crossSubdomain: {
       enabled: true,
     },
-    useSecureCookies: true,
+    useSecureCookies: isProd,
     generateSessionToken: true,
     cookies: {
       session_token: {
         name: 'better-auth.session_token',
         attributes: {
           sameSite: 'none',
-          secure: true,
+          secure: isProd,
           httpOnly: true,
           path: '/',
           domain: undefined,

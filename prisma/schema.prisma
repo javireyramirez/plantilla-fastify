@@ -209,14 +209,6 @@ enum EmailStatus {
   BOUNCED
 }
 
-//Storage
-enum EntityType {
-  USER
-  PRODUCT
-  INVOICE
-  ORDER
-}
-
 model Document {
   id String @id @default(uuid())
 
@@ -231,7 +223,7 @@ model Document {
   metadata Json?
 
   // Relación Genérica
-  entityType EntityType
+  entityType String
   entityId   String
 
   // Tiempos
@@ -240,4 +232,5 @@ model Document {
 
   @@index([entityId, entityType])
   @@index([status])
+  @@map("document")
 }
