@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const envSchema = z.object({
+export const baseSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number(),
   HOST: z.string(),
@@ -27,13 +27,6 @@ export const envSchema = z.object({
   // Redis / Valkey
   VALKEY_URL: z.url(),
 
-  //Storage
-  S3_ENDPOINT: z.string(),
-  S3_ACCESS_KEY: z.string(),
-  S3_SECRET_KEY: z.string(),
-  S3_BUCKET_NAME: z.string(),
-  S3_REGION: z.string().default('auto'),
-
   // Rate limiting
   RATE_LIMIT_MAX: z.coerce.number().default(100),
   RATE_LIMIT_WINDOW: z.string().default('1 minute'),
@@ -41,6 +34,32 @@ export const envSchema = z.object({
   // Swagger
   SWAGGER_ENABLED: z.coerce.boolean().default(true),
 });
+
+const s3Schema = baseSchema.extend({
+  STORAGE_PROVIDER: z.literal('s3'),
+  S3_ENDPOINT: z.url(),
+  S3_REGION: z.string().min(1).default('auto'),
+  S3_ACCESS_KEY: z.string().min(1),
+  S3_SECRET_KEY: z.string().min(1),
+  S3_BUCKET_NAME: z.string().min(1),
+});
+
+const gcsSchema = baseSchema.extend({
+  STORAGE_PROVIDER: z.literal('gcs'),
+  GCS_BUCKET: z.string().min(1),
+  GCS_KEY_FILE: z.string().min(1),
+});
+
+const localSchema = baseSchema.extend({
+  STORAGE_PROVIDER: z.literal('local'),
+  LOCAL_STORAGE_PATH: z.string().min(1),
+});
+
+export const envSchema = z.discriminatedUnion('STORAGE_PROVIDER', [
+  s3Schema,
+  gcsSchema,
+  localSchema,
+]);
 
 const parsed = envSchema.safeParse(process.env);
 

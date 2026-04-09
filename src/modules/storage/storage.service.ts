@@ -1,10 +1,9 @@
 import { FastifyInstance } from 'fastify/types/instance.js';
 
+import type { IStorageProvider } from '@/modules/storage/interfaces/storage.provider.interface.js';
+import { GLOBAL_UPLOAD_RULES } from '@/modules/storage/storage.constants.js';
+import { RequestUploadParams } from '@/modules/storage/storage.schema.js';
 import { HttpError } from '@/shared/utils/http.error.js';
-
-import { GLOBAL_UPLOAD_RULES } from './storage.constants.js';
-import type { IStorageProvider } from './storage.provider.interface.js';
-import { RequestUploadParams } from './storage.schema.js';
 
 type Prisma = FastifyInstance['prisma'];
 

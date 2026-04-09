@@ -2,12 +2,13 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  NotFound,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
-import type { IStorageProvider } from './storage.provider.interface.js';
+import type { IStorageProvider } from '@/modules/storage/interfaces/storage.provider.interface.js';
 
 export class S3Provider implements IStorageProvider {
   constructor(
@@ -33,8 +34,9 @@ export class S3Provider implements IStorageProvider {
     try {
       await this.client.send(new HeadObjectCommand({ Bucket: this.bucket, Key: key }));
       return true;
-    } catch {
-      return false;
+    } catch (error) {
+      if (error instanceof NotFound) return false;
+      throw error;
     }
   }
 
