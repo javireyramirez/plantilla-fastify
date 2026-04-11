@@ -44,7 +44,7 @@ export class StorageService {
     }
   }
 
-  async confirmUpload(documentId: string, entityId: string) {
+  async confirmUpload(entityId: string, documentId: string) {
     try {
       const document = await this.prisma.document.findFirst({
         where: { id: documentId, entityId },
@@ -59,6 +59,7 @@ export class StorageService {
       return this.prisma.document.update({
         where: { id: documentId },
         data: { status: 'SUCCESS' },
+        select: { id: true, status: true, fileName: true },
       });
     } catch (error) {
       throw HttpError.handleError(error);
