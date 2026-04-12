@@ -117,4 +117,20 @@ export default async function storageRoutes(fastify: FastifyInstance) {
     },
     (req, reply) => controller.deleteDocument(req, reply),
   );
+
+  app.patch(
+    '/:entityType/:entityId/:documentId/restore-document',
+    {
+      schema: {
+        tags: ['Storage'],
+        description: 'Restaurar documento',
+        params: ConfirmParamsSchema,
+        response: {
+          200: ResponseStatusChangeSchema,
+        },
+      },
+      preHandler: requireAuth,
+    },
+    (req, reply) => controller.deleteDocument(req, reply),
+  );
 }

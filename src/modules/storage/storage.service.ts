@@ -57,7 +57,7 @@ export class StorageService {
       if (!exists) throw new HttpError(400, 'El archivo aún no se ha subido a la nube');
 
       return this.prisma.document.update({
-        where: { id: documentId },
+        where: { id: documentId, entityType, entityId },
         data: { status: 'SUCCESS' },
         select: { id: true, status: true, fileName: true },
       });
@@ -103,7 +103,7 @@ export class StorageService {
       if (!document) throw new HttpError(404, 'Documento no encontrado');
 
       return this.prisma.document.update({
-        where: { id: documentId },
+        where: { id: documentId, entityType, entityId },
         data: { status: 'TRASHED' },
         select: { id: true, status: true, fileName: true },
       });
@@ -124,7 +124,7 @@ export class StorageService {
       await this.storage.deleteFile(document.fileKey);
 
       const deletedDocument = await this.prisma.document.delete({
-        where: { id: documentId },
+        where: { id: documentId, entityType, entityId },
         select: { id: true },
       });
 
@@ -132,6 +132,25 @@ export class StorageService {
         id: deletedDocument.id,
         message: 'Documento eliminado permanentemente',
       };
+    } catch (error) {
+      throw HttpError.handleError(error);
+    }
+  }
+
+  async restoreDocument(entityType: string, entityId: string, documentId: string) {
+    try {
+      const document = await this.prisma.document.findFirst({
+        where: { id: documentId, entityType, entityId, status: 'TRASHED' },
+      });
+
+      if (!document)
+        throw new HttpError(404, 'Documento no encontrado o no disponible para borrar');
+
+      return this.prisma.document.update({
+        where: { id: documentId, entityType, entityId },
+        data: { status: 'SUCCESS' },
+        select: { id: true, status: true, fileName: true },
+      });
     } catch (error) {
       throw HttpError.handleError(error);
     }

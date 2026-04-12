@@ -72,4 +72,11 @@ export class StorageController {
     const result = await this.storageService.deleteDocument(entityType, entityId, documentId);
     return reply.code(200).send(result);
   }
+
+  async restoreDocument(request: FastifyRequest<{ Params: ConfirmParams }>, reply: FastifyReply) {
+    const { entityType, entityId, documentId } = request.params;
+
+    const result = await this.storageService.restoreDocument(entityType, entityId, documentId);
+    return reply.code(200).send(result);
+  }
 }
