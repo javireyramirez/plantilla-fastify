@@ -3,8 +3,8 @@ import { FastifyReply, FastifyRequest } from 'fastify';
 
 import {
   ConfirmParams,
-  EntityIdParams,
   EntityParams,
+  GetDocumentsQuery,
   RequestUploadParams,
 } from './storage.schema.js';
 
@@ -18,16 +18,16 @@ export class StorageController {
     reply: FastifyReply,
   ) {
     const { fileData } = request.body;
-    const { entityId, entityType } = request.params;
+    const { entityType, entityId } = request.params;
 
     const result = await this.storageService.requestUploadUrl(fileData, entityId, entityType);
     return reply.code(201).send(result);
   }
 
   async confirmUpload(request: FastifyRequest<{ Params: ConfirmParams }>, reply: FastifyReply) {
-    const { entityId, documentId } = request.params;
+    const { entityType, entityId, documentId } = request.params;
 
-    const result = await this.storageService.confirmUpload(entityId, documentId);
+    const result = await this.storageService.confirmUpload(entityType, entityId, documentId);
     return reply.code(200).send(result);
   }
 
@@ -35,19 +35,41 @@ export class StorageController {
     request: FastifyRequest<{ Params: ConfirmParams }>,
     reply: FastifyReply,
   ) {
-    const { entityId, documentId } = request.params;
+    const { entityType, entityId, documentId } = request.params;
 
-    const result = await this.storageService.getPreSignedDownloadUrl(entityId, documentId);
+    const result = await this.storageService.getPreSignedDownloadUrl(
+      entityType,
+      entityId,
+      documentId,
+    );
     return reply.code(200).send(result);
   }
 
   async getDocumentsByEntity(
-    request: FastifyRequest<{ Params: EntityIdParams }>,
+    request: FastifyRequest<{ Params: EntityParams; Querystring: GetDocumentsQuery }>,
     reply: FastifyReply,
   ) {
-    const { entityId } = request.params;
+    const { entityType, entityId } = request.params;
+    const { isTrash } = request.query;
 
-    const result = await this.storageService.getDocumentsByEntity(entityId);
+    const result = await this.storageService.getDocumentsByEntity(entityType, entityId, isTrash);
+    return reply.code(200).send(result);
+  }
+
+  async deleteSoftDocument(
+    request: FastifyRequest<{ Params: ConfirmParams }>,
+    reply: FastifyReply,
+  ) {
+    const { entityType, entityId, documentId } = request.params;
+
+    const result = await this.storageService.deleteSoftDocument(entityType, entityId, documentId);
+    return reply.code(200).send(result);
+  }
+
+  async deleteDocument(request: FastifyRequest<{ Params: ConfirmParams }>, reply: FastifyReply) {
+    const { entityType, entityId, documentId } = request.params;
+
+    const result = await this.storageService.deleteDocument(entityType, entityId, documentId);
     return reply.code(200).send(result);
   }
 }

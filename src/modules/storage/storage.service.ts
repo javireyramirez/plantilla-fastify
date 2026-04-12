@@ -44,10 +44,10 @@ export class StorageService {
     }
   }
 
-  async confirmUpload(entityId: string, documentId: string) {
+  async confirmUpload(entityType: string, entityId: string, documentId: string) {
     try {
       const document = await this.prisma.document.findFirst({
-        where: { id: documentId, entityId },
+        where: { id: documentId, entityType, entityId },
       });
 
       if (!document) throw new HttpError(404, 'Documento no encontrado');
@@ -66,10 +66,10 @@ export class StorageService {
     }
   }
 
-  async getPreSignedDownloadUrl(entityId: string, documentId: string) {
+  async getPreSignedDownloadUrl(entityType: string, entityId: string, documentId: string) {
     try {
       const document = await this.prisma.document.findFirst({
-        where: { id: documentId, entityId, status: 'SUCCESS' },
+        where: { id: documentId, entityType, entityId, status: 'SUCCESS' },
       });
 
       if (!document) throw new HttpError(404, 'Documento no encontrado o pendiente de subida');
@@ -81,14 +81,57 @@ export class StorageService {
     }
   }
 
-  async getDocumentsByEntity(entityId: string) {
+  async getDocumentsByEntity(entityType: string, entityId: string, isTrash: boolean = false) {
     try {
       const documents = await this.prisma.document.findMany({
-        where: { entityId, status: 'SUCCESS' },
+        where: { entityId, entityType, status: isTrash ? 'TRASHED' : 'SUCCESS' },
         select: { id: true, fileName: true, contentType: true, size: true, createdAt: true },
         orderBy: { createdAt: 'desc' },
       });
       return { documents };
+    } catch (error) {
+      throw HttpError.handleError(error);
+    }
+  }
+
+  async deleteSoftDocument(entityType: string, entityId: string, documentId: string) {
+    try {
+      const document = await this.prisma.document.findFirst({
+        where: { id: documentId, entityType, entityId, status: 'SUCCESS' },
+      });
+
+      if (!document) throw new HttpError(404, 'Documento no encontrado');
+
+      return this.prisma.document.update({
+        where: { id: documentId },
+        data: { status: 'TRASHED' },
+        select: { id: true, status: true, fileName: true },
+      });
+    } catch (error) {
+      throw HttpError.handleError(error);
+    }
+  }
+
+  async deleteDocument(entityType: string, entityId: string, documentId: string) {
+    try {
+      const document = await this.prisma.document.findFirst({
+        where: { id: documentId, entityType, entityId, status: 'TRASHED' },
+      });
+
+      if (!document)
+        throw new HttpError(404, 'Documento no encontrado o no disponible para borrar');
+
+      await this.storage.deleteFile(document.fileKey);
+
+      const deletedDocument = await this.prisma.document.delete({
+        where: { id: documentId },
+        select: { id: true },
+      });
+
+      return {
+        id: deletedDocument.id,
+        message: 'Documento eliminado permanentemente',
+      };
     } catch (error) {
       throw HttpError.handleError(error);
     }

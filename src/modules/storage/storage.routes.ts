@@ -6,12 +6,13 @@ import { requireAuth } from '@/hooks/require.auth.js';
 import { StorageController } from './storage.controller.js';
 import {
   ConfirmParamsSchema,
-  EntityIdParamsSchema,
   EntityParamsSchema,
+  GetDocumentsQuerySchema,
   RequestUploadBodySchema,
-  ResponseConfirmSchema,
+  ResponseDeleteSchema,
   ResponseDocuments,
   ResponseDownloadSchema,
+  ResponseStatusChangeSchema,
   ResponseUploadSchema,
 } from './storage.schema.js';
 
@@ -37,14 +38,14 @@ export default async function storageRoutes(fastify: FastifyInstance) {
   );
 
   app.patch(
-    '/:entityId/:documentId/confirm-document',
+    '/:entityType/:entityId/:documentId/confirm-document',
     {
       schema: {
         tags: ['Storage'],
         description: 'Confirmar documento',
         params: ConfirmParamsSchema,
         response: {
-          200: ResponseConfirmSchema,
+          200: ResponseStatusChangeSchema,
         },
       },
       preHandler: requireAuth,
@@ -53,7 +54,7 @@ export default async function storageRoutes(fastify: FastifyInstance) {
   );
 
   app.get(
-    '/:entityId/:documentId/download-url',
+    '/:entityType/:entityId/:documentId/download-url',
     {
       schema: {
         tags: ['Storage'],
@@ -69,12 +70,13 @@ export default async function storageRoutes(fastify: FastifyInstance) {
   );
 
   app.get(
-    '/:entityId/:documentId/documents',
+    '/:entityType/:entityId/:documentId/documents',
     {
       schema: {
         tags: ['Storage'],
         description: 'Lista de todos los documentos disponibles',
-        params: EntityIdParamsSchema,
+        params: EntityParamsSchema,
+        querystring: GetDocumentsQuerySchema,
         response: {
           200: ResponseDocuments,
         },
@@ -82,5 +84,37 @@ export default async function storageRoutes(fastify: FastifyInstance) {
       preHandler: requireAuth,
     },
     (req, reply) => controller.getDocumentsByEntity(req, reply),
+  );
+
+  app.patch(
+    '/:entityType/:entityId/:documentId/delete-soft-document',
+    {
+      schema: {
+        tags: ['Storage'],
+        description: 'Mandar a la papelera documento',
+        params: ConfirmParamsSchema,
+        response: {
+          200: ResponseStatusChangeSchema,
+        },
+      },
+      preHandler: requireAuth,
+    },
+    (req, reply) => controller.deleteSoftDocument(req, reply),
+  );
+
+  app.delete(
+    '/:entityType/:entityId/:documentId/delete-document',
+    {
+      schema: {
+        tags: ['Storage'],
+        description: 'Borrar definitivamente documento',
+        params: ConfirmParamsSchema,
+        response: {
+          200: ResponseDeleteSchema,
+        },
+      },
+      preHandler: requireAuth,
+    },
+    (req, reply) => controller.deleteDocument(req, reply),
   );
 }

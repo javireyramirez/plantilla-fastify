@@ -230,6 +230,9 @@ model Document {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  //Visibilidad
+  isPublic Boolean
+
   @@index([entityId, entityType])
   @@index([status])
   @@map("document")
