@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+    "outDir": "./dist",
+    "rootDir": ".",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@modules/*": ["src/modules/*"],
+      "@shared/*": ["src/shared/*"],
+      "@repo/emails": ["emails/src/index.ts"]
+    },
+    "typeRoots": ["./node_modules/@types", "./src/types"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true
+  },
+  "include": ["src/**/*", "emails/src/**/*"],
+  "exclude": ["node_modules", "dist", "emails/node_modules"]
+}

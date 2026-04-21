@@ -1,0 +1,28 @@
+export default {
+  root: true,
+  parser: '@typescript-eslint/parser',
+  extends: [
+    'eslint:recommended',
+    'plugin:@typescript-eslint/recommended',
+    'prettier'
+  ],
+  plugins: ['@typescript-eslint'],
+  env: {
+    node: true,
+    es2022: true,
+  },
+  parserOptions: {
+    ecmaVersion: 2022,
+    sourceType: 'module',
+  },
+  rules: {
+    '@typescript-eslint/no-explicit-any': 'warn',
+    '@typescript-eslint/no-unused-vars': [
+      'error',
+      { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+    ],
+    'prefer-const': 'error',
+    'no-console': ['warn', { allow: ['warn', 'error', 'log', 'info'] }],
+  },
+  ignorePatterns: ['dist', 'node_modules', '.turbo', 'build'],
+}
