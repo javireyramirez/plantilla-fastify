@@ -12,8 +12,7 @@ export default fp(
       process.exit(1);
     }
 
-    fastify.decorate('config', parsed.data);
-
+    fastify.decorate('config', parsed.data as any);
     fastify.log.info('Config ready');
   },
   { name: 'config' },

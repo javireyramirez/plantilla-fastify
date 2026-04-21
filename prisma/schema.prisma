@@ -231,7 +231,7 @@ model Document {
   updatedAt DateTime @updatedAt
 
   //Visibilidad
-  isPublic Boolean
+  isPublic Boolean @default(false)
 
   @@index([entityId, entityType])
   @@index([status])

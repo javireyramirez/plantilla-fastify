@@ -34,6 +34,7 @@ export class StorageService {
           status: 'PENDING',
           entityType,
           entityId,
+          isPublic: fileData.isPublic,
         },
       });
 

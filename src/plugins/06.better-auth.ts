@@ -1,23 +1,22 @@
-import { betterAuth } from 'better-auth';
-import { toNodeHandler } from 'better-auth/node';
+import { type BetterAuthOptions, betterAuth } from 'better-auth';
+import type { Auth } from 'better-auth';
 import fp from 'fastify-plugin';
 
-import { auth } from '@/config/auth/auth.js';
-import { env } from '@/config/env.js';
+import { createAuth } from '@/config/auth/auth.js';
 
 export default fp(
   async (fastify) => {
-    fastify.decorate('auth', auth as any);
-
+    const auth = createAuth(fastify.authService) as unknown as Auth<BetterAuthOptions>;
+    fastify.decorate('auth', auth);
     fastify.log.info('Better Auth ready');
   },
   {
     name: 'better-auth',
-    dependencies: ['config', 'prisma'],
+    dependencies: ['config', 'services'],
   },
 );
 
-type BetterAuthInstance = ReturnType<typeof betterAuth>;
+type BetterAuthInstance = Auth<BetterAuthOptions>;
 type Session = Awaited<ReturnType<BetterAuthInstance['api']['getSession']>>;
 
 declare module 'fastify' {

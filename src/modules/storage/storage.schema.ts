@@ -21,13 +21,14 @@ export const RequestUploadBodySchema = z.object({
     fileName: z.string().min(1),
     mimeType: z.string().includes('/'),
     size: z.number().positive(),
+    isPublic: z.boolean().default(false),
   }),
 });
 
 // --- Response Schemas ---
 
 export const ResponseUploadSchema = z.object({
-  uploadUrl: z.string().url(),
+  uploadUrl: z.url(),
   documentId,
   fileKey: z.string(),
 });

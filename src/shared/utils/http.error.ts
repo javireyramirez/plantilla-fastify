@@ -1,6 +1,5 @@
 import { Prisma } from '@prisma/client';
-
-import { Response } from 'express';
+import { FastifyReply } from 'fastify';
 
 export class HttpError extends Error {
   constructor(
@@ -81,7 +80,7 @@ export class HttpError extends Error {
     return new HttpError(500, 'Error interno', 'INTERNAL_SERVER_ERROR', error);
   }
 
-  static handleErrorReply(err: unknown, reply: Response): Response {
+  static handleErrorReply(err: unknown, reply: FastifyReply): FastifyReply {
     return err instanceof HttpError
       ? reply
           .status(err.statusCode)

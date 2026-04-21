@@ -34,7 +34,7 @@ export default async function storageRoutes(fastify: FastifyInstance) {
       },
       preHandler: requireAuth,
     },
-    (req, reply) => controller.requestUploadUrl(req, reply),
+    (req, reply) => controller.requestUploadUrl(req as any, reply),
   );
 
   app.patch(
@@ -50,7 +50,7 @@ export default async function storageRoutes(fastify: FastifyInstance) {
       },
       preHandler: requireAuth,
     },
-    (req, reply) => controller.confirmUpload(req, reply),
+    (req, reply) => controller.confirmUpload(req as any, reply),
   );
 
   app.get(
@@ -66,7 +66,7 @@ export default async function storageRoutes(fastify: FastifyInstance) {
       },
       preHandler: requireAuth,
     },
-    (req, reply) => controller.getPreSignedDownloadUrl(req, reply),
+    (req, reply) => controller.getPreSignedDownloadUrl(req as any, reply),
   );
 
   app.get(
@@ -83,7 +83,7 @@ export default async function storageRoutes(fastify: FastifyInstance) {
       },
       preHandler: requireAuth,
     },
-    (req, reply) => controller.getDocumentsByEntity(req, reply),
+    (req, reply) => controller.getDocumentsByEntity(req as any, reply),
   );
 
   app.patch(
@@ -99,7 +99,7 @@ export default async function storageRoutes(fastify: FastifyInstance) {
       },
       preHandler: requireAuth,
     },
-    (req, reply) => controller.deleteSoftDocument(req, reply),
+    (req, reply) => controller.deleteSoftDocument(req as any, reply),
   );
 
   app.delete(
@@ -115,7 +115,7 @@ export default async function storageRoutes(fastify: FastifyInstance) {
       },
       preHandler: requireAuth,
     },
-    (req, reply) => controller.deleteDocument(req, reply),
+    (req, reply) => controller.deleteDocument(req as any, reply),
   );
 
   app.patch(
@@ -131,6 +131,6 @@ export default async function storageRoutes(fastify: FastifyInstance) {
       },
       preHandler: requireAuth,
     },
-    (req, reply) => controller.deleteDocument(req, reply),
+    (req, reply) => controller.deleteDocument(req as any, reply),
   );
 }
