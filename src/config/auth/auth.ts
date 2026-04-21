@@ -16,7 +16,7 @@ const isProd = env.NODE_ENV === 'production';
 
 export const createAuth = (authService: AuthService) =>
   betterAuth({
-    basePath: `${env.API_PREFIX}/auth`,
+    basePath: `auth`,
 
     database: prismaAdapter(prisma, {
       provider: 'postgresql',
