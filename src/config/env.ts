@@ -7,6 +7,12 @@ export const baseSchema = z.object({
   API_PREFIX: z.string(),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 
+  ALLOWED_ORIGINS: z.string().optional(), // "https://app.com,https://admin.com"
+  INTERNAL_IPS: z.string().optional(), // "10.0.0.1,10.0.0.2"
+  CDN_URL: z.url().optional(),
+  API_URL: z.url().optional(),
+  CSP_REPORT_URI: z.url().optional(),
+
   BACKEND_URL: z.string(),
   FRONTEND_URL: z.string(),
   FRONTEND_URL_WWW: z.string(),
@@ -32,7 +38,7 @@ export const baseSchema = z.object({
   RATE_LIMIT_WINDOW: z.string().default('1 minute'),
 
   // Swagger
-  SWAGGER_ENABLED: z.coerce.boolean().default(true),
+  SWAGGER_ENABLED: z.coerce.boolean().default(false),
 });
 
 const s3Schema = baseSchema.extend({

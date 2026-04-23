@@ -18,19 +18,19 @@ importers:
         specifier: ^6.0.0
         version: 6.3.1
       '@fastify/cors':
-        specifier: ^10.0.0
+        specifier: ^10.1.0
         version: 10.1.0
       '@fastify/env':
         specifier: ^5.0.0
         version: 5.0.3
       '@fastify/helmet':
-        specifier: ^13.0.0
+        specifier: ^13.0.2
         version: 13.0.2
       '@fastify/multipart':
         specifier: ^9.0.0
         version: 9.4.0
       '@fastify/rate-limit':
-        specifier: ^10.0.0
+        specifier: ^10.3.0
         version: 10.3.0
       '@fastify/swagger':
         specifier: ^9.0.0
@@ -69,7 +69,7 @@ importers:
         specifier: ^5.2.0
         version: 5.8.4
       fastify-plugin:
-        specifier: ^5.0.0
+        specifier: ^5.1.0
         version: 5.1.0
       fastify-type-provider-zod:
         specifier: ^6.1.0

@@ -16,7 +16,7 @@ const isProd = env.NODE_ENV === 'production';
 
 export const createAuth = (authService: AuthService) =>
   betterAuth({
-    basePath: `auth`,
+    basePath: `${env.API_PREFIX}/auth`,
 
     database: prismaAdapter(prisma, {
       provider: 'postgresql',
@@ -37,7 +37,7 @@ export const createAuth = (authService: AuthService) =>
 
     baseURL: env.BACKEND_URL,
     secret: env.BETTER_AUTH_SECRET,
-    trustedOrigins: [env.FRONTEND_URL, env.FRONTEND_URL_WWW, env.BACKEND_URL],
+    trustedOrigins: [env.FRONTEND_URL, env.FRONTEND_URL_WWW, env.BACKEND_URL].filter(Boolean),
 
     session: {
       expiresIn: 60 * 60 * 24 * 7,
@@ -49,62 +49,6 @@ export const createAuth = (authService: AuthService) =>
     },
 
     advanced: {
-      crossSubdomain: {
-        enabled: true,
-      },
-      useSecureCookies: isProd,
-      generateSessionToken: true,
-      cookies: {
-        session_token: {
-          name: 'better-auth.session_token',
-          attributes: {
-            sameSite: 'none',
-            secure: isProd,
-            httpOnly: true,
-            path: '/',
-            domain: undefined,
-          },
-        },
-        state: {
-          name: 'better-auth.state',
-          attributes: {
-            sameSite: 'none',
-            secure: true,
-            httpOnly: true,
-            path: '/',
-            maxAge: 60 * 10,
-          },
-        },
-        pkce_code_verifier: {
-          name: 'better-auth.pkce_code_verifier',
-          attributes: {
-            sameSite: 'none',
-            secure: true,
-            httpOnly: true,
-            path: '/',
-            maxAge: 60 * 10,
-          },
-        },
-        session_data: {
-          name: 'better-auth.session_data',
-          attributes: {
-            sameSite: 'none',
-            secure: true,
-            httpOnly: false,
-            path: '/',
-            domain: undefined,
-          },
-        },
-        dont_remember: {
-          name: 'better-auth.dont_remember',
-          attributes: {
-            sameSite: 'none',
-            secure: true,
-            httpOnly: true,
-            path: '/',
-            domain: undefined,
-          },
-        },
-      },
+      useSecureCookies: false, // ya lo tienes bien
     },
   });
