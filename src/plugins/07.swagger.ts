@@ -5,7 +5,7 @@ import { jsonSchemaTransform } from 'fastify-type-provider-zod';
 
 export default fp(
   async (fastify) => {
-    if (!fastify.config.SWAGGER_ENABLED) {
+    if (fastify.config.SWAGGER_ENABLED !== true) {
       fastify.log.info('Swagger disabled (SWAGGER_ENABLED=false)');
       return;
     }

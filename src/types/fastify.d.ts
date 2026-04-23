@@ -1,17 +1,18 @@
 import { S3Client } from '@aws-sdk/client-s3';
 import { PrismaClient } from '@prisma/client';
+import type { Auth, BetterAuthOptions } from 'better-auth';
 
-// Importa tus clases aquí
-// import { AuthService } from '../modules/auth/auth.service';
-// import { OrdersService } from '../modules/orders/orders.service';
+import type { RateLimitTier } from '@/plugins/02.security.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
     prisma: PrismaClient;
     s3: S3Client;
-    // services: {
-    //   auth: AuthService;
-    //   orders: OrdersService;
-    // };
+    rateLimitTiers: RateLimitTiers;
+    auth: BetterAuthInstance;
+  }
+
+  interface FastifyRequest {
+    session: Awaited<ReturnType<BetterAuthInstance['api']['getSession']>>;
   }
 }
