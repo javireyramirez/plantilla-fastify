@@ -1,3 +1,4 @@
+import { i18n } from '@better-auth/i18n';
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { openAPI } from 'better-auth/plugins';
@@ -18,6 +19,15 @@ export const createAuth = (authService: AuthService) =>
   betterAuth({
     basePath: `${env.API_PREFIX}/auth`,
 
+    rateLimit: {
+      window: 5,
+      max: 60,
+      customRules: {
+        '/get-session': false,
+        '/sign-out/email': false,
+      },
+    },
+
     database: prismaAdapter(prisma, {
       provider: 'postgresql',
     }),
@@ -33,7 +43,18 @@ export const createAuth = (authService: AuthService) =>
 
     hooks: createHooksAuth(authService),
 
-    plugins: [openAPI()],
+    plugins: [
+      openAPI(),
+      i18n({
+        translations: {
+          es: {
+            USER_NOT_FOUND: 'Usuario no encontrado',
+            INVALID_EMAIL_OR_PASSWORD: 'Email o contraseña invalidos',
+            INVALID_PASSWORD: 'Contraseña invalidaS',
+          },
+        },
+      }),
+    ],
 
     baseURL: env.BACKEND_URL,
     secret: env.BETTER_AUTH_SECRET,
@@ -49,6 +70,6 @@ export const createAuth = (authService: AuthService) =>
     },
 
     advanced: {
-      useSecureCookies: false, // ya lo tienes bien
+      useSecureCookies: isProd,
     },
   });
