@@ -70,7 +70,7 @@ export default async function storageRoutes(fastify: FastifyInstance) {
   );
 
   app.get(
-    '/:entityType/:entityId/:documentId/documents',
+    '/:entityType/:entityId/documents',
     {
       schema: {
         tags: ['Storage'],
