@@ -4,8 +4,6 @@ import rateLimit from '@fastify/rate-limit';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
 
-// ─── Tipos ───────────────────────────────────────────────────────────────────
-
 interface SecurityEvent {
   event: 'cors_blocked' | 'rate_limit_hit' | 'suspicious_origin';
   origin?: string;
@@ -14,8 +12,6 @@ interface SecurityEvent {
   tier?: RateLimitTierKey;
   timestamp: string;
 }
-
-// ─── Configuración por entorno ────────────────────────────────────────────────
 
 export const RATE_LIMIT_TIERS = {
   auth: { max: 5, timeWindow: '1 minute' },
@@ -26,12 +22,9 @@ export const RATE_LIMIT_TIERS = {
 
 export type RateLimitTier = typeof RATE_LIMIT_TIERS;
 export type RateLimitTierKey = keyof typeof RATE_LIMIT_TIERS;
-// ─── Plugin principal ─────────────────────────────────────────────────────────
 
 export default fp(async (fastify: FastifyInstance) => {
   const INTERNAL_IPS = ['127.0.0.1', '::1', ...(fastify.config.INTERNAL_IPS?.split(',') ?? [])];
-
-  // ─── Helpers ──────────────────────────────────────────────────────────────────
 
   function buildAllowedOrigins(): Set<string> {
     const origins = new Set<string>();
@@ -46,7 +39,6 @@ export default fp(async (fastify: FastifyInstance) => {
   }
 
   function logSecurityEvent(fastify: FastifyInstance, event: SecurityEvent): void {
-    // Estructura compatible con Datadog, Elastic, Loki, etc.
     fastify.log.warn({ security: true, ...event }, `[SECURITY] ${event.event}`);
   }
 
@@ -61,7 +53,6 @@ export default fp(async (fastify: FastifyInstance) => {
 
   fastify.decorate('rateLimitTiers', RATE_LIMIT_TIERS);
 
-  // 1. HELMET — cabeceras HTTP de seguridad
   await fastify.register(helmet, {
     global: true,
     contentSecurityPolicy:
@@ -77,20 +68,16 @@ export default fp(async (fastify: FastifyInstance) => {
               objectSrc: ["'none'"],
               frameAncestors: ["'none'"],
               upgradeInsecureRequests: [],
-              // reportUri: fastify.config.CSP_REPORT_URI, // Para Sentry, Report-URI.com, etc.
             },
           }
         : false,
-    // Deshabilita COEP en dev (rompe Swagger, GraphiQL, Vite HMR)
     crossOriginEmbedderPolicy: fastify.config.NODE_ENV === 'production',
-    // Fuerza HTTPS — solo en producción
     hsts:
       fastify.config.NODE_ENV === 'production'
         ? { maxAge: 31536000, includeSubDomains: true, preload: true }
         : false,
   });
 
-  // 2. CORS — control de orígenes
   const allowedOrigins = buildAllowedOrigins();
 
   if (fastify.config.NODE_ENV === 'development') {
@@ -102,13 +89,17 @@ export default fp(async (fastify: FastifyInstance) => {
 
   await fastify.register(cors, {
     origin: (origin, cb) => {
-      // Sin origin: redirects OAuth, curl, server-to-server → permitir siempre
       if (!origin) return cb(null, true);
 
       if (allowedOrigins.has(origin)) return cb(null, true);
 
-      if (fastify.config.NODE_ENV === 'development' && new URL(origin).hostname === 'localhost') {
-        return cb(null, true);
+      try {
+        const parsedOrigin = new URL(origin);
+        if (fastify.config.NODE_ENV === 'development' && parsedOrigin.hostname === 'localhost') {
+          return cb(null, true);
+        }
+      } catch {
+        // Ignorar URLs malformadas
       }
 
       logSecurityEvent(fastify, {
@@ -123,28 +114,24 @@ export default fp(async (fastify: FastifyInstance) => {
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Request-ID'],
     exposedHeaders: ['Set-Cookie', 'X-Request-ID', 'X-RateLimit-Limit', 'X-RateLimit-Remaining'],
-    maxAge: 86400, // Cachea preflight 24h — reduce OPTIONS requests
+    maxAge: 86400,
   });
 
-  // 3. RATE LIMITING — global con configuración base
   await fastify.register(rateLimit, {
     global: true,
-    max: RATE_LIMIT_TIERS.public.max,
-    timeWindow: RATE_LIMIT_TIERS.public.timeWindow,
-
-    // IPs internas y healthchecks no cuentan
+    max: (request) => {
+      const tier = detectRateLimitTier(request);
+      return RATE_LIMIT_TIERS[tier].max;
+    },
+    timeWindow: 60000,
     allowList: (request) => {
       const ip = request.ip;
       const path = request.url;
       return INTERNAL_IPS.includes(ip) || path === '/health' || path === '/ready';
     },
-
-    // Key personalizada para evitar bypass con headers manipulados
     keyGenerator: (request) => {
-      // Usa el IP real, no el de proxies sin verificar
-      return (request.headers['x-real-ip'] as string) ?? request.ip;
+      return request.ip;
     },
-
     errorResponseBuilder: (request, context) => {
       logSecurityEvent(fastify, {
         event: 'rate_limit_hit',
@@ -161,7 +148,6 @@ export default fp(async (fastify: FastifyInstance) => {
         retryAfter: Math.ceil(context.ttl / 1000),
       };
     },
-
     addHeadersOnExceeding: {
       'x-ratelimit-limit': true,
       'x-ratelimit-remaining': true,
