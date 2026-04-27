@@ -1,9 +1,12 @@
 import type { FastifyInstance } from 'fastify';
+import { ZodTypeProvider } from 'fastify-type-provider-zod';
+
+// Importante
 
 import { buildApp } from '@/app.js';
 import { env } from '@/config/env.js';
 
-let app: FastifyInstance;
+let app: FastifyInstance<any, any, any, any, ZodTypeProvider>;
 
 async function main() {
   app = await buildApp();
@@ -14,7 +17,7 @@ async function main() {
   try {
     await app.listen({ host, port });
   } catch (err) {
-    app.log.fatal({ err }, 'Failed to start server');
+    if (app) app.log.fatal({ err }, 'Failed to start server');
     process.exit(1);
   }
 }
