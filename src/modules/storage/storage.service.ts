@@ -82,14 +82,57 @@ export class StorageService {
     }
   }
 
-  async getDocumentsByEntity(entityType: string, entityId: string, isTrash: boolean = false) {
+  async getDocumentsByEntity(
+    entityType: string,
+    entityId: string,
+    isTrash: boolean = false,
+    page: number,
+    limit: number,
+    fileName?: string,
+    contentType?: string,
+  ) {
+    // Calculamos cuántos registros saltar
+    const skip = (page - 1) * limit;
+
+    // Construimos el filtro dinámico
+    const whereClause: any = {
+      entityId,
+      entityType,
+      status: isTrash ? 'TRASHED' : 'SUCCESS',
+    };
+
+    // Filtro por nombre (opcional) usando búsqueda parcial
+    if (fileName) {
+      whereClause.fileName = { contains: fileName, mode: 'insensitive' };
+    }
+
+    if (contentType) {
+      whereClause.contentType = { contains: contentType, mode: 'insensitive' };
+    }
+
     try {
-      const documents = await this.prisma.document.findMany({
-        where: { entityId, entityType, status: isTrash ? 'TRASHED' : 'SUCCESS' },
-        select: { id: true, fileName: true, contentType: true, size: true, createdAt: true },
-        orderBy: { createdAt: 'desc' },
-      });
-      return { documents };
+      // Ejecutamos ambas consultas en paralelo para mejorar el rendimiento
+      const [total, documents] = await Promise.all([
+        this.prisma.document.count({ where: whereClause }),
+        this.prisma.document.findMany({
+          where: whereClause,
+          select: { id: true, fileName: true, contentType: true, size: true, createdAt: true },
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+          skip: skip,
+        }),
+      ]);
+
+      return {
+        documents,
+        meta: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+          hasNextPage: page * limit < total,
+        },
+      };
     } catch (error) {
       throw HttpError.handleError(error);
     }
