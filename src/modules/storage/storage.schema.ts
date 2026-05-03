@@ -53,8 +53,19 @@ const DocumentItemSchema = z.object({
   createdAt: z.date(),
 });
 
+export const PaginationMetaSchema = z.object({
+  total: z.number(),
+  page: z.number(),
+  limit: z.number(),
+  totalPages: z.number(),
+  hasNextPage: z.boolean(),
+  sortBy: z.string(),
+  sortOrder: z.string(),
+});
+
 export const ResponseDocuments = z.object({
   documents: z.array(DocumentItemSchema),
+  meta: PaginationMetaSchema,
 });
 
 export const ResponseDeleteSchema = z.object({
@@ -65,10 +76,18 @@ export const ResponseDeleteSchema = z.object({
 // --- Querying Schemas
 
 export const GetDocumentsQuerySchema = z.object({
+  // Paginación
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(10),
+  // Filtros opcionales
+  fileName: z.string().optional(),
+  contentType: z.string().optional(),
   isTrash: z
     .preprocess((val) => val === 'true', z.boolean())
     .optional()
     .default(false),
+  sortBy: z.enum(['fileName', 'createdAt', 'size', 'contentType']).default('createdAt'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
 });
 
 // --- Types ---
