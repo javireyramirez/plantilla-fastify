@@ -59,6 +59,8 @@ export const PaginationMetaSchema = z.object({
   limit: z.number(),
   totalPages: z.number(),
   hasNextPage: z.boolean(),
+  sortBy: z.string(),
+  sortOrder: z.string(),
 });
 
 export const ResponseDocuments = z.object({
@@ -84,6 +86,8 @@ export const GetDocumentsQuerySchema = z.object({
     .preprocess((val) => val === 'true', z.boolean())
     .optional()
     .default(false),
+  sortBy: z.enum(['fileName', 'createdAt', 'size', 'contentType']).default('createdAt'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
 });
 
 // --- Types ---

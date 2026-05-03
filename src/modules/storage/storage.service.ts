@@ -90,6 +90,8 @@ export class StorageService {
     limit: number,
     fileName?: string,
     contentType?: string,
+    sortBy: string = 'createdAt',
+    sortOrder: 'asc' | 'desc' = 'desc',
   ) {
     // Calculamos cuántos registros saltar
     const skip = (page - 1) * limit;
@@ -117,7 +119,9 @@ export class StorageService {
         this.prisma.document.findMany({
           where: whereClause,
           select: { id: true, fileName: true, contentType: true, size: true, createdAt: true },
-          orderBy: { createdAt: 'desc' },
+          orderBy: {
+            [sortBy]: sortOrder,
+          },
           take: limit,
           skip: skip,
         }),
@@ -131,6 +135,8 @@ export class StorageService {
           limit,
           totalPages: Math.ceil(total / limit),
           hasNextPage: page * limit < total,
+          sortBy,
+          sortOrder,
         },
       };
     } catch (error) {
