@@ -50,7 +50,8 @@ export class StorageController {
     reply: FastifyReply,
   ) {
     const { entityType, entityId } = request.params;
-    const { isTrash, page, limit, fileName, contentType, sortBy, sortOrder } = request.query;
+
+    const { page, limit, isTrash, ...filters } = request.query;
 
     const result = await this.storageService.getDocumentsByEntity(
       entityType,
@@ -58,11 +59,11 @@ export class StorageController {
       isTrash,
       page,
       limit,
-      fileName,
-      contentType,
-      sortBy,
-      sortOrder,
+      {
+        ...filters,
+      },
     );
+
     return reply.code(200).send(result);
   }
 

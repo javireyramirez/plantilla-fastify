@@ -81,47 +81,113 @@ export class StorageService {
       throw HttpError.handleError(error);
     }
   }
-
   async getDocumentsByEntity(
     entityType: string,
     entityId: string,
     isTrash: boolean = false,
     page: number,
     limit: number,
-    fileName?: string,
-    contentType?: string,
-    sortBy: string = 'createdAt',
-    sortOrder: 'asc' | 'desc' = 'desc',
+    params: {
+      fileName?: string;
+      contentTypes?: string[];
+      sizeMin?: number;
+      sizeMax?: number;
+      createdFrom?: Date;
+      createdTo?: Date;
+      deletedFrom?: Date;
+      deletedTo?: Date;
+      createdBy?: string[];
+      deletedBy?: string[];
+      sortBy?: string;
+      sortOrder?: 'asc' | 'desc';
+    },
   ) {
-    // Calculamos cuántos registros saltar
+    const {
+      fileName,
+      contentTypes,
+      sizeMin,
+      sizeMax,
+      createdFrom,
+      createdTo,
+      deletedFrom,
+      deletedTo,
+      createdBy,
+      deletedBy,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+    } = params;
+
     const skip = (page - 1) * limit;
 
-    // Construimos el filtro dinámico
     const whereClause: any = {
       entityId,
       entityType,
       status: isTrash ? 'TRASHED' : 'SUCCESS',
     };
 
-    // Filtro por nombre (opcional) usando búsqueda parcial
     if (fileName) {
       whereClause.fileName = { contains: fileName, mode: 'insensitive' };
     }
 
-    if (contentType) {
-      whereClause.contentType = { contains: contentType, mode: 'insensitive' };
+    if (contentTypes && contentTypes.length > 0) {
+      whereClause.AND = [
+        {
+          OR: contentTypes.map((type) => ({
+            contentType: {
+              startsWith: type,
+            },
+          })),
+        },
+      ];
+    }
+
+    if (sizeMin !== undefined || sizeMax !== undefined) {
+      whereClause.size = {
+        ...(sizeMin !== undefined && { gte: sizeMin }),
+        ...(sizeMax !== undefined && { lte: sizeMax }),
+      };
+    }
+    if (createdFrom || createdTo) {
+      whereClause.createdAt = {
+        ...(createdFrom && { gte: createdFrom }),
+        ...(createdTo && {
+          lte: new Date(createdTo.setHours(23, 59, 59, 999)),
+        }),
+      };
+    }
+
+    if (deletedFrom || deletedTo) {
+      whereClause.deletedAt = {
+        ...(deletedFrom && { gte: deletedFrom }),
+        ...(deletedTo && { lte: new Date(deletedTo.setHours(23, 59, 59, 999)) }),
+      };
+    }
+
+    if (createdBy?.length) {
+      whereClause.createdBy = { in: createdBy };
+    }
+
+    if (deletedBy?.length) {
+      whereClause.deletedBy = { in: deletedBy };
     }
 
     try {
-      // Ejecutamos ambas consultas en paralelo para mejorar el rendimiento
       const [total, documents] = await Promise.all([
         this.prisma.document.count({ where: whereClause }),
         this.prisma.document.findMany({
           where: whereClause,
-          select: { id: true, fileName: true, contentType: true, size: true, createdAt: true },
-          orderBy: {
-            [sortBy]: sortOrder,
+          select: {
+            id: true,
+            fileName: true,
+            contentType: true,
+            size: true,
+            status: true,
+            createdAt: true,
+            createdBy: true,
+            deletedAt: true,
+            deletedBy: true,
           },
+          orderBy: { [sortBy]: sortOrder },
           take: limit,
           skip: skip,
         }),

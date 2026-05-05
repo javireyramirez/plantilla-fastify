@@ -19,6 +19,9 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  createdDocuments Document[] @relation("CreatedDocuments")
+  deletedDocuments Document[] @relation("DeletedDocuments")
+
   accounts  Account[]
   sessions  Session[]
   keys      Key[]
@@ -217,23 +220,31 @@ model Document {
   fileKey     String @unique
   contentType String
   size        Int
-  status      String @default("PENDING")
+
+  status String @default("PENDING")
 
   checksum String?
   metadata Json?
 
-  // Relación Genérica
   entityType String
   entityId   String
 
-  // Tiempos
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  //Visibilidad
+  deletedAt DateTime?
+
+  createdBy String?
+  creator   User?   @relation("CreatedDocuments", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  deletedBy String?
+  deletor   User?   @relation("DeletedDocuments", fields: [deletedBy], references: [id], onDelete: SetNull)
+
+  // Visibilidad
   isPublic Boolean @default(false)
 
-  @@index([entityId, entityType])
-  @@index([status])
+  @@index([entityId, entityType, status])
+  @@index([fileName])
+  @@index([createdAt])
   @@map("document")
 }
