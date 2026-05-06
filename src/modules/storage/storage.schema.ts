@@ -25,6 +25,15 @@ export const RequestUploadBodySchema = z.object({
   }),
 });
 
+export const UpdateMetadataSchema = z.object({
+  fileName: z.string().min(1),
+  isPublic: z.boolean().default(false),
+});
+
+export const BulkActionSchema = z.object({
+  documentIds: z.array(documentId),
+});
+
 // --- Response Schemas ---
 
 export const ResponseUploadSchema = z.object({
@@ -148,3 +157,5 @@ export type RequestUploadParams = z.infer<typeof RequestUploadBodySchema>['fileD
 export type EntityParams = z.infer<typeof EntityParamsSchema>;
 export type ConfirmParams = z.infer<typeof ConfirmParamsSchema>;
 export type GetDocumentsQuery = z.infer<typeof GetDocumentsQuerySchema>;
+export type UpdateMetadata = z.infer<typeof UpdateMetadataSchema>;
+export type BulkAction = z.infer<typeof BulkActionSchema>;

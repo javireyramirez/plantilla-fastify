@@ -3,4 +3,5 @@ export interface IStorageProvider {
   generateDownloadUrl(key: string): Promise<string>;
   checkFileExists(key: string): Promise<boolean>;
   deleteFile(key: string): Promise<void>;
+  deleteFiles(key: string[]): Promise<void>;
 }

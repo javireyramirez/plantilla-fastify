@@ -1,5 +1,6 @@
 import {
   DeleteObjectCommand,
+  DeleteObjectsCommand,
   GetObjectCommand,
   HeadObjectCommand,
   NotFound,
@@ -42,5 +43,23 @@ export class S3Provider implements IStorageProvider {
 
   async deleteFile(key: string): Promise<void> {
     await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+  }
+
+  async deleteFiles(keys: string[]): Promise<void> {
+    const limit = 1000;
+
+    for (let i = 0; i < keys.length; i += limit) {
+      const chunk = keys.slice(i, i + limit);
+
+      const command = new DeleteObjectsCommand({
+        Bucket: this.bucket,
+        Delete: {
+          Objects: chunk.map((key) => ({ Key: key })),
+          Quiet: true,
+        },
+      });
+
+      await this.client.send(command);
+    }
   }
 }
