@@ -19,8 +19,9 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  createdDocuments Document[] @relation("CreatedDocuments")
-  deletedDocuments Document[] @relation("DeletedDocuments")
+  createdDocuments  Document[] @relation("CreatedDocuments")
+  deletedDocuments  Document[] @relation("DeletedDocuments")
+  restoredDocuments Document[] @relation("RestoredDocuments")
 
   accounts  Account[]
   sessions  Session[]
@@ -233,12 +234,16 @@ model Document {
   updatedAt DateTime @updatedAt
 
   deletedAt DateTime?
+  restoreAt DateTime?
 
   createdBy String?
   creator   User?   @relation("CreatedDocuments", fields: [createdBy], references: [id], onDelete: SetNull)
 
   deletedBy String?
   deletor   User?   @relation("DeletedDocuments", fields: [deletedBy], references: [id], onDelete: SetNull)
+
+  restoreBy String?
+  restorer  User?   @relation("RestoredDocuments", fields: [restoreBy], references: [id], onDelete: SetNull)
 
   // Visibilidad
   isPublic Boolean @default(false)

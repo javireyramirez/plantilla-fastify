@@ -72,22 +72,37 @@ export class StorageController {
     reply: FastifyReply,
   ) {
     const { entityType, entityId, documentId } = request.params;
-
-    const result = await this.storageService.deleteSoftDocument(entityType, entityId, documentId);
+    const userId = request.session.user.id;
+    const result = await this.storageService.deleteSoftDocument(
+      entityType,
+      entityId,
+      documentId,
+      userId,
+    );
     return reply.code(200).send(result);
   }
 
   async deleteDocument(request: FastifyRequest<{ Params: ConfirmParams }>, reply: FastifyReply) {
     const { entityType, entityId, documentId } = request.params;
-
-    const result = await this.storageService.deleteDocument(entityType, entityId, documentId);
+    const userId = request.session.user.id;
+    const result = await this.storageService.deleteDocument(
+      entityType,
+      entityId,
+      documentId,
+      userId,
+    );
     return reply.code(200).send(result);
   }
 
   async restoreDocument(request: FastifyRequest<{ Params: ConfirmParams }>, reply: FastifyReply) {
     const { entityType, entityId, documentId } = request.params;
-
-    const result = await this.storageService.restoreDocument(entityType, entityId, documentId);
+    const userId = request.session.user.id;
+    const result = await this.storageService.restoreDocument(
+      entityType,
+      entityId,
+      documentId,
+      userId,
+    );
     return reply.code(200).send(result);
   }
 }

@@ -8,7 +8,7 @@ export default fp(
   async (fastify) => {
     const emailService = new EmailService(fastify.prisma, fastify.log);
     const authService = new AuthService(fastify.prisma, fastify.log);
-    const storageService = new StorageService(fastify.prisma, fastify.storageProvider);
+    const storageService = new StorageService(fastify.storageRepository, fastify.storageProvider);
 
     fastify.decorate('emailService', emailService);
     fastify.decorate('authService', authService);

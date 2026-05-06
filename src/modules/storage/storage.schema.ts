@@ -51,10 +51,13 @@ export const DocumentItemSchema = z.object({
   contentType: z.string(),
   size: z.number(),
   status: z.string(),
+  isPublic: z.boolean().default(false),
   createdAt: z.coerce.date(),
   createdBy: z.string().nullable().optional(),
   deletedAt: z.coerce.date().nullable().optional(),
   deletedBy: z.string().nullable().optional(),
+  restoreAt: z.coerce.date().nullable().optional(),
+  restoreBy: z.string().nullable().optional(),
 });
 
 export const PaginationMetaSchema = z.object({
@@ -80,14 +83,11 @@ export const ResponseDeleteSchema = z.object({
 // --- Querying Schemas
 
 export const GetDocumentsQuerySchema = z.object({
-  // --- Paginación ---
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(10),
 
-  // --- Filtros de Texto y Selección Múltiple ---
   fileName: z.string().optional(),
 
-  // Transformamos un string separado por comas o múltiples queries en un array
   contentTypes: z
     .preprocess((val) => {
       if (typeof val === 'string') return [val];
@@ -96,11 +96,9 @@ export const GetDocumentsQuerySchema = z.object({
     }, z.array(z.string()))
     .optional(),
 
-  // --- Filtros de Rango (Números) ---
   sizeMin: z.coerce.number().int().nonnegative().optional(),
   sizeMax: z.coerce.number().int().nonnegative().optional(),
 
-  // --- Filtros de Rango (Fechas) ---
   createdFrom: z.coerce
     .number()
     .transform((v) => new Date(v))
@@ -122,7 +120,6 @@ export const GetDocumentsQuerySchema = z.object({
     .pipe(z.date())
     .optional(),
 
-  // --- Filtros de Usuarios (Múltiples IDs) ---
   createdBy: z
     .preprocess((val) => {
       if (typeof val === 'string') return val.split(',');
@@ -137,7 +134,6 @@ export const GetDocumentsQuerySchema = z.object({
     }, z.array(z.string()))
     .optional(),
 
-  // --- Estado y Orden ---
   isTrash: z.preprocess((val) => val === 'true' || val === true, z.boolean()).default(false),
 
   sortBy: z
