@@ -19,19 +19,26 @@ export abstract class BaseAuditService<T> {
     };
   }
 
+  // ==========================================
+  // 1. OPERACIONES INDIVIDUALES (POR ID)
+  // ==========================================
+
   async create(data: any, userId?: string): Promise<T> {
-    const auditedData = { ...data, ...withCreatedBy(userId) };
     try {
-      return await this.repository.create(auditedData);
+      return await this.repository.create({
+        data: { ...data, ...withCreatedBy(userId) },
+      });
     } catch (error) {
       throw new HttpError(500, `Error al crear el registro: ${(error as Error).message}`);
     }
   }
 
   async update(id: string, data: any, userId?: string): Promise<T> {
-    const auditedData = { ...data, ...withUpdatedBy(userId) };
     try {
-      return await this.repository.update(id, auditedData);
+      return await this.repository.update({
+        where: { id },
+        data: { ...data, ...withUpdatedBy(userId) },
+      });
     } catch (error) {
       throw new HttpError(404, 'Registro no encontrado para actualizar');
     }
@@ -39,7 +46,10 @@ export abstract class BaseAuditService<T> {
 
   async softDelete(id: string, userId?: string): Promise<T> {
     try {
-      return await this.repository.update(id, withDeletedBy(userId));
+      return await this.repository.update({
+        where: { id },
+        data: withDeletedBy(userId),
+      });
     } catch (error) {
       throw new HttpError(404, 'Registro no encontrado para borrar');
     }
@@ -47,31 +57,46 @@ export abstract class BaseAuditService<T> {
 
   async restore(id: string, userId?: string): Promise<T> {
     try {
-      return await this.repository.update(id, withRestoredBy(userId));
+      return await this.repository.update({
+        where: { id },
+        data: withRestoredBy(userId),
+      });
     } catch (error) {
       throw new HttpError(404, 'Registro no encontrado para restaurar');
     }
   }
 
-  async softDeleteMany(ids: string[], userId?: string) {
-    return this.repository.updateMany({ id: { in: ids } }, withDeletedBy(userId));
+  // ==========================================
+  // 2. LECTURA Y CONTEXTO
+  // ==========================================
+
+  async findFirst(where: any): Promise<T | null> {
+    return this.repository.findFirst({ where });
   }
 
-  async restoreMany(ids: string[], userId?: string) {
-    return this.repository.updateMany({ id: { in: ids } }, withRestoredBy(userId));
+  async findByIdWithContext(id: string, context: any): Promise<T | null> {
+    return this.repository.findFirst({
+      where: { id, ...context },
+    });
   }
 
-  async createManyWithAudit(data: any[], userId?: string) {
-    const auditData = data.map((item) => ({
-      ...item,
-      ...withCreatedBy(userId),
-    }));
-    return this.repository.createMany(auditData);
+  async updateWithContext(where: any, data: any, userId?: string): Promise<T> {
+    try {
+      return await this.repository.update({
+        where,
+        data: { ...data, ...withUpdatedBy(userId) },
+      });
+    } catch (error) {
+      throw new HttpError(404, 'Registro no encontrado para actualizar');
+    }
   }
 
   async softDeleteWithContext(where: any, userId?: string): Promise<T> {
     try {
-      return await this.repository.updateWithContext(where, withDeletedBy(userId));
+      return await this.repository.update({
+        where,
+        data: withDeletedBy(userId),
+      });
     } catch (error) {
       throw new HttpError(404, 'Registro no encontrado en este contexto');
     }
@@ -79,9 +104,62 @@ export abstract class BaseAuditService<T> {
 
   async restoreWithContext(where: any, userId?: string): Promise<T> {
     try {
-      return await this.repository.updateWithContext(where, withRestoredBy(userId));
+      return await this.repository.update({
+        where,
+        data: withRestoredBy(userId),
+      });
     } catch (error) {
       throw new HttpError(404, 'Registro no encontrado en este contexto');
     }
+  }
+
+  // ==========================================
+  // 3. OPERACIONES MASIVAS (POR LISTA DE IDS)
+  // ==========================================
+
+  async createManyWithAudit(data: any[], userId?: string) {
+    const auditData = data.map((item) => ({
+      ...item,
+      ...withCreatedBy(userId),
+    }));
+    return this.repository.createMany({ data: auditData });
+  }
+
+  async softDeleteMany(ids: string[], userId?: string) {
+    if (!ids.length) return { count: 0 };
+    return this.repository.updateMany({
+      where: { id: { in: ids } },
+      data: withDeletedBy(userId),
+    });
+  }
+
+  async restoreMany(ids: string[], userId?: string) {
+    if (!ids.length) return { count: 0 };
+    return this.repository.updateMany({
+      where: { id: { in: ids } },
+      data: withRestoredBy(userId),
+    });
+  }
+
+  // ==========================================
+  // 4. OPERACIONES MASIVAS CON CONTEXTO
+  // ==========================================
+
+  async softDeleteManyWithContext(where: any, userId?: string) {
+    return this.repository.updateMany({
+      where,
+      data: withDeletedBy(userId),
+    });
+  }
+
+  async restoreManyWithContext(where: any, userId?: string) {
+    return this.repository.updateMany({
+      where,
+      data: withRestoredBy(userId),
+    });
+  }
+
+  async hardDeleteManyWithContext(where: any) {
+    return this.repository.deleteMany({ where });
   }
 }

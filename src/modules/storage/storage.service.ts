@@ -14,6 +14,9 @@ export class StorageService extends BaseAuditService<any> {
     super(storageRepo);
   }
 
+  /**
+   * Define el filtro base para registros activos vs papelera
+   */
   protected getStatusFilter(isTrash: boolean) {
     return {
       status: isTrash ? 'TRASHED' : 'SUCCESS',
@@ -21,61 +24,17 @@ export class StorageService extends BaseAuditService<any> {
     };
   }
 
-  async requestUploadUrl(
-    fileData: RequestUploadParams,
-    entityId: string,
-    entityType: string,
-    userId?: string,
-  ) {
-    if (fileData.size > GLOBAL_UPLOAD_RULES.MAX_FILE_SIZE) {
-      throw new HttpError(400, 'El archivo excede el tamaño máximo permitido');
-    }
-    if (!GLOBAL_UPLOAD_RULES.ALLOWED_MIME_TYPES.includes(fileData.mimeType)) {
-      throw new HttpError(400, 'Tipo de archivo no soportado');
-    }
+  // ==========================================
+  // 1. CONSULTAS Y LECTURA
+  // ==========================================
 
-    const ext = fileData.fileName.split('.').pop();
-    const fileKey = `${entityType.toLowerCase()}/${entityId}/${crypto.randomUUID()}.${ext}`;
+  async getDocument(entityType: string, entityId: string, documentId: string) {
+    const doc = await this.storageRepo.findFirst({
+      where: { id: documentId, entityType, entityId },
+    });
 
-    const document = await this.create(
-      {
-        fileName: fileData.fileName,
-        fileKey,
-        contentType: fileData.mimeType,
-        size: fileData.size,
-        status: 'PENDING',
-        entityType,
-        entityId,
-        isPublic: fileData.isPublic,
-      },
-      userId,
-    );
-
-    const uploadUrl = await this.storage.generateUploadUrl(fileKey, fileData.mimeType);
-    return { uploadUrl, documentId: document.id, fileKey };
-  }
-
-  async confirmUpload(entityType: string, entityId: string, documentId: string, userId?: string) {
-    const document = await this.storageRepo.findByEntityAndId(entityType, entityId, documentId);
-
-    if (!document) throw new HttpError(404, 'Documento no encontrado');
-    if (document.status === 'SUCCESS') return document;
-
-    const exists = await this.storage.checkFileExists(document.fileKey);
-    if (!exists) throw new HttpError(400, 'El archivo aún no está en la nube');
-
-    return this.update(documentId, { status: 'SUCCESS' }, userId);
-  }
-
-  async getPreSignedDownloadUrl(entityType: string, entityId: string, documentId: string) {
-    const where = this.getAuditWhere(false, { id: documentId, entityType, entityId });
-    const documents = await this.storageRepo.findMany({ where, take: 1 });
-    const document = documents[0];
-
-    if (!document) throw new HttpError(404, 'Documento no encontrado o activo');
-
-    const downloadUrl = await this.storage.generateDownloadUrl(document.fileKey);
-    return { downloadUrl, fileName: document.fileName, contentType: document.contentType };
+    if (!doc) throw new HttpError(404, 'Documento no encontrado');
+    return doc;
   }
 
   async getDocumentsByEntity(
@@ -183,15 +142,79 @@ export class StorageService extends BaseAuditService<any> {
     };
   }
 
-  async permanentDelete(entityType: string, entityId: string, documentId: string) {
-    const document = await this.storageRepo.findByEntityAndId(entityType, entityId, documentId);
+  async getPreSignedDownloadUrl(entityType: string, entityId: string, documentId: string) {
+    const document = await this.getDocument(entityType, entityId, documentId);
 
-    if (!document || document.status !== 'TRASHED') {
-      throw new HttpError(400, 'Solo se puede eliminar permanentemente desde la papelera');
+    if (document.status !== 'SUCCESS') {
+      throw new HttpError(400, 'El documento no está disponible para descarga');
     }
 
-    await this.storage.deleteFile(document.fileKey);
-    return this.storageRepo.delete(documentId);
+    const downloadUrl = await this.storage.generateDownloadUrl(document.fileKey);
+    return { downloadUrl, fileName: document.fileName, contentType: document.contentType };
+  }
+
+  // ==========================================
+  // 2. CICLO DE VIDA DE SUBIDA
+  // ==========================================
+
+  async requestUploadUrl(
+    fileData: RequestUploadParams,
+    entityId: string,
+    entityType: string,
+    userId?: string,
+  ) {
+    if (fileData.size > GLOBAL_UPLOAD_RULES.MAX_FILE_SIZE) {
+      throw new HttpError(400, 'El archivo excede el tamaño máximo permitido');
+    }
+    if (!GLOBAL_UPLOAD_RULES.ALLOWED_MIME_TYPES.includes(fileData.mimeType)) {
+      throw new HttpError(400, 'Tipo de archivo no soportado');
+    }
+
+    const ext = fileData.fileName.split('.').pop();
+    const fileKey = `${entityType.toLowerCase()}/${entityId}/${crypto.randomUUID()}.${ext}`;
+
+    const document = await this.create(
+      {
+        fileName: fileData.fileName,
+        fileKey,
+        contentType: fileData.mimeType,
+        size: fileData.size,
+        status: 'PENDING',
+        entityType,
+        entityId,
+        isPublic: fileData.isPublic,
+      },
+      userId,
+    );
+
+    const uploadUrl = await this.storage.generateUploadUrl(fileKey, fileData.mimeType);
+    return { uploadUrl, documentId: document.id, fileKey };
+  }
+
+  async confirmUpload(entityType: string, entityId: string, documentId: string, userId?: string) {
+    const where = { id: documentId, entityType, entityId };
+    const document = await this.getDocument(entityType, entityId, documentId);
+
+    if (document.status === 'SUCCESS') return document;
+
+    const exists = await this.storage.checkFileExists(document.fileKey);
+    if (!exists) throw new HttpError(400, 'El archivo aún no se ha subido al almacenamiento');
+
+    return this.updateWithContext(where, { status: 'SUCCESS' }, userId);
+  }
+
+  // ==========================================
+  // 3. EDICIÓN Y ESTADOS (INDIVIDUAL)
+  // ==========================================
+
+  async updateDocumentMetadata(
+    entityType: string,
+    entityId: string,
+    documentId: string,
+    data: { fileName?: string; isPublic?: boolean },
+    userId: string,
+  ) {
+    return this.updateWithContext({ id: documentId, entityType, entityId }, data, userId);
   }
 
   async deleteSoftDocument(
@@ -201,36 +224,72 @@ export class StorageService extends BaseAuditService<any> {
     userId: string,
   ) {
     return this.softDeleteWithContext(
-      {
-        id: documentId,
-        entityType,
-        entityId,
-        status: 'SUCCESS',
-      },
+      { id: documentId, entityType, entityId, status: 'SUCCESS' },
       userId,
     );
   }
 
   async restoreDocument(entityType: string, entityId: string, documentId: string, userId: string) {
     return this.restoreWithContext(
-      {
-        id: documentId,
-        entityType,
-        entityId,
-        status: 'TRASHED',
-      },
+      { id: documentId, entityType, entityId, status: 'TRASHED' },
       userId,
     );
   }
 
-  async deleteDocument(entityType: string, entityId: string, documentId: string, userId: string) {
-    const document = await this.storageRepo.findByEntityAndId(entityType, entityId, documentId);
+  // ==========================================
+  // 4. ACCIONES MASIVAS (BULK)
+  // ==========================================
 
-    if (!document || document.status !== 'TRASHED') {
-      throw new HttpError(404, 'Documento no apto para eliminación permanente');
-    }
+  async bulkDeleteSoft(
+    entityType: string,
+    entityId: string,
+    documentIds: string[],
+    userId: string,
+  ) {
+    return this.softDeleteManyWithContext(
+      { id: { in: documentIds }, entityType, entityId, status: 'SUCCESS' },
+      userId,
+    );
+  }
+
+  async bulkRestore(entityType: string, entityId: string, documentIds: string[], userId: string) {
+    return this.restoreManyWithContext(
+      { id: { in: documentIds }, entityType, entityId, status: 'TRASHED' },
+      userId,
+    );
+  }
+
+  // ==========================================
+  // 5. MANTENIMIENTO Y ELIMINACIÓN FÍSICA
+  // ==========================================
+
+  async deleteDocumentPermanent(entityType: string, entityId: string, documentId: string) {
+    const document = await this.storageRepo.findFirst({
+      where: { id: documentId, entityType, entityId, status: 'TRASHED' },
+    });
+
+    if (!document) throw new HttpError(404, 'Documento no encontrado en la papelera');
 
     await this.storage.deleteFile(document.fileKey);
-    return this.storageRepo.delete(documentId);
+    return this.hardDeleteManyWithContext({ id: documentId });
+  }
+
+  async emptyTrash(entityType: string, entityId: string) {
+    const where = { entityType, entityId, status: 'TRASHED' };
+    const docs = await this.storageRepo.findMany({ where });
+
+    if (docs.length === 0) return { count: 0 };
+
+    const keys = docs.map((d) => d.fileKey);
+    await this.storage.deleteFiles(keys);
+
+    return this.hardDeleteManyWithContext(where);
+  }
+
+  async cleanupPendingUploads(hoursOld: number = 24) {
+    const threshold = new Date(Date.now() - hoursOld * 60 * 60 * 1000);
+    const where = { status: 'PENDING', createdAt: { lt: threshold } };
+
+    return this.hardDeleteManyWithContext(where);
   }
 }
