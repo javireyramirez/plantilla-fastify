@@ -1,19 +1,32 @@
-import { FastifyInstance } from 'fastify/types/instance.js';
+import { BaseAuditService } from '@/services/base-audit.service.js';
+import { HttpError } from '@/utils/http.error.js';
 
-import type { IStorageProvider } from '@/modules/storage/interfaces/storage.provider.interface.js';
-import { GLOBAL_UPLOAD_RULES } from '@/modules/storage/storage.constants.js';
-import { RequestUploadParams } from '@/modules/storage/storage.schema.js';
-import { HttpError } from '@/shared/utils/http.error.js';
+import type { IStorageProvider } from './interfaces/storage.provider.interface.js';
+import { GLOBAL_UPLOAD_RULES } from './storage.constants.js';
+import { StorageRepository } from './storage.repository.js';
+import { RequestUploadParams } from './storage.schema.js';
 
-type Prisma = FastifyInstance['prisma'];
-
-export class StorageService {
+export class StorageService extends BaseAuditService<any> {
   constructor(
-    private readonly prisma: Prisma,
+    private readonly storageRepo: StorageRepository,
     private readonly storage: IStorageProvider,
-  ) {}
+  ) {
+    super(storageRepo);
+  }
 
-  async requestUploadUrl(fileData: RequestUploadParams, entityId: string, entityType: string) {
+  protected getStatusFilter(isTrash: boolean) {
+    return {
+      status: isTrash ? 'TRASHED' : 'SUCCESS',
+      deletedAt: isTrash ? { not: null } : null,
+    };
+  }
+
+  async requestUploadUrl(
+    fileData: RequestUploadParams,
+    entityId: string,
+    entityType: string,
+    userId?: string,
+  ) {
     if (fileData.size > GLOBAL_UPLOAD_RULES.MAX_FILE_SIZE) {
       throw new HttpError(400, 'El archivo excede el tamaño máximo permitido');
     }
@@ -24,67 +37,51 @@ export class StorageService {
     const ext = fileData.fileName.split('.').pop();
     const fileKey = `${entityType.toLowerCase()}/${entityId}/${crypto.randomUUID()}.${ext}`;
 
-    try {
-      const document = await this.prisma.document.create({
-        data: {
-          fileName: fileData.fileName,
-          fileKey,
-          contentType: fileData.mimeType,
-          size: fileData.size,
-          status: 'PENDING',
-          entityType,
-          entityId,
-          isPublic: fileData.isPublic,
-        },
-      });
+    const document = await this.create(
+      {
+        fileName: fileData.fileName,
+        fileKey,
+        contentType: fileData.mimeType,
+        size: fileData.size,
+        status: 'PENDING',
+        entityType,
+        entityId,
+        isPublic: fileData.isPublic,
+      },
+      userId,
+    );
 
-      const uploadUrl = await this.storage.generateUploadUrl(fileKey, fileData.mimeType);
-      return { uploadUrl, documentId: document.id, fileKey };
-    } catch (error) {
-      throw HttpError.handleError(error);
-    }
+    const uploadUrl = await this.storage.generateUploadUrl(fileKey, fileData.mimeType);
+    return { uploadUrl, documentId: document.id, fileKey };
   }
 
-  async confirmUpload(entityType: string, entityId: string, documentId: string) {
-    try {
-      const document = await this.prisma.document.findFirst({
-        where: { id: documentId, entityType, entityId },
-      });
+  async confirmUpload(entityType: string, entityId: string, documentId: string, userId?: string) {
+    const document = await this.storageRepo.findByEntityAndId(entityType, entityId, documentId);
 
-      if (!document) throw new HttpError(404, 'Documento no encontrado');
-      if (document.status === 'SUCCESS') return document;
+    if (!document) throw new HttpError(404, 'Documento no encontrado');
+    if (document.status === 'SUCCESS') return document;
 
-      const exists = await this.storage.checkFileExists(document.fileKey);
-      if (!exists) throw new HttpError(400, 'El archivo aún no se ha subido a la nube');
+    const exists = await this.storage.checkFileExists(document.fileKey);
+    if (!exists) throw new HttpError(400, 'El archivo aún no está en la nube');
 
-      return this.prisma.document.update({
-        where: { id: documentId, entityType, entityId },
-        data: { status: 'SUCCESS' },
-        select: { id: true, status: true, fileName: true },
-      });
-    } catch (error) {
-      throw HttpError.handleError(error);
-    }
+    return this.update(documentId, { status: 'SUCCESS' }, userId);
   }
 
   async getPreSignedDownloadUrl(entityType: string, entityId: string, documentId: string) {
-    try {
-      const document = await this.prisma.document.findFirst({
-        where: { id: documentId, entityType, entityId, status: 'SUCCESS' },
-      });
+    const where = this.getAuditWhere(false, { id: documentId, entityType, entityId });
+    const documents = await this.storageRepo.findMany({ where, take: 1 });
+    const document = documents[0];
 
-      if (!document) throw new HttpError(404, 'Documento no encontrado o pendiente de subida');
+    if (!document) throw new HttpError(404, 'Documento no encontrado o activo');
 
-      const downloadUrl = await this.storage.generateDownloadUrl(document.fileKey);
-      return { downloadUrl, fileName: document.fileName, contentType: document.contentType };
-    } catch (error) {
-      throw HttpError.handleError(error);
-    }
+    const downloadUrl = await this.storage.generateDownloadUrl(document.fileKey);
+    return { downloadUrl, fileName: document.fileName, contentType: document.contentType };
   }
+
   async getDocumentsByEntity(
     entityType: string,
     entityId: string,
-    isTrash: boolean = false,
+    isTrash: boolean,
     page: number,
     limit: number,
     params: {
@@ -117,13 +114,10 @@ export class StorageService {
       sortOrder = 'desc',
     } = params;
 
-    const skip = (page - 1) * limit;
-
-    const whereClause: any = {
+    const whereClause: any = this.getAuditWhere(isTrash, {
       entityId,
       entityType,
-      status: isTrash ? 'TRASHED' : 'SUCCESS',
-    };
+    });
 
     if (fileName) {
       whereClause.fileName = { contains: fileName, mode: 'insensitive' };
@@ -147,128 +141,96 @@ export class StorageService {
         ...(sizeMax !== undefined && { lte: sizeMax }),
       };
     }
+
     if (createdFrom || createdTo) {
       whereClause.createdAt = {
-        ...(createdFrom && { gte: createdFrom }),
-        ...(createdTo && {
-          lte: new Date(createdTo.setHours(23, 59, 59, 999)),
-        }),
+        ...(createdFrom && { gte: new Date(createdFrom) }),
+        ...(createdTo && { lte: new Date(new Date(createdTo).setHours(23, 59, 59, 999)) }),
       };
     }
 
-    if (deletedFrom || deletedTo) {
+    if (isTrash && (deletedFrom || deletedTo)) {
       whereClause.deletedAt = {
-        ...(deletedFrom && { gte: deletedFrom }),
-        ...(deletedTo && { lte: new Date(deletedTo.setHours(23, 59, 59, 999)) }),
+        ...(deletedFrom && { gte: new Date(deletedFrom) }),
+        ...(deletedTo && { lte: new Date(new Date(deletedTo).setHours(23, 59, 59, 999)) }),
       };
     }
 
-    if (createdBy?.length) {
-      whereClause.createdBy = { in: createdBy };
-    }
+    if (createdBy?.length) whereClause.createdBy = { in: createdBy };
+    if (deletedBy?.length) whereClause.deletedBy = { in: deletedBy };
 
-    if (deletedBy?.length) {
-      whereClause.deletedBy = { in: deletedBy };
-    }
+    const [total, documents] = await Promise.all([
+      this.storageRepo.count(whereClause),
+      this.storageRepo.findMany({
+        where: whereClause,
+        take: limit,
+        skip: (page - 1) * limit,
+        orderBy: { [sortBy]: sortOrder },
+      }),
+    ]);
 
-    try {
-      const [total, documents] = await Promise.all([
-        this.prisma.document.count({ where: whereClause }),
-        this.prisma.document.findMany({
-          where: whereClause,
-          select: {
-            id: true,
-            fileName: true,
-            contentType: true,
-            size: true,
-            status: true,
-            createdAt: true,
-            createdBy: true,
-            deletedAt: true,
-            deletedBy: true,
-          },
-          orderBy: { [sortBy]: sortOrder },
-          take: limit,
-          skip: skip,
-        }),
-      ]);
-
-      return {
-        documents,
-        meta: {
-          total,
-          page,
-          limit,
-          totalPages: Math.ceil(total / limit),
-          hasNextPage: page * limit < total,
-          sortBy,
-          sortOrder,
-        },
-      };
-    } catch (error) {
-      throw HttpError.handleError(error);
-    }
+    return {
+      documents,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: page * limit < total,
+        sortBy,
+        sortOrder,
+      },
+    };
   }
 
-  async deleteSoftDocument(entityType: string, entityId: string, documentId: string) {
-    try {
-      const document = await this.prisma.document.findFirst({
-        where: { id: documentId, entityType, entityId, status: 'SUCCESS' },
-      });
+  async permanentDelete(entityType: string, entityId: string, documentId: string) {
+    const document = await this.storageRepo.findByEntityAndId(entityType, entityId, documentId);
 
-      if (!document) throw new HttpError(404, 'Documento no encontrado');
-
-      return this.prisma.document.update({
-        where: { id: documentId, entityType, entityId },
-        data: { status: 'TRASHED' },
-        select: { id: true, status: true, fileName: true },
-      });
-    } catch (error) {
-      throw HttpError.handleError(error);
+    if (!document || document.status !== 'TRASHED') {
+      throw new HttpError(400, 'Solo se puede eliminar permanentemente desde la papelera');
     }
+
+    await this.storage.deleteFile(document.fileKey);
+    return this.storageRepo.delete(documentId);
   }
 
-  async deleteDocument(entityType: string, entityId: string, documentId: string) {
-    try {
-      const document = await this.prisma.document.findFirst({
-        where: { id: documentId, entityType, entityId, status: 'TRASHED' },
-      });
-
-      if (!document)
-        throw new HttpError(404, 'Documento no encontrado o no disponible para borrar');
-
-      await this.storage.deleteFile(document.fileKey);
-
-      const deletedDocument = await this.prisma.document.delete({
-        where: { id: documentId, entityType, entityId },
-        select: { id: true },
-      });
-
-      return {
-        id: deletedDocument.id,
-        message: 'Documento eliminado permanentemente',
-      };
-    } catch (error) {
-      throw HttpError.handleError(error);
-    }
+  async deleteSoftDocument(
+    entityType: string,
+    entityId: string,
+    documentId: string,
+    userId: string,
+  ) {
+    return this.softDeleteWithContext(
+      {
+        id: documentId,
+        entityType,
+        entityId,
+        status: 'SUCCESS',
+      },
+      userId,
+    );
   }
 
-  async restoreDocument(entityType: string, entityId: string, documentId: string) {
-    try {
-      const document = await this.prisma.document.findFirst({
-        where: { id: documentId, entityType, entityId, status: 'TRASHED' },
-      });
+  async restoreDocument(entityType: string, entityId: string, documentId: string, userId: string) {
+    return this.restoreWithContext(
+      {
+        id: documentId,
+        entityType,
+        entityId,
+        status: 'TRASHED',
+      },
+      userId,
+    );
+  }
 
-      if (!document)
-        throw new HttpError(404, 'Documento no encontrado o no disponible para borrar');
+  async deleteDocument(entityType: string, entityId: string, documentId: string, userId: string) {
+    const document = await this.storageRepo.findByEntityAndId(entityType, entityId, documentId);
 
-      return this.prisma.document.update({
-        where: { id: documentId, entityType, entityId },
-        data: { status: 'SUCCESS' },
-        select: { id: true, status: true, fileName: true },
-      });
-    } catch (error) {
-      throw HttpError.handleError(error);
+    if (!document || document.status !== 'TRASHED') {
+      throw new HttpError(404, 'Documento no apto para eliminación permanente');
     }
+
+    await this.storage.deleteFile(document.fileKey);
+    return this.storageRepo.delete(documentId);
   }
 }
