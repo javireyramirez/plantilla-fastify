@@ -8,6 +8,7 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { Readable } from 'stream';
 
 import type { IStorageProvider } from '@/modules/storage/interfaces/storage.provider.interface.js';
 
@@ -25,10 +26,23 @@ export class S3Provider implements IStorageProvider {
     );
   }
 
-  async generateDownloadUrl(key: string): Promise<string> {
-    return getSignedUrl(this.client, new GetObjectCommand({ Bucket: this.bucket, Key: key }), {
-      expiresIn: 3600,
-    });
+  async generateDownloadUrl(
+    key: string,
+    fileName: string,
+    mode: 'view' | 'download',
+  ): Promise<string> {
+    const disposition =
+      mode === 'download' ? `attachment; filename="${fileName}"` : `inline; filename="${fileName}"`;
+
+    return getSignedUrl(
+      this.client,
+      new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        ResponseContentDisposition: disposition,
+      }),
+      { expiresIn: 3600 },
+    );
   }
 
   async checkFileExists(key: string): Promise<boolean> {
@@ -61,5 +75,11 @@ export class S3Provider implements IStorageProvider {
 
       await this.client.send(command);
     }
+  }
+
+  async getFileStream(key: string): Promise<Readable> {
+    const command = new GetObjectCommand({ Bucket: this.bucket, Key: key });
+    const response = await this.client.send(command);
+    return response.Body as Readable;
   }
 }

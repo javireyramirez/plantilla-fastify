@@ -1,3 +1,6 @@
+import { Zip, ZipPassThrough } from 'fflate';
+import { PassThrough, Readable } from 'stream';
+
 import { BaseAuditService } from '@/services/base-audit.service.js';
 import { HttpError } from '@/utils/http.error.js';
 
@@ -142,15 +145,29 @@ export class StorageService extends BaseAuditService<any> {
     };
   }
 
-  async getPreSignedDownloadUrl(entityType: string, entityId: string, documentId: string) {
+  async getPreSignedDownloadUrl(
+    entityType: string,
+    entityId: string,
+    documentId: string,
+    mode: 'view' | 'download' = 'view',
+  ) {
     const document = await this.getDocument(entityType, entityId, documentId);
 
     if (document.status !== 'SUCCESS') {
-      throw new HttpError(400, 'El documento no está disponible para descarga');
+      throw new HttpError(400, 'El documento no está disponible');
     }
 
-    const downloadUrl = await this.storage.generateDownloadUrl(document.fileKey);
-    return { downloadUrl, fileName: document.fileName, contentType: document.contentType };
+    const downloadUrl = await this.storage.generateDownloadUrl(
+      document.fileKey,
+      document.fileName,
+      mode,
+    );
+
+    return {
+      downloadUrl,
+      fileName: document.fileName,
+      contentType: document.contentType,
+    };
   }
 
   // ==========================================
@@ -259,6 +276,60 @@ export class StorageService extends BaseAuditService<any> {
     );
   }
 
+  async getBulkPreSignedDownloadUrls(entityType: string, entityId: string, documentIds: string[]) {
+    return Promise.all(
+      documentIds.map((id) => this.getPreSignedDownloadUrl(entityType, entityId, id, 'download')),
+    );
+  }
+
+  async getBulkDownloadAsZip(
+    entityType: string,
+    entityId: string,
+    documentIds: string[],
+  ): Promise<Readable> {
+    const output = new PassThrough();
+
+    // fflate necesita un callback para escupir los datos comprimidos
+    const zip = new Zip((err, data, final) => {
+      if (err) {
+        output.destroy(err);
+        return;
+      }
+      output.write(data);
+      // IMPORTANTE: Solo cerramos el stream de salida cuando fflate diga que terminó
+      if (final) {
+        output.end();
+      }
+    });
+
+    (async () => {
+      try {
+        for (const id of documentIds) {
+          const doc = await this.getDocument(entityType, entityId, id);
+          const fileStream = await this.storage.getFileStream(doc.fileKey);
+
+          const zipFile = new ZipPassThrough(doc.fileName);
+          zip.add(zipFile);
+
+          // Consumir el stream del archivo
+          for await (const chunk of fileStream) {
+            zipFile.push(chunk);
+          }
+
+          // Finalizar el archivo actual dentro del zip
+          zipFile.push(new Uint8Array(0), true);
+        }
+
+        // Finalizar el zip global
+        zip.end();
+      } catch (error) {
+        console.error('Error en el proceso de ZIP:', error);
+        output.destroy(error as Error);
+      }
+    })();
+
+    return output;
+  }
   // ==========================================
   // 5. MANTENIMIENTO Y ELIMINACIÓN FÍSICA
   // ==========================================

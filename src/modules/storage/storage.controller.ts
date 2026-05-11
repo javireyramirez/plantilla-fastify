@@ -173,6 +173,42 @@ export class StorageController {
     return reply.send(result);
   }
 
+  async bulkDownload(
+    request: FastifyRequest<{ Params: EntityParams; Body: BulkAction }>,
+    reply: FastifyReply,
+  ) {
+    const { documentIds } = request.body;
+    const { entityType, entityId } = request.params;
+    const urls = await this.storageService.getBulkPreSignedDownloadUrls(
+      entityType,
+      entityId,
+      documentIds,
+    );
+    return reply.send(urls);
+  }
+
+  async bulkDownloadZip(
+    request: FastifyRequest<{ Params: EntityParams; Body: BulkAction }>,
+    reply: FastifyReply,
+  ) {
+    const { documentIds } = request.body;
+    const { entityType, entityId } = request.params;
+
+    const stream = await this.storageService.getBulkDownloadAsZip(
+      entityType,
+      entityId,
+      documentIds,
+    );
+
+    return (
+      reply
+        .header('Content-Type', 'application/zip')
+        .header('Content-Disposition', 'attachment; filename="documentos.zip"')
+        // .header('Transfer-Encoding', 'chunked') // Opcional, para forzar streaming
+        .send(stream)
+    ); // Fastify se encarga del pipe y del cierre automático
+  }
+
   // ==========================================
   // 5. ELIMINACIÓN PERMANENTE
   // ==========================================
