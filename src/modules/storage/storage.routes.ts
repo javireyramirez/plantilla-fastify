@@ -6,12 +6,14 @@ import { requireAuth } from '@/hooks/require.auth.js';
 import { StorageController } from './storage.controller.js';
 import {
   BulkActionSchema,
+  BulkUpdateResponseSchema,
   ConfirmParamsSchema,
   EntityParamsSchema,
   GetDocumentsQuerySchema,
   RequestUploadBodySchema,
   ResponseDeleteSchema,
   ResponseDocuments,
+  ResponseDownloadBulkSchema,
   ResponseDownloadSchema,
   ResponseStatusChangeSchema,
   ResponseUploadSchema,
@@ -173,7 +175,7 @@ export default async function storageRoutes(fastify: FastifyInstance) {
         description: 'Mover múltiples documentos a la papelera',
         params: EntityParamsSchema,
         body: BulkActionSchema,
-        response: { 200: ResponseStatusChangeSchema },
+        response: { 200: BulkUpdateResponseSchema },
       },
       preHandler: requireAuth,
     },
@@ -188,11 +190,40 @@ export default async function storageRoutes(fastify: FastifyInstance) {
         description: 'Restaurar múltiples documentos de la papelera',
         params: EntityParamsSchema,
         body: BulkActionSchema,
-        response: { 200: ResponseStatusChangeSchema },
+        response: { 200: BulkUpdateResponseSchema },
       },
       preHandler: requireAuth,
     },
     (req, reply) => controller.bulkRestore(req as any, reply),
+  );
+
+  app.post(
+    '/:entityType/:entityId/bulk-download',
+    {
+      schema: {
+        tags: ['Storage'],
+        description: 'Descargar múltiples documentos (URLs)',
+        params: EntityParamsSchema,
+        body: BulkActionSchema,
+        response: { 200: ResponseDownloadBulkSchema },
+      },
+      preHandler: requireAuth,
+    },
+    (req, reply) => controller.bulkDownload(req as any, reply),
+  );
+
+  app.post(
+    '/:entityType/:entityId/bulk-download-zip',
+    {
+      schema: {
+        tags: ['Storage'],
+        description: 'Descargar múltiples documentos como ZIP',
+        params: EntityParamsSchema,
+        body: BulkActionSchema,
+      },
+      preHandler: requireAuth,
+    },
+    (req, reply) => controller.bulkDownloadZip(req as any, reply),
   );
 
   // ==========================================

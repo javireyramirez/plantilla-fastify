@@ -48,11 +48,17 @@ export const ResponseStatusChangeSchema = z.object({
   fileName: z.string(),
 });
 
+export const BulkUpdateResponseSchema = z.object({
+  count: z.number(),
+});
+
 export const ResponseDownloadSchema = z.object({
   downloadUrl: z.url(),
   contentType: z.string(),
   fileName: z.string(),
 });
+
+export const ResponseDownloadBulkSchema = z.array(ResponseDownloadSchema);
 
 export const DocumentItemSchema = z.object({
   id: z.string(),
