@@ -13,7 +13,6 @@ export abstract class BaseRepository<T> {
   // ==========================================
   // 1. LECTURA (READ)
   // ==========================================
-
   async findFirst(params: {
     where?: any;
     orderBy?: any;
@@ -42,17 +41,46 @@ export abstract class BaseRepository<T> {
     return this.model.count({ where });
   }
 
+  // Paginación en una sola query (transaction)
+  async findManyWithCount(params: {
+    where?: any;
+    skip?: number;
+    take?: number;
+    orderBy?: any;
+    include?: any;
+    select?: any;
+  }): Promise<{ data: T[]; total: number }> {
+    const [data, total] = await this.prisma.$transaction([
+      this.model.findMany(params),
+      this.model.count({ where: params.where }),
+    ]);
+    return { data, total };
+  }
+
+  async exists(where: any): Promise<boolean> {
+    const count = await this.model.count({ where });
+    return count > 0;
+  }
+
   // ==========================================
   // 2. ESCRITURA INDIVIDUAL (WRITE)
   // ==========================================
-
   async create(params: { data: any; include?: any; select?: any }): Promise<T> {
-    // Nota: Cambiamos a recibir un objeto params para soportar include/select
     return this.model.create(params);
   }
 
   async update(params: { where: any; data: any; include?: any; select?: any }): Promise<T> {
     return this.model.update(params);
+  }
+
+  async upsert(params: {
+    where: any;
+    create: any;
+    update: any;
+    include?: any;
+    select?: any;
+  }): Promise<T> {
+    return this.model.upsert(params);
   }
 
   async delete(params: { where: any; include?: any; select?: any }): Promise<T> {
@@ -62,9 +90,7 @@ export abstract class BaseRepository<T> {
   // ==========================================
   // 3. OPERACIONES MASIVAS (BULK)
   // ==========================================
-
   async createMany(params: { data: any[]; skipDuplicates?: boolean }) {
-    // Prisma no soporta 'include' en createMany en la mayoría de conectores
     return this.model.createMany(params);
   }
 
@@ -74,5 +100,14 @@ export abstract class BaseRepository<T> {
 
   async deleteMany(params: { where: any }) {
     return this.model.deleteMany(params);
+  }
+
+  // ==========================================
+  // 4. TRANSACCIONES
+  // ==========================================
+  async transaction<R>(
+    fn: (tx: Omit<FastifyInstance['prisma'], '$transaction'>) => Promise<R>,
+  ): Promise<R> {
+    return this.prisma.$transaction((tx) => fn(tx as any));
   }
 }

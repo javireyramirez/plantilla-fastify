@@ -1,3 +1,5 @@
+import { FastifyInstance } from 'fastify';
+
 import {
   withCreatedBy,
   withDeletedBy,
@@ -6,6 +8,11 @@ import {
 } from '@/decorators/audit.decorators.js';
 import { BaseRepository } from '@/repositories/base.repository.js';
 import { HttpError } from '@/utils/http.error.js';
+
+type PrismaTransaction = Omit<
+  FastifyInstance['prisma'],
+  '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
+>;
 
 export abstract class BaseAuditService<T> {
   constructor(protected readonly repository: BaseRepository<T>) {}
@@ -44,6 +51,18 @@ export abstract class BaseAuditService<T> {
     }
   }
 
+  async upsert(params: { where: any; create: any; update: any }, userId?: string): Promise<T> {
+    try {
+      return await this.repository.upsert({
+        where: params.where,
+        create: { ...params.create, ...withCreatedBy(userId) },
+        update: { ...params.update, ...withUpdatedBy(userId) },
+      });
+    } catch (error) {
+      throw new HttpError(500, `Error en upsert: ${(error as Error).message}`);
+    }
+  }
+
   async softDelete(id: string, userId?: string): Promise<T> {
     try {
       return await this.repository.update({
@@ -78,6 +97,21 @@ export abstract class BaseAuditService<T> {
     return this.repository.findFirst({
       where: { id, ...context },
     });
+  }
+
+  async exists(where: any): Promise<boolean> {
+    return this.repository.exists(where);
+  }
+
+  async findManyWithCount(params: {
+    where?: any;
+    skip?: number;
+    take?: number;
+    orderBy?: any;
+    include?: any;
+    select?: any;
+  }): Promise<{ data: T[]; total: number }> {
+    return this.repository.findManyWithCount(params);
   }
 
   async updateWithContext(where: any, data: any, userId?: string): Promise<T> {
@@ -161,5 +195,13 @@ export abstract class BaseAuditService<T> {
 
   async hardDeleteManyWithContext(where: any) {
     return this.repository.deleteMany({ where });
+  }
+
+  // ==========================================
+  // 5. TRANSACCIONES
+  // ==========================================
+
+  async transaction<R>(fn: (tx: PrismaTransaction) => Promise<R>): Promise<R> {
+    return this.repository.transaction(fn as any);
   }
 }

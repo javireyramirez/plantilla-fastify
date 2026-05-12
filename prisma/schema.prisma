@@ -29,6 +29,10 @@ model User {
   keys      Key[]
   emailLogs EmailLog[]
 
+  memberships   OrganizationMember[]
+  entityAccess  EntityAccess[]
+  grantedAccess EntityAccess[]       @relation("GrantedAccess")
+
   @@index([email])
   @@index([isActive])
   @@map("auth_users")
@@ -256,4 +260,126 @@ model Document {
   @@index([fileName])
   @@index([createdAt])
   @@map("document")
+}
+
+// Roles personalizables por organización
+model Role {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  isSystem       Boolean  @default(false) // admin, viewer no se borran
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  permissions  RolePermission[]
+  users        OrganizationMember[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("rbac_roles")
+}
+
+model RolePermission {
+  id       String @id @default(cuid())
+  roleId   String
+  resource String // 'documents', 'leads', 'invoices'
+  action   String // 'read', 'create', 'update', 'delete'
+  scope    String @default("own") // 'all' | 'organization' | 'team' | 'own'
+
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, resource, action])
+  @@index([roleId])
+  @@index([resource])
+  @@map("rbac_role_permissions")
+}
+
+// Organizaciones
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  image     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members OrganizationMember[]
+  teams   Team[]
+  roles   Role[]
+
+  @@index([slug])
+  @@map("org_organizations")
+}
+
+model OrganizationMember {
+  id             String   @id @default(cuid())
+  userId         String
+  organizationId String
+  roleId         String
+  isActive       Boolean  @default(true)
+  joinedAt       DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role         Role         @relation(fields: [roleId], references: [id])
+  teamMembers  TeamMember[]
+
+  @@unique([userId, organizationId])
+  @@index([userId])
+  @@index([organizationId])
+  @@index([roleId])
+  @@map("org_members")
+}
+
+model Team {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members      TeamMember[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("org_teams")
+}
+
+model TeamMember {
+  id       String @id @default(cuid())
+  teamId   String
+  memberId String // FK a OrganizationMember
+
+  team   Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  member OrganizationMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, memberId])
+  @@index([teamId])
+  @@index([memberId])
+  @@map("org_team_members")
+}
+
+// Acceso explícito a entidades concretas (compartir)
+model EntityAccess {
+  id          String   @id @default(cuid())
+  userId      String
+  entityName  String
+  entityId    String
+  accessLevel String   @default("viewer") // 'owner' | 'editor' | 'viewer'
+  grantedBy   String?
+  grantedAt   DateTime @default(now())
+
+  user    User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  granter User? @relation("GrantedAccess", fields: [grantedBy], references: [id], onDelete: SetNull)
+
+  @@unique([userId, entityName, entityId])
+  @@index([userId, entityName])
+  @@index([entityName, entityId])
+  @@map("rbac_entity_access")
 }
