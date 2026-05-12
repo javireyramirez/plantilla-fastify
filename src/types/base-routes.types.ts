@@ -13,13 +13,19 @@ export interface BaseRoutesOptions {
     getManyQuery?: any;
 
     /**
-     * BODIES
+     * INDIVIDUAL BODIES
      */
     createBody?: any;
     updateBody?: any;
 
     /**
-     * RESPONSES
+     * BULK BODIES
+     */
+    bulkCreateBody?: any; // z.array(createBody)
+    bulkIdsBody?: any; // z.object({ ids: z.array(z.string()) })
+
+    /**
+     * INDIVIDUAL RESPONSES
      */
     getManyResponse?: any;
     getOneResponse?: any;
@@ -29,5 +35,10 @@ export interface BaseRoutesOptions {
 
     deleteResponse?: any;
     restoreResponse?: any;
+
+    /**
+     * BULK RESPONSES
+     */
+    bulkResponse?: any; // z.object({ count: z.number() })
   };
 }

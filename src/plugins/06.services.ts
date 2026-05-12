@@ -18,7 +18,6 @@ export default fp(
     fastify.decorate('companiesService', comparyService);
 
     fastify.log.info('Services ready');
-    fastify.log.info('company service' + comparyService);
   },
   {
     name: 'services',

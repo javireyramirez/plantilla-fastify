@@ -21,15 +21,16 @@ export const withDeletedBy = (userId?: string) => ({
 export const withRestoredBy = (userId?: string) => ({
   restoreAt: new Date(),
   deletedAt: null,
-  status: 'SUCCESS',
+  status: 'ACTIVE',
   ...(userId && { restoreBy: userId }),
 });
 
-export const notDeleted = () => ({
+export const active = () => ({
+  status: 'ACTIVE',
   deletedAt: null,
 });
 
 export const auditWhere = (extra?: object) => ({
-  ...notDeleted(),
+  ...active(),
   ...extra,
 });

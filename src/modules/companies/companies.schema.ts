@@ -76,6 +76,33 @@ export const CompanyDeletedResponseSchema = z.object({
 });
 
 /**
+ * BULK SCHEMAS (Añadir estos)
+ */
+
+// Para el POST /bulk (Crear muchos)
+export const BulkCreateCompanyBodySchema = z.array(CreateCompanyBodySchema);
+
+// Para los DELETE y PATCH /bulk (IDs masivos)
+export const BulkIdsBodySchema = z.object({
+  ids: z.array(z.string().cuid()),
+});
+
+// Respuesta estándar de Prisma para operaciones masivas (updateMany, deleteMany, createMany)
+export const BulkResponseSchema = z.object({
+  count: z.number(),
+});
+
+/**
+ * AJUSTES EN RESPONSES
+ */
+
+// Para que el delete individual no pete si devuelves el objeto borrado
+export const CompanyDeleteResponseSchema = CompanySchema;
+
+// Para el restore
+export const CompanyRestoreResponseSchema = CompanySchema;
+
+/**
  * TYPES
  */
 export type Company = z.infer<typeof CompanySchema>;

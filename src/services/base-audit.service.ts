@@ -27,15 +27,11 @@ export abstract class BaseAuditService<T> {
   }
 
   // ==========================================
-  // 1. OPERACIONES INDIVIDUALES (POR ID)
+  // 1. OPERACIONES INDIVIDUALES
   // ==========================================
 
   async create(data: any, userId?: string): Promise<T> {
     try {
-      console.log('REPOSITORY EN SERVICE:', this.repository);
-
-      // Si el objeto ya trae ownerId, ownerTeamId o ownerOrganizationId, los respetamos
-      // si no, podríamos inyectarlos aquí si tuviéramos acceso a la sesión completa
       return await this.repository.create({
         data: { ...data, ...withCreatedBy(userId) },
       });
@@ -86,6 +82,14 @@ export abstract class BaseAuditService<T> {
       });
     } catch (error) {
       throw new HttpError(404, 'Registro no encontrado para restaurar');
+    }
+  }
+
+  async hardDelete(id: string): Promise<T> {
+    try {
+      return await this.repository.delete({ where: { id } });
+    } catch (error) {
+      throw new HttpError(404, 'Registro no encontrado para eliminar permanentemente');
     }
   }
 
@@ -152,7 +156,7 @@ export abstract class BaseAuditService<T> {
   }
 
   // ==========================================
-  // 3. OPERACIONES MASIVAS (POR LISTA DE IDS)
+  // 3. OPERACIONES MASIVAS (BULK)
   // ==========================================
 
   async createManyWithAudit(data: any[], userId?: string) {
@@ -179,6 +183,11 @@ export abstract class BaseAuditService<T> {
     });
   }
 
+  public async hardDeleteMany(ids: string[]) {
+    if (!ids.length) return { count: 0 };
+    return this.repository.deleteMany({ where: { id: { in: ids } } });
+  }
+
   // ==========================================
   // 4. OPERACIONES MASIVAS CON CONTEXTO
   // ==========================================
@@ -197,7 +206,7 @@ export abstract class BaseAuditService<T> {
     });
   }
 
-  public async hardDeleteManyWithContext(where: any) {
+  async hardDeleteManyWithContext(where: any) {
     return this.repository.deleteMany({ where });
   }
 

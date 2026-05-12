@@ -374,7 +374,6 @@ model Team {
   @@map("org_teams")
 }
 
-
 model TeamMember {
   id       String @id @default(cuid())
   teamId   String
@@ -391,13 +390,13 @@ model TeamMember {
 
 // Modelo de prueba para patrones base
 model Company {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   name        String
-  nif         String   @unique
+  nif         String  @unique
   sector      String?
   website     String?
   description String?
-  status      String   @default("ACTIVE") // ACTIVE, TRASHED, etc.
+  status      String  @default("ACTIVE") // ACTIVE, TRASHED, etc.
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

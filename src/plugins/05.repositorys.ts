@@ -12,11 +12,7 @@ export default fp(
 
     fastify.decorate('companiesRepository', companiesRepository);
 
-    fastify.log.info('PRISMA EN REPOSITORIES: ' + fastify.prisma);
-
     fastify.log.info('Repositories ready');
-
-    fastify.log.info('PRISMA EN REPOSITORIES: ' + Object.keys(fastify.prisma));
   },
 
   { name: 'repositories', dependencies: ['prisma'] },
