@@ -4,6 +4,7 @@ import { env } from '@/config/env.js';
 import authRoutes from '@/modules/auth/auth.routes.js';
 import healthRoutes from '@/modules/health/health.routes.js';
 import storageRoutes from '@/modules/storage/storage.routes.js';
+import companiesRoutes from '@/modules/companies/companies.routes.js';
 import type { RateLimitTier } from '@/plugins/02.security.js';
 
 declare module 'fastify' {
@@ -20,6 +21,10 @@ export default async function routes(fastify: FastifyInstance) {
     config: {
       rateLimit: fastify.rateLimitTiers.api,
     },
+  });
+
+  fastify.register(companiesRoutes, {
+    prefix: `${env.API_PREFIX}/test-companies`,
   });
 
   fastify.log.info('Routes ready');

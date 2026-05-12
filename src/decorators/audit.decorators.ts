@@ -1,5 +1,10 @@
 export const withCreatedBy = (userId?: string) => ({
-  ...(userId && { createdBy: userId }),
+  ...(userId && {
+    createdBy: userId,
+    ownerId: userId,
+    ownerTeamId: null,
+    ownerOrganizationId: null,
+  }),
 });
 
 export const withUpdatedBy = (userId?: string) => ({

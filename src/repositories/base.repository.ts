@@ -1,13 +1,14 @@
+import { PrismaClient } from '@prisma/client';
 import { FastifyInstance } from 'fastify';
 
 export abstract class BaseRepository<T> {
   constructor(
-    protected readonly prisma: FastifyInstance['prisma'],
-    protected readonly modelName: string,
+    protected readonly prisma: PrismaClient,
+    protected readonly modelName: keyof PrismaClient,
   ) {}
 
   protected get model() {
-    return (this.prisma as any)[this.modelName];
+    return this.prisma[this.modelName] as any;
   }
 
   // ==========================================

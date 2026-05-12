@@ -23,6 +23,13 @@ model User {
   deletedDocuments  Document[] @relation("DeletedDocuments")
   restoredDocuments Document[] @relation("RestoredDocuments")
   updatedDocuments  Document[] @relation("UpdatedDocuments")
+  ownedDocuments    Document[] @relation("OwnedDocuments")
+
+  createdCompanies  Company[] @relation("CreatedCompanies")
+  deletedCompanies  Company[] @relation("DeletedCompanies")
+  restoredCompanies Company[] @relation("RestoredCompanies")
+  updatedCompanies  Company[] @relation("UpdatedCompanies")
+  ownedCompanies    Company[] @relation("OwnedCompanies")
 
   accounts  Account[]
   sessions  Session[]
@@ -253,12 +260,24 @@ model Document {
   updatedBy String?
   updater   User?   @relation("UpdatedDocuments", fields: [updatedBy], references: [id], onDelete: SetNull)
 
+  // Propiedad (RBAC)
+  ownerId             String?
+  ownerTeamId         String?
+  ownerOrganizationId String?
+
+  owner             User?         @relation("OwnedDocuments", fields: [ownerId], references: [id], onDelete: SetNull)
+  ownerTeam         Team?         @relation("OwnedDocuments", fields: [ownerTeamId], references: [id], onDelete: SetNull)
+  ownerOrganization Organization? @relation("OwnedDocuments", fields: [ownerOrganizationId], references: [id], onDelete: SetNull)
+
   // Visibilidad
   isPublic Boolean @default(false)
 
   @@index([entityId, entityType, status])
   @@index([fileName])
   @@index([createdAt])
+  @@index([ownerId])
+  @@index([ownerTeamId])
+  @@index([ownerOrganizationId])
   @@map("document")
 }
 
@@ -306,9 +325,11 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  members OrganizationMember[]
-  teams   Team[]
-  roles   Role[]
+  members        OrganizationMember[]
+  teams          Team[]
+  roles          Role[]
+  ownedDocuments Document[]           @relation("OwnedDocuments")
+  ownedCompanies Company[]            @relation("OwnedCompanies")
 
   @@index([slug])
   @@map("org_organizations")
@@ -343,13 +364,16 @@ model Team {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  members      TeamMember[]
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members        TeamMember[]
+  ownedDocuments Document[]   @relation("OwnedDocuments")
+  ownedCompanies Company[]    @relation("OwnedCompanies")
 
   @@unique([organizationId, name])
   @@index([organizationId])
   @@map("org_teams")
 }
+
 
 model TeamMember {
   id       String @id @default(cuid())
@@ -363,6 +387,52 @@ model TeamMember {
   @@index([teamId])
   @@index([memberId])
   @@map("org_team_members")
+}
+
+// Modelo de prueba para patrones base
+model Company {
+  id          String   @id @default(cuid())
+  name        String
+  nif         String   @unique
+  sector      String?
+  website     String?
+  description String?
+  status      String   @default("ACTIVE") // ACTIVE, TRASHED, etc.
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Auditoría
+  deletedAt DateTime?
+  restoreAt DateTime?
+
+  createdBy String?
+  creator   User?   @relation("CreatedCompanies", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  deletedBy String?
+  deletor   User?   @relation("DeletedCompanies", fields: [deletedBy], references: [id], onDelete: SetNull)
+
+  restoreBy String?
+  restorer  User?   @relation("RestoredCompanies", fields: [restoreBy], references: [id], onDelete: SetNull)
+
+  updatedBy String?
+  updater   User?   @relation("UpdatedCompanies", fields: [updatedBy], references: [id], onDelete: SetNull)
+
+  // Propiedad (RBAC)
+  ownerId             String?
+  ownerTeamId         String?
+  ownerOrganizationId String?
+
+  owner             User?         @relation("OwnedCompanies", fields: [ownerId], references: [id], onDelete: SetNull)
+  ownerTeam         Team?         @relation("OwnedCompanies", fields: [ownerTeamId], references: [id], onDelete: SetNull)
+  ownerOrganization Organization? @relation("OwnedCompanies", fields: [ownerOrganizationId], references: [id], onDelete: SetNull)
+
+  @@index([nif])
+  @@index([status])
+  @@index([ownerId])
+  @@index([ownerTeamId])
+  @@index([ownerOrganizationId])
+  @@map("test_companies")
 }
 
 // Acceso explícito a entidades concretas (compartir)

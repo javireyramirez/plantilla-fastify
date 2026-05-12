@@ -19,7 +19,7 @@ export abstract class BaseAuditService<T> {
 
   protected abstract getStatusFilter(isTrash: boolean): object;
 
-  protected getAuditWhere(isTrash: boolean, extraWhere: object = {}) {
+  public getAuditWhere(isTrash: boolean, extraWhere: object = {}) {
     return {
       ...extraWhere,
       ...this.getStatusFilter(isTrash),
@@ -32,6 +32,10 @@ export abstract class BaseAuditService<T> {
 
   async create(data: any, userId?: string): Promise<T> {
     try {
+      console.log('REPOSITORY EN SERVICE:', this.repository);
+
+      // Si el objeto ya trae ownerId, ownerTeamId o ownerOrganizationId, los respetamos
+      // si no, podríamos inyectarlos aquí si tuviéramos acceso a la sesión completa
       return await this.repository.create({
         data: { ...data, ...withCreatedBy(userId) },
       });
@@ -193,7 +197,7 @@ export abstract class BaseAuditService<T> {
     });
   }
 
-  async hardDeleteManyWithContext(where: any) {
+  public async hardDeleteManyWithContext(where: any) {
     return this.repository.deleteMany({ where });
   }
 

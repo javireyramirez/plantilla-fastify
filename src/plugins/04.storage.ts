@@ -15,6 +15,8 @@ export default fp(
 
     fastify.decorate('storageProvider', provider);
 
+    fastify.log.info('Storage provider ready');
+
     if (onClose) {
       fastify.addHook('onClose', async () => {
         fastify.log.info('Cerrando storage provider...');
