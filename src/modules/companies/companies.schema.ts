@@ -1,24 +1,26 @@
 import { z } from 'zod';
 
+import { OwnerOrganizationSchema, OwnerSchema, OwnerTeamSchema } from '@/schemas/base.schema.js';
+
 export const CompanySchema = z.object({
   id: z.cuid(),
   name: z.string().min(1),
   nif: z.string().min(1),
-
   sector: z.string().optional().nullable(),
-  website: z.string().url().optional().nullable(),
+  website: z.url().optional().nullable(),
   description: z.string().optional().nullable(),
-
   status: z.string(),
-
   createdAt: z.date(),
   updatedAt: z.date(),
-
+  // IDs (FKs)
   ownerId: z.string().optional().nullable(),
   ownerTeamId: z.string().optional().nullable(),
   ownerOrganizationId: z.string().optional().nullable(),
+  // Relaciones expandidas
+  owner: OwnerSchema.optional().nullable(),
+  ownerTeam: OwnerTeamSchema.optional().nullable(),
+  ownerOrganization: OwnerOrganizationSchema.optional().nullable(),
 });
-
 /**
  * PARAMS
  */

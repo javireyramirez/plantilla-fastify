@@ -1,7 +1,7 @@
-export const withCreatedBy = (userId?: string) => ({
+export const withCreatedBy = (userId?: string, ownerId?: string) => ({
   ...(userId && {
     createdBy: userId,
-    ownerId: userId,
+    ownerId: ownerId ?? userId,
     ownerTeamId: null,
     ownerOrganizationId: null,
   }),

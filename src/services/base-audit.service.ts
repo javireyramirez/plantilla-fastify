@@ -33,7 +33,7 @@ export abstract class BaseAuditService<T> {
   async create(data: any, userId?: string): Promise<T> {
     try {
       return await this.repository.create({
-        data: { ...data, ...withCreatedBy(userId) },
+        data: { ...data, ...withCreatedBy(userId, data?.ownerId) },
       });
     } catch (error) {
       throw new HttpError(500, `Error al crear el registro: ${(error as Error).message}`);
@@ -162,9 +162,13 @@ export abstract class BaseAuditService<T> {
   async createManyWithAudit(data: any[], userId?: string) {
     const auditData = data.map((item) => ({
       ...item,
-      ...withCreatedBy(userId),
+      ...withCreatedBy(userId, item.ownerId),
     }));
-    return this.repository.createMany({ data: auditData });
+
+    return this.repository.createMany({
+      data: auditData,
+      skipDuplicates: true,
+    });
   }
 
   async softDeleteMany(ids: string[], userId?: string) {

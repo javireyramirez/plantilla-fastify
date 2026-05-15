@@ -300,12 +300,29 @@ model Role {
   @@map("rbac_roles")
 }
 
+enum PermissionScope {
+  ALL
+  ORGANIZATION
+  TEAM
+  OWN
+}
+
+enum PermissionAction {
+  READ
+  CREATE
+  UPDATE
+  DELETE
+  RESTORE
+  EXPORT
+  IMPORT
+}
+
 model RolePermission {
-  id       String @id @default(cuid())
+  id       String           @id @default(cuid())
   roleId   String
   resource String // 'documents', 'leads', 'invoices'
-  action   String // 'read', 'create', 'update', 'delete'
-  scope    String @default("own") // 'all' | 'organization' | 'team' | 'own'
+  action   PermissionAction
+  scope    PermissionScope  @default(OWN)
 
   role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
@@ -436,18 +453,20 @@ model Company {
 
 // Acceso explícito a entidades concretas (compartir)
 model EntityAccess {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   userId      String
   entityName  String
   entityId    String
-  accessLevel String   @default("viewer") // 'owner' | 'editor' | 'viewer'
+  accessLevel String    @default("viewer") // 'owner' | 'editor' | 'viewer'
   grantedBy   String?
-  grantedAt   DateTime @default(now())
+  grantedAt   DateTime  @default(now())
+  expiresAt   DateTime?
 
   user    User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   granter User? @relation("GrantedAccess", fields: [grantedBy], references: [id], onDelete: SetNull)
 
   @@unique([userId, entityName, entityId])
+  @@index([expiresAt])
   @@index([userId, entityName])
   @@index([entityName, entityId])
   @@map("rbac_entity_access")
