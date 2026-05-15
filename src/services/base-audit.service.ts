@@ -97,10 +97,11 @@ export abstract class BaseAuditService<T> {
   // 2. LECTURA Y CONTEXTO
   // ==========================================
 
-  async findFirst(where: any): Promise<T | null> {
-    return this.repository.findFirst({ where });
+  async findFirst(
+    params: { where?: any; include?: any; orderBy?: any; select?: any } = {},
+  ): Promise<T | null> {
+    return this.repository.findFirst(params);
   }
-
   async findByIdWithContext(id: string, context: any): Promise<T | null> {
     return this.repository.findFirst({
       where: { id, ...context },

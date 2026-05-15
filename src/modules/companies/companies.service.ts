@@ -8,6 +8,25 @@ export class CompaniesService extends BaseAuditService<Company> {
     super(companiesRepo);
   }
 
+  async findFirst(params: any = {}) {
+    const defaultInclude = {
+      owner: {
+        select: {
+          name: true,
+          email: true,
+        },
+      },
+    };
+
+    return super.findFirst({
+      ...params,
+      include: {
+        ...defaultInclude,
+        ...(params.include || {}),
+      },
+    });
+  }
+
   async findManyWithCount(params: any) {
     const defaultInclude = {
       owner: {

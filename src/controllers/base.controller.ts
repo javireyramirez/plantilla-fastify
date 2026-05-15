@@ -42,7 +42,9 @@ export abstract class BaseController<T> {
     const { id } = request.params;
 
     // CORRECCIÓN DEL BUG: Pasar el objeto directamente, ya que el servicio hace { where }
-    const record = await this.service.findFirst({ id });
+    const record = await this.service.findFirst({
+      where: { id },
+    });
 
     if (!record) {
       throw new HttpError(404, 'Registro no encontrado');
