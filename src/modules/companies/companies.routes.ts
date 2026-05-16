@@ -1,13 +1,10 @@
 import { FastifyInstance } from 'fastify';
 
-// Ajusta el path según tu proyecto
 import {
   BulkCreateCompanyBodySchema,
-  // Importar estos nuevos
   BulkIdsBodySchema,
   BulkResponseSchema,
   CompaniesListResponseSchema,
-  CompanyDeletedResponseSchema,
   CompanyIdParamsSchema,
   CompanyResponseSchema,
   CreateCompanyBodySchema,
@@ -21,16 +18,17 @@ export default async function companiesRoutes(fastify: FastifyInstance) {
     tags: ['Companies'],
 
     schemas: {
-      // --- Individuales ---
+      //Parámetros
       idParams: CompanyIdParamsSchema,
+
+      //Query
       getManyQuery: GetCompaniesQuerySchema,
+
+      //Body
       createBody: CreateCompanyBodySchema,
       updateBody: UpdateCompanyBodySchema,
-
-      // --- Masivos (Bulk) - ESTOS FALTABAN ---
       bulkCreateBody: BulkCreateCompanyBodySchema,
       bulkIdsBody: BulkIdsBodySchema,
-      bulkResponse: BulkResponseSchema,
 
       // --- Respuestas ---
       getManyResponse: CompaniesListResponseSchema,
@@ -39,6 +37,7 @@ export default async function companiesRoutes(fastify: FastifyInstance) {
       updateResponse: CompanyResponseSchema,
       deleteResponse: CompanyResponseSchema,
       restoreResponse: CompanyResponseSchema,
+      bulkResponse: BulkResponseSchema,
     },
   });
 }

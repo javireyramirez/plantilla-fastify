@@ -30,21 +30,38 @@ export abstract class BaseAuditService<T> {
   // 1. OPERACIONES INDIVIDUALES
   // ==========================================
 
-  async create(data: any, userId?: string): Promise<T> {
+  async create(
+    data: any,
+    userId?: string,
+    options: { include?: any; select?: any } = {},
+  ): Promise<T> {
     try {
       return await this.repository.create({
         data: { ...data, ...withCreatedBy(userId, data?.ownerId) },
+        include: {
+          ...(options.include ?? {}),
+        },
+        select: options.select,
       });
     } catch (error) {
       throw new HttpError(500, `Error al crear el registro: ${(error as Error).message}`);
     }
   }
 
-  async update(id: string, data: any, userId?: string): Promise<T> {
+  async update(
+    id: string,
+    data: any,
+    userId?: string,
+    options: { include?: any; select?: any } = {},
+  ): Promise<T> {
     try {
       return await this.repository.update({
         where: { id, ...this.getStatusFilter(false) },
         data: { ...data, ...withUpdatedBy(userId) },
+        include: {
+          ...(options.include ?? {}),
+        },
+        select: options.select,
       });
     } catch (error) {
       throw new HttpError(404, 'Registro no encontrado para actualizar');

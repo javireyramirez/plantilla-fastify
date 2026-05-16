@@ -46,6 +46,40 @@ export class CompaniesService extends BaseAuditService<Company> {
     });
   }
 
+  async create(data: any, userId?: string) {
+    const defaultInclude = {
+      owner: {
+        select: {
+          name: true,
+          email: true,
+        },
+      },
+    };
+
+    return super.create(data, userId, {
+      include: {
+        ...defaultInclude,
+      },
+    });
+  }
+
+  async update(id: string, data: any, userId?: string) {
+    const defaultInclude = {
+      owner: {
+        select: {
+          name: true,
+          email: true,
+        },
+      },
+    };
+
+    return super.update(id, data, userId, {
+      include: {
+        ...defaultInclude,
+      },
+    });
+  }
+
   protected getStatusFilter(isTrash: boolean) {
     return {
       status: isTrash ? 'TRASHED' : 'ACTIVE',
