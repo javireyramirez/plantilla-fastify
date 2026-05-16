@@ -1,5 +1,6 @@
-import { FastifyReply, FastifyRequest } from 'fastify';
+import fastify, { FastifyReply, FastifyRequest } from 'fastify';
 
+import { CreateSchema } from '@/schemas/base.schema.js';
 import { BaseAuditService } from '@/services/base-audit.service.js';
 import { HttpError } from '@/utils/http.error.js';
 
@@ -20,8 +21,10 @@ export abstract class BaseController<T> {
       ...filters
     } = request.query as any;
 
+    const shouldShowTrash = String(isTrash) === 'true';
+
     const result = await this.service.findManyWithCount({
-      where: this.service.getAuditWhere(isTrash === 'true' || isTrash === true, filters),
+      where: this.service.getAuditWhere(shouldShowTrash, filters),
       skip: (Number(page) - 1) * Number(limit),
       take: Number(limit),
       orderBy: { [sortBy]: sortOrder },
@@ -38,12 +41,18 @@ export abstract class BaseController<T> {
     });
   }
 
-  async getById(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
+  async getById(
+    request: FastifyRequest<{ Params: { id: string }; Querystring: { isTrash?: string } }>,
+    reply: FastifyReply,
+  ) {
     const { id } = request.params;
+    const isTrash = request.query.isTrash === 'true';
 
-    // CORRECCIÓN DEL BUG: Pasar el objeto directamente, ya que el servicio hace { where }
     const record = await this.service.findFirst({
-      where: { id },
+      where: {
+        id,
+        ...this.service.getAuditWhere(isTrash),
+      },
     });
 
     if (!record) {
@@ -57,13 +66,14 @@ export abstract class BaseController<T> {
   // 2. ESCRITURA INDIVIDUAL (WRITE)
   // ==========================================
 
-  async create(request: FastifyRequest<{ Body: any }>, reply: FastifyReply) {
+  async create(request: FastifyRequest, reply: FastifyReply) {
     const userId = (request.session as any)?.user?.id;
+
+    const body = CreateSchema.parse(request.body);
+
     const data = {
-      ...request.body,
-      ownerId: request.body.ownerId || userId,
-      ownerTeamId: request.body.ownerTeamId,
-      ownerOrganizationId: request.body.ownerOrganizationId,
+      ...body,
+      ownerId: body.ownerId || userId,
     };
 
     const record = await this.service.create(data, userId);

@@ -1,4 +1,12 @@
-import { string, z } from 'zod';
+import { z } from 'zod';
+
+export const CreateSchema = z
+  .object({
+    ownerId: z.string().optional(),
+    ownerTeamId: z.string().optional(),
+    ownerOrganizationId: z.string().optional(),
+  })
+  .loose();
 
 export const OwnerSchema = z.object({
   name: z.string(),

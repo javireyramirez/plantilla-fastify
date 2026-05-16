@@ -43,7 +43,7 @@ export abstract class BaseAuditService<T> {
   async update(id: string, data: any, userId?: string): Promise<T> {
     try {
       return await this.repository.update({
-        where: { id },
+        where: { id, ...this.getStatusFilter(false) },
         data: { ...data, ...withUpdatedBy(userId) },
       });
     } catch (error) {

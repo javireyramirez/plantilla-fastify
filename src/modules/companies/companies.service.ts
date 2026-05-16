@@ -49,6 +49,7 @@ export class CompaniesService extends BaseAuditService<Company> {
   protected getStatusFilter(isTrash: boolean) {
     return {
       status: isTrash ? 'TRASHED' : 'ACTIVE',
+      deletedAt: isTrash ? { not: null } : null,
     };
   }
 }
