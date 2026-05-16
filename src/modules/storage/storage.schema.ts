@@ -44,7 +44,7 @@ export const ResponseUploadSchema = z.object({
 
 export const ResponseStatusChangeSchema = z.object({
   id: documentId,
-  status: z.enum(['SUCCESS', 'TRASHED', 'PENDING']),
+  status: z.enum(['ACTIVE', 'TRASHED', 'PENDING']),
   fileName: z.string(),
 });
 

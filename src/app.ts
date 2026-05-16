@@ -4,7 +4,6 @@ import { ZodTypeProvider, serializerCompiler, validatorCompiler } from 'fastify-
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
-import { env } from '@/config/env.js';
 import { logger } from '@/config/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);

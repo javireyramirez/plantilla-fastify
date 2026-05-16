@@ -1,3 +1,5 @@
+import { FastifyInstance } from 'fastify';
+
 import {
   withCreatedBy,
   withDeletedBy,
@@ -7,12 +9,17 @@ import {
 import { BaseRepository } from '@/repositories/base.repository.js';
 import { HttpError } from '@/utils/http.error.js';
 
+type PrismaTransaction = Omit<
+  FastifyInstance['prisma'],
+  '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
+>;
+
 export abstract class BaseAuditService<T> {
   constructor(protected readonly repository: BaseRepository<T>) {}
 
   protected abstract getStatusFilter(isTrash: boolean): object;
 
-  protected getAuditWhere(isTrash: boolean, extraWhere: object = {}) {
+  public getAuditWhere(isTrash: boolean, extraWhere: object = {}) {
     return {
       ...extraWhere,
       ...this.getStatusFilter(isTrash),
@@ -20,27 +27,56 @@ export abstract class BaseAuditService<T> {
   }
 
   // ==========================================
-  // 1. OPERACIONES INDIVIDUALES (POR ID)
+  // 1. OPERACIONES INDIVIDUALES
   // ==========================================
 
-  async create(data: any, userId?: string): Promise<T> {
+  async create(
+    data: any,
+    userId?: string,
+    options: { include?: any; select?: any } = {},
+  ): Promise<T> {
     try {
       return await this.repository.create({
-        data: { ...data, ...withCreatedBy(userId) },
+        data: { ...data, ...withCreatedBy(userId, data?.ownerId) },
+        include: {
+          ...(options.include ?? {}),
+        },
+        select: options.select,
       });
     } catch (error) {
       throw new HttpError(500, `Error al crear el registro: ${(error as Error).message}`);
     }
   }
 
-  async update(id: string, data: any, userId?: string): Promise<T> {
+  async update(
+    id: string,
+    data: any,
+    userId?: string,
+    options: { include?: any; select?: any } = {},
+  ): Promise<T> {
     try {
       return await this.repository.update({
-        where: { id },
+        where: { id, ...this.getStatusFilter(false) },
         data: { ...data, ...withUpdatedBy(userId) },
+        include: {
+          ...(options.include ?? {}),
+        },
+        select: options.select,
       });
     } catch (error) {
       throw new HttpError(404, 'Registro no encontrado para actualizar');
+    }
+  }
+
+  async upsert(params: { where: any; create: any; update: any }, userId?: string): Promise<T> {
+    try {
+      return await this.repository.upsert({
+        where: params.where,
+        create: { ...params.create, ...withCreatedBy(userId) },
+        update: { ...params.update, ...withUpdatedBy(userId) },
+      });
+    } catch (error) {
+      throw new HttpError(500, `Error en upsert: ${(error as Error).message}`);
     }
   }
 
@@ -66,18 +102,42 @@ export abstract class BaseAuditService<T> {
     }
   }
 
+  async hardDelete(id: string): Promise<T> {
+    try {
+      return await this.repository.delete({ where: { id } });
+    } catch (error) {
+      throw new HttpError(404, 'Registro no encontrado para eliminar permanentemente');
+    }
+  }
+
   // ==========================================
   // 2. LECTURA Y CONTEXTO
   // ==========================================
 
-  async findFirst(where: any): Promise<T | null> {
-    return this.repository.findFirst({ where });
+  async findFirst(
+    params: { where?: any; include?: any; orderBy?: any; select?: any } = {},
+  ): Promise<T | null> {
+    return this.repository.findFirst(params);
   }
-
   async findByIdWithContext(id: string, context: any): Promise<T | null> {
     return this.repository.findFirst({
       where: { id, ...context },
     });
+  }
+
+  async exists(where: any): Promise<boolean> {
+    return this.repository.exists(where);
+  }
+
+  async findManyWithCount(params: {
+    where?: any;
+    skip?: number;
+    take?: number;
+    orderBy?: any;
+    include?: any;
+    select?: any;
+  }): Promise<{ data: T[]; total: number }> {
+    return this.repository.findManyWithCount(params);
   }
 
   async updateWithContext(where: any, data: any, userId?: string): Promise<T> {
@@ -114,15 +174,19 @@ export abstract class BaseAuditService<T> {
   }
 
   // ==========================================
-  // 3. OPERACIONES MASIVAS (POR LISTA DE IDS)
+  // 3. OPERACIONES MASIVAS (BULK)
   // ==========================================
 
   async createManyWithAudit(data: any[], userId?: string) {
     const auditData = data.map((item) => ({
       ...item,
-      ...withCreatedBy(userId),
+      ...withCreatedBy(userId, item.ownerId),
     }));
-    return this.repository.createMany({ data: auditData });
+
+    return this.repository.createMany({
+      data: auditData,
+      skipDuplicates: true,
+    });
   }
 
   async softDeleteMany(ids: string[], userId?: string) {
@@ -139,6 +203,11 @@ export abstract class BaseAuditService<T> {
       where: { id: { in: ids } },
       data: withRestoredBy(userId),
     });
+  }
+
+  public async hardDeleteMany(ids: string[]) {
+    if (!ids.length) return { count: 0 };
+    return this.repository.deleteMany({ where: { id: { in: ids } } });
   }
 
   // ==========================================
@@ -161,5 +230,13 @@ export abstract class BaseAuditService<T> {
 
   async hardDeleteManyWithContext(where: any) {
     return this.repository.deleteMany({ where });
+  }
+
+  // ==========================================
+  // 5. TRANSACCIONES
+  // ==========================================
+
+  async transaction<R>(fn: (tx: PrismaTransaction) => Promise<R>): Promise<R> {
+    return this.repository.transaction(fn as any);
   }
 }

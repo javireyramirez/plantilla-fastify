@@ -22,7 +22,7 @@ export class StorageService extends BaseAuditService<any> {
    */
   protected getStatusFilter(isTrash: boolean) {
     return {
-      status: isTrash ? 'TRASHED' : 'SUCCESS',
+      status: isTrash ? 'TRASHED' : 'ACTIVE',
       deletedAt: isTrash ? { not: null } : null,
     };
   }
@@ -153,7 +153,7 @@ export class StorageService extends BaseAuditService<any> {
   ) {
     const document = await this.getDocument(entityType, entityId, documentId);
 
-    if (document.status !== 'SUCCESS') {
+    if (document.status !== 'ACTIVE') {
       throw new HttpError(400, 'El documento no está disponible');
     }
 
@@ -212,12 +212,12 @@ export class StorageService extends BaseAuditService<any> {
     const where = { id: documentId, entityType, entityId };
     const document = await this.getDocument(entityType, entityId, documentId);
 
-    if (document.status === 'SUCCESS') return document;
+    if (document.status === 'ACTIVE') return document;
 
     const exists = await this.storage.checkFileExists(document.fileKey);
     if (!exists) throw new HttpError(400, 'El archivo aún no se ha subido al almacenamiento');
 
-    return this.updateWithContext(where, { status: 'SUCCESS' }, userId);
+    return this.updateWithContext(where, { status: 'ACTIVE' }, userId);
   }
 
   // ==========================================
@@ -241,7 +241,7 @@ export class StorageService extends BaseAuditService<any> {
     userId: string,
   ) {
     return this.softDeleteWithContext(
-      { id: documentId, entityType, entityId, status: 'SUCCESS' },
+      { id: documentId, entityType, entityId, status: 'ACTIVE' },
       userId,
     );
   }
@@ -264,7 +264,7 @@ export class StorageService extends BaseAuditService<any> {
     userId: string,
   ) {
     return this.softDeleteManyWithContext(
-      { id: { in: documentIds }, entityType, entityId, status: 'SUCCESS' },
+      { id: { in: documentIds }, entityType, entityId, status: 'ACTIVE' },
       userId,
     );
   }
