@@ -6,6 +6,15 @@ generator client {
   provider = "prisma-client-js"
 }
 
+enum RecordStatus {
+  ACTIVE
+  PENDING
+  TRASHED
+  INACTIVE
+  ARCHIVED
+  SUSPENDED
+}
+
 //Auth
 model User {
   id            String   @id @default(cuid())
@@ -30,6 +39,11 @@ model User {
   restoredCompanies Company[] @relation("RestoredCompanies")
   updatedCompanies  Company[] @relation("UpdatedCompanies")
   ownedCompanies    Company[] @relation("OwnedCompanies")
+
+  createdOrganizations  Organization[] @relation("CreatedOrganizations")
+  deletedOrganizations  Organization[] @relation("DeletedOrganizations")
+  restoredOrganizations Organization[] @relation("RestoredOrganizations")
+  updatedOrganizations  Organization[] @relation("UpdatedOrganizations")
 
   accounts  Account[]
   sessions  Session[]
@@ -234,7 +248,7 @@ model Document {
   contentType String
   size        Int
 
-  status String @default("PENDING")
+  status RecordStatus @default(PENDING)
 
   checksum String?
   metadata Json?
@@ -334,13 +348,29 @@ model RolePermission {
 
 // Organizaciones
 model Organization {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  image     String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id     String       @id @default(cuid())
+  name   String
+  slug   String       @unique
+  image  String?
+  status RecordStatus @default(ACTIVE)
+
+  // Auditoría
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  restoreAt DateTime?
+
+  createdBy String?
+  creator   User?   @relation("CreatedOrganizations", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  deletedBy String?
+  deletor   User?   @relation("DeletedOrganizations", fields: [deletedBy], references: [id], onDelete: SetNull)
+
+  restoreBy String?
+  restorer  User?   @relation("RestoredOrganizations", fields: [restoreBy], references: [id], onDelete: SetNull)
+
+  updatedBy String?
+  updater   User?   @relation("UpdatedOrganizations", fields: [updatedBy], references: [id], onDelete: SetNull)
 
   members        OrganizationMember[]
   teams          Team[]
@@ -405,15 +435,36 @@ model TeamMember {
   @@map("org_team_members")
 }
 
+// Acceso explícito a entidades concretas (compartir)
+model EntityAccess {
+  id          String    @id @default(cuid())
+  userId      String
+  entityName  String
+  entityId    String
+  accessLevel String    @default("viewer") // 'owner' | 'editor' | 'viewer'
+  grantedBy   String?
+  grantedAt   DateTime  @default(now())
+  expiresAt   DateTime?
+
+  user    User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  granter User? @relation("GrantedAccess", fields: [grantedBy], references: [id], onDelete: SetNull)
+
+  @@unique([userId, entityName, entityId])
+  @@index([expiresAt])
+  @@index([userId, entityName])
+  @@index([entityName, entityId])
+  @@map("rbac_entity_access")
+}
+
 // Modelo de prueba para patrones base
 model Company {
-  id          String  @id @default(cuid())
+  id          String       @id @default(cuid())
   name        String
-  nif         String  @unique
+  nif         String       @unique
   sector      String?
   website     String?
   description String?
-  status      String  @default("ACTIVE") // ACTIVE, TRASHED, etc.
+  status      RecordStatus @default(ACTIVE)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -449,25 +500,4 @@ model Company {
   @@index([ownerTeamId])
   @@index([ownerOrganizationId])
   @@map("test_companies")
-}
-
-// Acceso explícito a entidades concretas (compartir)
-model EntityAccess {
-  id          String    @id @default(cuid())
-  userId      String
-  entityName  String
-  entityId    String
-  accessLevel String    @default("viewer") // 'owner' | 'editor' | 'viewer'
-  grantedBy   String?
-  grantedAt   DateTime  @default(now())
-  expiresAt   DateTime?
-
-  user    User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  granter User? @relation("GrantedAccess", fields: [grantedBy], references: [id], onDelete: SetNull)
-
-  @@unique([userId, entityName, entityId])
-  @@index([expiresAt])
-  @@index([userId, entityName])
-  @@index([entityName, entityId])
-  @@map("rbac_entity_access")
 }

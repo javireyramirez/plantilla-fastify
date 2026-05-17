@@ -1,18 +1,13 @@
 import { z } from 'zod';
 
-import {
-  OwnerOrganizationSchema,
-  OwnerSchema,
-  OwnerTeamSchema,
-  recordStatusSchema,
-} from '@/schemas/base.schema.js';
+import { recordStatusSchema } from '@/schemas/base.schema.js';
 
-export const CompanySchema = z.object({
+export const OrganizationSchema = z.object({
   id: z.cuid(),
   name: z.string().min(1),
-  nif: z.string().min(1),
-  sector: z.string().optional().nullable(),
-  website: z.url().optional().nullable(),
+  slug: z.string().min(1),
+  image: z.date().optional().nullable(),
+
   status: recordStatusSchema,
   createdAt: z.date(),
   updatedAt: z.date(),
@@ -21,14 +16,10 @@ export const CompanySchema = z.object({
   deletedBy: z.string().optional().nullable(),
   restoreBy: z.string().optional().nullable(),
   updatedBy: z.string().optional().nullable(),
-
-  owner: OwnerSchema.optional().nullable(),
-  ownerTeam: OwnerTeamSchema.optional().nullable(),
-  ownerOrganization: OwnerOrganizationSchema.optional().nullable(),
 });
 
 // PARAMS
-export const CompanyIdParamsSchema = z.object({
+export const OrganizationIdParamsSchema = z.object({
   id: z.cuid(),
 });
 
@@ -47,7 +38,7 @@ export const GetCompaniesQuerySchema = z.object({
 });
 
 // BODIES
-export const CreateCompanyBodySchema = CompanySchema.omit({
+export const CreateOrganizationBodySchema = OrganizationSchema.omit({
   id: true,
   status: true,
   createdAt: true,
@@ -63,19 +54,19 @@ export const CreateCompanyBodySchema = CompanySchema.omit({
   ownerOrganizationId: z.string().optional().nullable(),
 });
 
-export const UpdateCompanyBodySchema = CreateCompanyBodySchema.partial();
+export const UpdateOrganizationBodySchema = CreateOrganizationBodySchema.partial();
 
-export const BulkCreateCompanyBodySchema = z.array(CreateCompanyBodySchema);
+export const BulkCreateOrganizationBodySchema = z.array(CreateOrganizationBodySchema);
 
 export const BulkIdsBodySchema = z.object({
   ids: z.array(z.cuid()),
 });
 
 // RESPONSES
-export const CompanyResponseSchema = CompanySchema;
+export const OrganizationResponseSchema = OrganizationSchema;
 
 export const CompaniesListResponseSchema = z.object({
-  data: z.array(CompanySchema),
+  data: z.array(OrganizationSchema),
 
   meta: z.object({
     page: z.number(),
@@ -85,7 +76,7 @@ export const CompaniesListResponseSchema = z.object({
   }),
 });
 
-export const CompanyDeletedResponseSchema = z.object({
+export const OrganizationDeletedResponseSchema = z.object({
   success: z.boolean(),
   message: z.string(),
 });
@@ -94,13 +85,13 @@ export const BulkResponseSchema = z.object({
   count: z.number(),
 });
 
-export const CompanyDeleteResponseSchema = CompanySchema;
+export const OrganizationDeleteResponseSchema = OrganizationSchema;
 
-export const CompanyRestoreResponseSchema = CompanySchema;
+export const OrganizationRestoreResponseSchema = OrganizationSchema;
 
 // TYPES
-export type Company = z.infer<typeof CompanySchema>;
+export type Organization = z.infer<typeof OrganizationSchema>;
 
-export type CreateCompany = z.infer<typeof CreateCompanyBodySchema>;
+export type CreateOrganization = z.infer<typeof CreateOrganizationBodySchema>;
 
-export type UpdateCompany = z.infer<typeof UpdateCompanyBodySchema>;
+export type UpdateOrganization = z.infer<typeof UpdateOrganizationBodySchema>;

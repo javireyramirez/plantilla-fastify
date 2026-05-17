@@ -20,3 +20,12 @@ export const OwnerTeamSchema = z.object({
 export const OwnerOrganizationSchema = z.object({
   name: z.string(),
 });
+
+export const recordStatusSchema = z.enum([
+  'ACTIVE',
+  'PENDING',
+  'TRASHED',
+  'INACTIVE',
+  'ARCHIVED',
+  'SUSPENDED',
+]);

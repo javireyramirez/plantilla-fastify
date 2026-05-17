@@ -1,11 +1,6 @@
 import { z } from 'zod';
 
-import {
-  OwnerOrganizationSchema,
-  OwnerSchema,
-  OwnerTeamSchema,
-  recordStatusSchema,
-} from '@/schemas/base.schema.js';
+import { OwnerOrganizationSchema, OwnerSchema, OwnerTeamSchema } from '@/schemas/base.schema.js';
 
 export const CompanySchema = z.object({
   id: z.cuid(),
@@ -13,15 +8,11 @@ export const CompanySchema = z.object({
   nif: z.string().min(1),
   sector: z.string().optional().nullable(),
   website: z.url().optional().nullable(),
-  status: recordStatusSchema,
+  description: z.string().optional().nullable(),
+  status: z.string(),
   createdAt: z.date(),
   updatedAt: z.date(),
-  deletedAt: z.date().optional().nullable(),
-  createdBy: z.string().optional().nullable(),
-  deletedBy: z.string().optional().nullable(),
-  restoreBy: z.string().optional().nullable(),
-  updatedBy: z.string().optional().nullable(),
-
+  // Owner
   owner: OwnerSchema.optional().nullable(),
   ownerTeam: OwnerTeamSchema.optional().nullable(),
   ownerOrganization: OwnerOrganizationSchema.optional().nullable(),
@@ -32,7 +23,7 @@ export const CompanyIdParamsSchema = z.object({
   id: z.cuid(),
 });
 
-// QUERIES
+// QUERYS
 export const GetCompaniesQuerySchema = z.object({
   page: z.coerce.number().optional().default(1),
   limit: z.coerce.number().optional().default(10),
@@ -46,17 +37,12 @@ export const GetCompaniesQuerySchema = z.object({
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
 });
 
-// BODIES
+//  BODIES
 export const CreateCompanyBodySchema = CompanySchema.omit({
   id: true,
   status: true,
   createdAt: true,
   updatedAt: true,
-  deletedAt: true,
-  createdBy: true,
-  deletedBy: true,
-  restoreBy: true,
-  updatedBy: true,
 }).extend({
   ownerId: z.string().optional().nullable(),
   ownerTeamId: z.string().optional().nullable(),
@@ -98,7 +84,7 @@ export const CompanyDeleteResponseSchema = CompanySchema;
 
 export const CompanyRestoreResponseSchema = CompanySchema;
 
-// TYPES
+//TYPES
 export type Company = z.infer<typeof CompanySchema>;
 
 export type CreateCompany = z.infer<typeof CreateCompanyBodySchema>;

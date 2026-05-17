@@ -1,6 +1,7 @@
 import { BaseController } from '@/controllers/base.controller.js';
-import { Company } from '@/modules/companies/companies.schema.js';
-import { CompaniesService } from '@/modules/companies/companies.service.js';
+
+import { Company } from './teams.schema.js';
+import { CompaniesService } from './teams.service.js';
 
 export class CompaniesController extends BaseController<Company> {
   constructor(private readonly companiesService: CompaniesService) {
