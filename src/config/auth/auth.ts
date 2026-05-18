@@ -71,5 +71,8 @@ export const createAuth = (authService: AuthService) =>
 
     advanced: {
       useSecureCookies: isProd,
+      database: {
+        generateId: false,
+      },
     },
   });

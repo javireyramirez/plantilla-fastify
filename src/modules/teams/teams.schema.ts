@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { OwnerOrganizationSchema, OwnerSchema, OwnerTeamSchema } from '@/schemas/base.schema.js';
 
 export const CompanySchema = z.object({
-  id: z.cuid(),
+  id: z.uuidv7(),
   name: z.string().min(1),
   nif: z.string().min(1),
   sector: z.string().optional().nullable(),
@@ -20,7 +20,7 @@ export const CompanySchema = z.object({
 
 // PARAMS
 export const CompanyIdParamsSchema = z.object({
-  id: z.cuid(),
+  id: z.uuidv7(),
 });
 
 // QUERYS
@@ -54,7 +54,7 @@ export const UpdateCompanyBodySchema = CreateCompanyBodySchema.partial();
 export const BulkCreateCompanyBodySchema = z.array(CreateCompanyBodySchema);
 
 export const BulkIdsBodySchema = z.object({
-  ids: z.array(z.cuid()),
+  ids: z.array(z.uuidv7()),
 });
 
 // RESPONSES

@@ -1,16 +1,20 @@
 import fp from 'fastify-plugin';
 
 import { CompaniesRepository } from '@/modules/companies/companies.repository.js';
+import { OrganizationRepository } from '@/modules/organization/organization.repository.js';
 import { StorageRepository } from '@/modules/storage/storage.repository.js';
 
 export default fp(
   async (fastify) => {
     const storageRepository = new StorageRepository(fastify.prisma);
     const companiesRepository = new CompaniesRepository(fastify.prisma);
+    const organizationRepository = new OrganizationRepository(fastify.prisma);
 
     fastify.decorate('storageRepository', storageRepository);
 
     fastify.decorate('companiesRepository', companiesRepository);
+
+    fastify.decorate('organizationRepository', organizationRepository);
 
     fastify.log.info('Repositories ready');
   },
@@ -22,5 +26,6 @@ declare module 'fastify' {
   interface FastifyInstance {
     storageRepository: StorageRepository;
     companiesRepository: CompaniesRepository;
+    organizationRepository: OrganizationRepository;
   }
 }

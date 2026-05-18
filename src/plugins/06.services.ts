@@ -3,6 +3,7 @@ import fp from 'fastify-plugin';
 import { AuthService } from '@/modules/auth/auth.service.js';
 import { CompaniesService } from '@/modules/companies/companies.service.js';
 import { EmailService } from '@/modules/email/email.service.js';
+import { OrganizationService } from '@/modules/organization/organization.service.js';
 import { StorageService } from '@/modules/storage/storage.service.js';
 
 export default fp(
@@ -11,11 +12,13 @@ export default fp(
     const authService = new AuthService(fastify.prisma, fastify.log);
     const storageService = new StorageService(fastify.storageRepository, fastify.storageProvider);
     const comparyService = new CompaniesService(fastify.companiesRepository);
+    const organizationService = new OrganizationService(fastify.organizationRepository);
 
     fastify.decorate('emailService', emailService);
     fastify.decorate('authService', authService);
     fastify.decorate('storageService', storageService);
     fastify.decorate('companiesService', comparyService);
+    fastify.decorate('organizationService', organizationService);
 
     fastify.log.info('Services ready');
   },
@@ -31,5 +34,6 @@ declare module 'fastify' {
     authService: AuthService;
     storageService: StorageService;
     companiesService: CompaniesService;
+    organizationService: OrganizationService;
   }
 }

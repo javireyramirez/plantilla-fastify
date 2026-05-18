@@ -1,9 +1,9 @@
 import { z } from 'zod';
 
 // --- Base Atoms (DRY) ---
-const entityId = z.uuid();
+const entityId = z.uuidv7();
 const entityType = z.string().min(1);
-const documentId = z.uuid();
+const documentId = z.uuidv7();
 
 // --- Reusable Base Schemas ---
 export const EntityParamsSchema = z.object({
@@ -91,7 +91,7 @@ export const ResponseDocuments = z.object({
 });
 
 export const ResponseDeleteSchema = z.object({
-  id: z.uuid(),
+  id: z.uuidv7(),
   message: z.string(),
 });
 

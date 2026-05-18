@@ -4,15 +4,17 @@ import {
   OwnerOrganizationSchema,
   OwnerSchema,
   OwnerTeamSchema,
+  ResponseListSchemaBase,
   recordStatusSchema,
 } from '@/schemas/base.schema.js';
 
 export const CompanySchema = z.object({
-  id: z.cuid(),
+  id: z.uuidv7(),
   name: z.string().min(1),
   nif: z.string().min(1),
   sector: z.string().optional().nullable(),
   website: z.url().optional().nullable(),
+
   status: recordStatusSchema,
   createdAt: z.date(),
   updatedAt: z.date(),
@@ -29,7 +31,7 @@ export const CompanySchema = z.object({
 
 // PARAMS
 export const CompanyIdParamsSchema = z.object({
-  id: z.cuid(),
+  id: z.uuidv7(),
 });
 
 // QUERIES
@@ -43,6 +45,12 @@ export const GetCompaniesQuerySchema = z.object({
   sector: z.string().optional(),
 
   sortBy: z.string().optional().default('createdAt'),
+  sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
+});
+
+export const getListQuery = z.object({
+  limit: z.coerce.number().int().positive().max(100).default(20),
+  sortBy: z.string().optional().default('name'),
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
 });
 
@@ -68,11 +76,13 @@ export const UpdateCompanyBodySchema = CreateCompanyBodySchema.partial();
 export const BulkCreateCompanyBodySchema = z.array(CreateCompanyBodySchema);
 
 export const BulkIdsBodySchema = z.object({
-  ids: z.array(z.cuid()),
+  ids: z.array(z.uuidv7()),
 });
 
 // RESPONSES
 export const CompanyResponseSchema = CompanySchema;
+
+export const ResponseListSchema = ResponseListSchemaBase;
 
 export const CompaniesListResponseSchema = z.object({
   data: z.array(CompanySchema),

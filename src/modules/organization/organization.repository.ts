@@ -2,10 +2,10 @@ import { FastifyInstance } from 'fastify';
 
 import { BaseRepository } from '@/repositories/base.repository.js';
 
-import { Company } from './organizations.schema.js';
+import { Organization } from './organization.schema.js';
 
-export class CompaniesRepository extends BaseRepository<Company> {
+export class OrganizationRepository extends BaseRepository<Organization> {
   constructor(prisma: FastifyInstance['prisma']) {
-    super(prisma, 'company');
+    super(prisma, 'organization');
   }
 }

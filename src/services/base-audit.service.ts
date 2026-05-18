@@ -9,6 +9,15 @@ import {
 import { BaseRepository } from '@/repositories/base.repository.js';
 import { HttpError } from '@/utils/http.error.js';
 
+const defaultInclude = {
+  owner: {
+    select: {
+      name: true,
+      email: true,
+    },
+  },
+};
+
 type PrismaTransaction = Omit<
   FastifyInstance['prisma'],
   '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
@@ -38,9 +47,7 @@ export abstract class BaseAuditService<T> {
     try {
       return await this.repository.create({
         data: { ...data, ...withCreatedBy(userId, data?.ownerId) },
-        include: {
-          ...(options.include ?? {}),
-        },
+        include: { ...defaultInclude, ...(options.include ?? {}) },
         select: options.select,
       });
     } catch (error) {
@@ -58,9 +65,7 @@ export abstract class BaseAuditService<T> {
       return await this.repository.update({
         where: { id, ...this.getStatusFilter(false) },
         data: { ...data, ...withUpdatedBy(userId) },
-        include: {
-          ...(options.include ?? {}),
-        },
+        include: { ...defaultInclude, ...(options.include ?? {}) },
         select: options.select,
       });
     } catch (error) {
@@ -117,7 +122,13 @@ export abstract class BaseAuditService<T> {
   async findFirst(
     params: { where?: any; include?: any; orderBy?: any; select?: any } = {},
   ): Promise<T | null> {
-    return this.repository.findFirst(params);
+    return this.repository.findFirst({
+      ...params,
+      include: {
+        ...defaultInclude,
+        ...(params.include || {}),
+      },
+    });
   }
   async findByIdWithContext(id: string, context: any): Promise<T | null> {
     return this.repository.findFirst({
@@ -137,9 +148,33 @@ export abstract class BaseAuditService<T> {
     include?: any;
     select?: any;
   }): Promise<{ data: T[]; total: number }> {
-    return this.repository.findManyWithCount(params);
+    return this.repository.findManyWithCount({
+      ...params,
+      include: {
+        ...defaultInclude,
+        ...(params.include || {}),
+      },
+    });
   }
 
+  async findList(params: {
+    where?: any;
+    take?: number;
+    orderBy?: any;
+    select?: any;
+    isTrash?: boolean;
+  }): Promise<T[]> {
+    return this.repository.findMany({
+      where: this.getAuditWhere(params.isTrash ?? false, params.where),
+      take: params.take ?? 20,
+      orderBy: params.orderBy ?? { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        ...(params.select ?? {}),
+      },
+    });
+  }
   async updateWithContext(where: any, data: any, userId?: string): Promise<T> {
     try {
       return await this.repository.update({

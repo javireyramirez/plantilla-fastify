@@ -1,12 +1,18 @@
 import { z } from 'zod';
 
-import { recordStatusSchema } from '@/schemas/base.schema.js';
+import {
+  OwnerOrganizationSchema,
+  OwnerSchema,
+  OwnerTeamSchema,
+  ResponseListSchemaBase,
+  recordStatusSchema,
+} from '@/schemas/base.schema.js';
 
 export const OrganizationSchema = z.object({
-  id: z.cuid(),
+  id: z.uuidv7(),
   name: z.string().min(1),
   slug: z.string().min(1),
-  image: z.date().optional().nullable(),
+  image: z.string().optional().nullable(),
 
   status: recordStatusSchema,
   createdAt: z.date(),
@@ -16,15 +22,19 @@ export const OrganizationSchema = z.object({
   deletedBy: z.string().optional().nullable(),
   restoreBy: z.string().optional().nullable(),
   updatedBy: z.string().optional().nullable(),
+
+  owner: OwnerSchema.optional().nullable(),
+  ownerTeam: OwnerTeamSchema.optional().nullable(),
+  ownerOrganization: OwnerOrganizationSchema.optional().nullable(),
 });
 
 // PARAMS
 export const OrganizationIdParamsSchema = z.object({
-  id: z.cuid(),
+  id: z.uuidv7(),
 });
 
 // QUERIES
-export const GetCompaniesQuerySchema = z.object({
+export const GetOrganizationQuerySchema = z.object({
   page: z.coerce.number().optional().default(1),
   limit: z.coerce.number().optional().default(10),
 
@@ -34,6 +44,12 @@ export const GetCompaniesQuerySchema = z.object({
   sector: z.string().optional(),
 
   sortBy: z.string().optional().default('createdAt'),
+  sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
+});
+
+export const getListQuery = z.object({
+  limit: z.coerce.number().int().positive().max(100).default(20),
+  sortBy: z.string().optional().default('name'),
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
 });
 
@@ -59,13 +75,15 @@ export const UpdateOrganizationBodySchema = CreateOrganizationBodySchema.partial
 export const BulkCreateOrganizationBodySchema = z.array(CreateOrganizationBodySchema);
 
 export const BulkIdsBodySchema = z.object({
-  ids: z.array(z.cuid()),
+  ids: z.array(z.uuidv7()),
 });
 
 // RESPONSES
 export const OrganizationResponseSchema = OrganizationSchema;
 
-export const CompaniesListResponseSchema = z.object({
+export const ResponseListSchema = ResponseListSchemaBase;
+
+export const OrganizationListResponseSchema = z.object({
   data: z.array(OrganizationSchema),
 
   meta: z.object({

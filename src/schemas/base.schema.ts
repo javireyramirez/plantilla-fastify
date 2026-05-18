@@ -2,9 +2,9 @@ import { z } from 'zod';
 
 export const CreateSchema = z
   .object({
-    ownerId: z.string().optional(),
-    ownerTeamId: z.string().optional(),
-    ownerOrganizationId: z.string().optional(),
+    ownerId: z.uuidv7().optional(),
+    ownerTeamId: z.uuidv7().optional(),
+    ownerOrganizationId: z.uuidv7().optional(),
   })
   .loose();
 
@@ -20,6 +20,13 @@ export const OwnerTeamSchema = z.object({
 export const OwnerOrganizationSchema = z.object({
   name: z.string(),
 });
+
+export const ResponseListSchemaBase = z.array(
+  z.object({
+    id: z.uuidv7(),
+    name: z.string(),
+  }),
+);
 
 export const recordStatusSchema = z.enum([
   'ACTIVE',

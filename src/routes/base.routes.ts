@@ -12,10 +12,6 @@ export function registerBaseRoutes<T>(
 ) {
   const app = fastify.withTypeProvider<ZodTypeProvider>();
 
-  // ==========================================
-  // BULK ROUTES (Deben ir antes de /:id)
-  // ==========================================
-
   app.post(
     '/bulk',
     {
@@ -68,10 +64,6 @@ export function registerBaseRoutes<T>(
     (req, reply) => controller.deletePermanentMany(req as any, reply),
   );
 
-  // ==========================================
-  // STANDARD ROUTES
-  // ==========================================
-
   app.get(
     '/',
     {
@@ -83,6 +75,19 @@ export function registerBaseRoutes<T>(
       preHandler: [requireAuth],
     },
     (req, reply) => controller.getAll(req as any, reply),
+  );
+
+  app.get(
+    '/list',
+    {
+      schema: {
+        tags: options.tags,
+        querystring: options.schemas.getListQuery,
+        response: { 200: options.schemas.getListResponse },
+      },
+      preHandler: [requireAuth],
+    },
+    (req, reply) => controller.getList(req as any, reply),
   );
 
   app.get(

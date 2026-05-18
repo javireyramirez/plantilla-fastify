@@ -62,6 +62,18 @@ export abstract class BaseController<T> {
     return reply.send(record);
   }
 
+  async getList(request: FastifyRequest<{ Querystring: any }>, reply: FastifyReply) {
+    const { limit = 20, sortBy = 'name', sortOrder = 'asc', ...filters } = request.query as any;
+
+    const result = await this.service.findList({
+      where: filters,
+      take: Number(limit),
+      orderBy: { [sortBy]: sortOrder },
+    });
+
+    return reply.send(result);
+  }
+
   // ==========================================
   // 2. ESCRITURA INDIVIDUAL (WRITE)
   // ==========================================

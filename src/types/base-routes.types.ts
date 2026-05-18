@@ -11,6 +11,7 @@ export interface BaseRoutesOptions {
      * QUERIES
      */
     getManyQuery?: any;
+    getListQuery?: any;
 
     /**
      * INDIVIDUAL BODIES
@@ -40,5 +41,6 @@ export interface BaseRoutesOptions {
      * BULK RESPONSES
      */
     bulkResponse?: any; // z.object({ count: z.number() })
+    getListResponse?: any;
   };
 }
