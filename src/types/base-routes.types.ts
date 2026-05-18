@@ -11,7 +11,7 @@ export interface BaseRoutesOptions {
      * QUERIES
      */
     getManyQuery?: any;
-    getListQuery?: any;
+    GetListQuery?: any;
 
     /**
      * INDIVIDUAL BODIES

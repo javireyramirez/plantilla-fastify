@@ -5,13 +5,13 @@ import {
   BulkIdsBodySchema,
   BulkResponseSchema,
   CreateOrganizationBodySchema,
+  GetListQuery,
   GetOrganizationQuerySchema,
   OrganizationIdParamsSchema,
   OrganizationListResponseSchema,
   OrganizationResponseSchema,
   ResponseListSchema,
   UpdateOrganizationBodySchema,
-  getListQuery,
 } from '@/modules/organization/organization.schema.js';
 import { registerBaseRoutes } from '@/routes/base.routes.js';
 
@@ -25,7 +25,7 @@ export default async function organizationRoutes(fastify: FastifyInstance) {
 
       //Query
       getManyQuery: GetOrganizationQuerySchema,
-      getListQuery: getListQuery,
+      GetListQuery: GetListQuery,
 
       //Body
       createBody: CreateOrganizationBodySchema,

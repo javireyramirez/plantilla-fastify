@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import {
+  GetListQueryBase,
   OwnerOrganizationSchema,
   OwnerSchema,
   OwnerTeamSchema,
@@ -48,11 +49,7 @@ export const GetCompaniesQuerySchema = z.object({
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
 });
 
-export const getListQuery = z.object({
-  limit: z.coerce.number().int().positive().max(100).default(20),
-  sortBy: z.string().optional().default('name'),
-  sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
-});
+export const GetListQuery = GetListQueryBase;
 
 // BODIES
 export const CreateCompanyBodySchema = CompanySchema.omit({

@@ -82,7 +82,7 @@ export function registerBaseRoutes<T>(
     {
       schema: {
         tags: options.tags,
-        querystring: options.schemas.getListQuery,
+        querystring: options.schemas.GetListQuery,
         response: { 200: options.schemas.getListResponse },
       },
       preHandler: [requireAuth],

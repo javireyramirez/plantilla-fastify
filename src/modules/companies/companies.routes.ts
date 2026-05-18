@@ -9,9 +9,9 @@ import {
   CompanyResponseSchema,
   CreateCompanyBodySchema,
   GetCompaniesQuerySchema,
+  GetListQuery,
   ResponseListSchema,
   UpdateCompanyBodySchema,
-  getListQuery,
 } from '@/modules/companies/companies.schema.js';
 import { registerBaseRoutes } from '@/routes/base.routes.js';
 
@@ -25,7 +25,7 @@ export default async function companiesRoutes(fastify: FastifyInstance) {
 
       //Query
       getManyQuery: GetCompaniesQuerySchema,
-      getListQuery: getListQuery,
+      GetListQuery: GetListQuery,
 
       //Body
       createBody: CreateCompanyBodySchema,
