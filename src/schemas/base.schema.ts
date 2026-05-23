@@ -21,6 +21,23 @@ export const OwnerOrganizationSchema = z.object({
   name: z.string(),
 });
 
+export const UserSchemaBase = z.object({
+  name: z.string(),
+  email: z.email(),
+});
+
+export const OrganizationSchemaBase = z.object({
+  name: z.string(),
+});
+
+export const TeamSchemaBase = z.object({
+  name: z.string(),
+});
+
+export const RoleSchemaBase = z.object({
+  name: z.string(),
+});
+
 export const GetListQueryBase = z.object({
   limit: z.coerce.number().int().positive().max(100).default(20),
   sortBy: z.string().optional().default('name'),

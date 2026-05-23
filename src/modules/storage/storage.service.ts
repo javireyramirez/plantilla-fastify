@@ -1,7 +1,7 @@
 import { Zip, ZipPassThrough } from 'fflate';
 import { PassThrough, Readable } from 'stream';
 
-import { BaseAuditService } from '@/services/base-audit.service.js';
+import { BaseAuditService } from '@/services/base.service.js';
 import { HttpError } from '@/utils/http.error.js';
 
 import type { IStorageProvider } from './interfaces/storage.provider.interface.js';

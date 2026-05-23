@@ -1,8 +1,9 @@
-import fastify, { FastifyReply, FastifyRequest } from 'fastify';
+import { FastifyReply, FastifyRequest } from 'fastify';
 
 import { CreateSchema } from '@/schemas/base.schema.js';
-import { BaseAuditService } from '@/services/base-audit.service.js';
+import { BaseAuditService } from '@/services/base.service.js';
 import { HttpError } from '@/utils/http.error.js';
+import { parsePagination } from '@/utils/pagination.js';
 
 export abstract class BaseController<T> {
   constructor(protected readonly service: BaseAuditService<T>) {}
@@ -21,24 +22,18 @@ export abstract class BaseController<T> {
       ...filters
     } = request.query as any;
 
+    const { skip, take, orderBy, meta } = parsePagination({ page, limit, sortBy, sortOrder });
+
     const shouldShowTrash = String(isTrash) === 'true';
 
     const result = await this.service.findManyWithCount({
       where: this.service.getAuditWhere(shouldShowTrash, filters),
-      skip: (Number(page) - 1) * Number(limit),
-      take: Number(limit),
-      orderBy: { [sortBy]: sortOrder },
+      skip,
+      take,
+      orderBy,
     });
 
-    return reply.send({
-      data: result.data,
-      meta: {
-        total: result.total,
-        page: Number(page),
-        limit: Number(limit),
-        totalPages: Math.ceil(result.total / Number(limit)),
-      },
-    });
+    return reply.send({ data: result.data, meta: meta(result.total) });
   }
 
   async getById(

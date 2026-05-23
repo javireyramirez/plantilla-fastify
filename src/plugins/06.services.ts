@@ -12,7 +12,10 @@ export default fp(
     const authService = new AuthService(fastify.prisma, fastify.log);
     const storageService = new StorageService(fastify.storageRepository, fastify.storageProvider);
     const comparyService = new CompaniesService(fastify.companiesRepository);
-    const organizationService = new OrganizationService(fastify.organizationRepository);
+    const organizationService = new OrganizationService(
+      fastify.organizationRepository,
+      fastify.organizationMemberRepository,
+    );
 
     fastify.decorate('emailService', emailService);
     fastify.decorate('authService', authService);

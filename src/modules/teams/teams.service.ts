@@ -1,4 +1,4 @@
-import { BaseAuditService } from '@/services/base-audit.service.js';
+import { BaseAuditService } from '@/services/base.service.js';
 
 import { CompaniesRepository } from './teams.repository.js';
 import { Company } from './teams.schema.js';

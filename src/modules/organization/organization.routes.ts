@@ -1,16 +1,27 @@
 import { FastifyInstance } from 'fastify';
 
 import {
+  BulkCreateMembersSchema,
   BulkCreateOrganizationBodySchema,
   BulkIdsBodySchema,
+  BulkMemberIdsBodySchema,
   BulkResponseSchema,
+  BulkToggleMemberStatusSchema,
+  BulkUpdateMemberRoleSchema,
+  CreateMemberSchema,
   CreateOrganizationBodySchema,
   GetListQuery,
+  GetMembersQuerySchema,
   GetOrganizationQuerySchema,
+  MemberListResponseSchema,
+  MemberUserIdParamsSchema,
   OrganizationIdParamsSchema,
   OrganizationListResponseSchema,
+  OrganizationMemberResponseSchema,
   OrganizationResponseSchema,
   ResponseListSchema,
+  ToggleMemberStatusSchema,
+  UpdateMemberRoleSchema,
   UpdateOrganizationBodySchema,
 } from '@/modules/organization/organization.schema.js';
 import { registerBaseRoutes } from '@/routes/base.routes.js';
@@ -18,22 +29,18 @@ import { registerBaseRoutes } from '@/routes/base.routes.js';
 export default async function organizationRoutes(fastify: FastifyInstance) {
   registerBaseRoutes(fastify, fastify.organizationController, {
     tags: ['Organization'],
-
     schemas: {
-      //Parámetros
+      // Parámetros
       idParams: OrganizationIdParamsSchema,
-
-      //Query
+      // Query
       getManyQuery: GetOrganizationQuerySchema,
       GetListQuery: GetListQuery,
-
-      //Body
+      // Body
       createBody: CreateOrganizationBodySchema,
       updateBody: UpdateOrganizationBodySchema,
       bulkCreateBody: BulkCreateOrganizationBodySchema,
       bulkIdsBody: BulkIdsBodySchema,
-
-      // --- Respuestas ---
+      // Respuestas
       getManyResponse: OrganizationListResponseSchema,
       getOneResponse: OrganizationResponseSchema,
       createResponse: OrganizationResponseSchema,
@@ -43,5 +50,108 @@ export default async function organizationRoutes(fastify: FastifyInstance) {
       bulkResponse: BulkResponseSchema,
       getListResponse: ResponseListSchema,
     },
+  });
+
+  // ==========================================
+  // 1. LECTURA
+  // ==========================================
+
+  fastify.get('/:id/members', {
+    schema: {
+      tags: ['Organization Members'],
+      params: OrganizationIdParamsSchema,
+      querystring: GetMembersQuerySchema,
+      response: { 200: MemberListResponseSchema },
+    },
+    handler: fastify.organizationController.getAllMembers.bind(fastify.organizationController),
+  });
+
+  // ==========================================
+  // 2. OPERACIONES INDIVIDUALES
+  // ==========================================
+
+  fastify.post('/:id/members', {
+    schema: {
+      tags: ['Organization Members'],
+      params: OrganizationIdParamsSchema,
+      body: CreateMemberSchema,
+      response: { 201: OrganizationMemberResponseSchema },
+    },
+    handler: fastify.organizationController.addMember.bind(fastify.organizationController),
+  });
+
+  fastify.delete('/:id/members/:userId', {
+    schema: {
+      tags: ['Organization Members'],
+      params: MemberUserIdParamsSchema,
+      response: { 200: OrganizationMemberResponseSchema },
+    },
+    handler: fastify.organizationController.removeMember.bind(fastify.organizationController),
+  });
+
+  fastify.patch('/:id/members/:userId/role', {
+    schema: {
+      tags: ['Organization Members'],
+      params: MemberUserIdParamsSchema,
+      body: UpdateMemberRoleSchema,
+      response: { 200: OrganizationMemberResponseSchema },
+    },
+    handler: fastify.organizationController.updateMemberRole.bind(fastify.organizationController),
+  });
+
+  fastify.patch('/:id/members/:userId/status', {
+    schema: {
+      tags: ['Organization Members'],
+      params: MemberUserIdParamsSchema,
+      body: ToggleMemberStatusSchema,
+      response: { 200: OrganizationMemberResponseSchema },
+    },
+    handler: fastify.organizationController.toggleMemberStatus.bind(fastify.organizationController),
+  });
+
+  // ==========================================
+  // 3. OPERACIONES MASIVAS (BULK)
+  // ==========================================
+
+  fastify.post('/:id/members/bulk', {
+    schema: {
+      tags: ['Organization Members'],
+      params: OrganizationIdParamsSchema,
+      body: BulkCreateMembersSchema,
+      response: { 201: BulkResponseSchema },
+    },
+    handler: fastify.organizationController.addMembers.bind(fastify.organizationController),
+  });
+
+  fastify.delete('/:id/members/bulk', {
+    schema: {
+      tags: ['Organization Members'],
+      params: OrganizationIdParamsSchema,
+      body: BulkMemberIdsBodySchema,
+      response: { 200: BulkResponseSchema },
+    },
+    handler: fastify.organizationController.removeMembers.bind(fastify.organizationController),
+  });
+
+  fastify.patch('/:id/members/bulk/role', {
+    schema: {
+      tags: ['Organization Members'],
+      params: OrganizationIdParamsSchema,
+      body: BulkUpdateMemberRoleSchema,
+      response: { 200: BulkResponseSchema },
+    },
+    handler: fastify.organizationController.updateMembersRole.bind(fastify.organizationController),
+  });
+
+  fastify.patch('/:id/members/bulk/status', {
+    schema: {
+      tags: ['Organization Members'],
+      params: OrganizationIdParamsSchema,
+      body: BulkToggleMemberStatusSchema,
+      response: { 200: BulkResponseSchema },
+    },
+    handler: fastify.organizationController.toggleMembersStatus.bind(
+      fastify.organizationController,
+    ),
   });
 }

@@ -1,8 +1,12 @@
 import { S3Client } from '@aws-sdk/client-s3';
 import { PrismaClient } from '@prisma/client';
-import type { Auth, BetterAuthOptions } from 'better-auth';
+import type { PermissionAction } from '@prisma/client';
+import type { Auth } from 'better-auth';
 
-import type { RateLimitTier } from '@/plugins/02.security.js';
+import type { MemberContext } from '@/modules/rbac/rbac.interfaces.js';
+import type { RateLimitTiers } from '@/plugins/02.security.js';
+
+type BetterAuthInstance = Auth;
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -14,5 +18,13 @@ declare module 'fastify' {
 
   interface FastifyRequest {
     session: Awaited<ReturnType<BetterAuthInstance['api']['getSession']>>;
+    memberContext: MemberContext | null;
+  }
+
+  interface FastifyContextConfig {
+    rbac?: {
+      resource: string;
+      action: PermissionAction;
+    };
   }
 }

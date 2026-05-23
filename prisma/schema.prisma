@@ -15,7 +15,10 @@ enum RecordStatus {
   SUSPENDED
 }
 
-//Auth
+// ==========================================
+// AUTHENTICATION & USERS
+// ==========================================
+
 model User {
   id            String   @id @default(uuid(7))
   email         String?  @unique
@@ -28,32 +31,62 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  // Auditoría y Propiedad: Documentos
   createdDocuments  Document[] @relation("CreatedDocuments")
   deletedDocuments  Document[] @relation("DeletedDocuments")
   restoredDocuments Document[] @relation("RestoredDocuments")
   updatedDocuments  Document[] @relation("UpdatedDocuments")
-  ownedDocuments    Document[] @relation("OwnedDocuments")
+  ownedDocuments    Document[] @relation("UserOwnedDocuments")
 
-  createdCompanies  Company[]      @relation("CreatedCompanies")
-  deletedCompanies  Company[]      @relation("DeletedCompanies")
-  restoredCompanies Company[]      @relation("RestoredCompanies")
-  updatedCompanies  Company[]      @relation("UpdatedCompanies")
-  ownedCompanies    Company[]      @relation("OwnedCompanies")
-  ownedOrganization Organization[] @relation("OwnedOrganization")
+  // Auditoría y Propiedad: Compañías
+  createdCompanies  Company[] @relation("CreatedCompanies")
+  deletedCompanies  Company[] @relation("DeletedCompanies")
+  restoredCompanies Company[] @relation("RestoredCompanies")
+  updatedCompanies  Company[] @relation("UpdatedCompanies")
+  ownedCompanies    Company[] @relation("UserOwnedCompanies")
 
+  // Auditoría y Propiedad: Organizaciones
   createdOrganizations  Organization[] @relation("CreatedOrganizations")
   deletedOrganizations  Organization[] @relation("DeletedOrganizations")
   restoredOrganizations Organization[] @relation("RestoredOrganizations")
   updatedOrganizations  Organization[] @relation("UpdatedOrganizations")
+  ownedOrganizations    Organization[] @relation("UserOwnedOrganizations")
 
+  invitedMembers     OrganizationMember[] @relation("InvitedMembers")
+  removedMembers     OrganizationMember[] @relation("RemovedMembers")
+  roleUpdatedMembers OrganizationMember[] @relation("RoleUpdatedMembers")
+
+  // Auditoría y Propiedad: Roles
+  createdRoles  Role[] @relation("CreatedRoles")
+  deletedRoles  Role[] @relation("DeletedRoles")
+  restoredRoles Role[] @relation("RestoredRoles")
+  updatedRoles  Role[] @relation("UpdatedRoles")
+  ownedRoles    Role[] @relation("UserOwnedRoles")
+
+  grantedRolePermissions RolePermission[] @relation("GrantedRolePermissions")
+  revokedRolePermissions RolePermission[] @relation("RevokedRolePermissions")
+
+  // Auditoría y Propiedad: Teams
+  createdTeams  Team[] @relation("CreatedTeams")
+  deletedTeams  Team[] @relation("DeletedTeams")
+  restoredTeams Team[] @relation("RestoredTeams")
+  updatedTeams  Team[] @relation("UpdatedTeams")
+
+  invitedTeamMembers     TeamMember[] @relation("InvitedTeamMembers")
+  removedTeamMembers     TeamMember[] @relation("RemovedTeamMembers")
+  roleUpdatedTeamMembers TeamMember[] @relation("RoleUpdatedTeamMembers")
+
+  // Auth Auxiliar
   accounts  Account[]
   sessions  Session[]
   keys      Key[]
   emailLogs EmailLog[]
 
+  // Acceso y Membresía
   memberships   OrganizationMember[]
-  entityAccess  EntityAccess[]
+  entityAccess  EntityAccess[]       @relation("UserEntityAccess")
   grantedAccess EntityAccess[]       @relation("GrantedAccess")
+  revokedAccess EntityAccess[]       @relation("RevokedAccess")
 
   @@index([email])
   @@index([isActive])
@@ -191,7 +224,26 @@ model LoginAttempt {
   @@map("auth_login_attempts")
 }
 
-//Email
+// ==========================================
+// COMMUNICATIONS
+// ==========================================
+
+enum EmailType {
+  PASSWORD_RESET
+  EMAIL_VERIFICATION
+  WELCOME
+  NOTIFICATION
+  MARKETING
+}
+
+enum EmailStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+  BOUNCED
+}
+
 model EmailLog {
   id         String      @id @default(uuid(7))
   userId     String?
@@ -224,21 +276,9 @@ model EmailLog {
   @@map("email_log")
 }
 
-enum EmailType {
-  PASSWORD_RESET
-  EMAIL_VERIFICATION
-  WELCOME
-  NOTIFICATION
-  MARKETING
-}
-
-enum EmailStatus {
-  PENDING
-  SENT
-  DELIVERED
-  FAILED
-  BOUNCED
-}
+// ==========================================
+// CORE ENTITIES & AUDIT PATTERNS
+// ==========================================
 
 model Document {
   id String @id @default(uuid(7))
@@ -257,9 +297,9 @@ model Document {
   entityType String
   entityId   String
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
+  // Auditoría
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime?
   restoreAt DateTime?
 
@@ -280,9 +320,9 @@ model Document {
   ownerTeamId         String?
   ownerOrganizationId String?
 
-  owner             User?         @relation("OwnedDocuments", fields: [ownerId], references: [id], onDelete: SetNull)
-  ownerTeam         Team?         @relation("OwnedDocuments", fields: [ownerTeamId], references: [id], onDelete: SetNull)
-  ownerOrganization Organization? @relation("OwnedDocuments", fields: [ownerOrganizationId], references: [id], onDelete: SetNull)
+  owner             User?         @relation("UserOwnedDocuments", fields: [ownerId], references: [id], onDelete: SetNull)
+  ownerTeam         Team?         @relation("TeamOwnedDocuments", fields: [ownerTeamId], references: [id], onDelete: SetNull)
+  ownerOrganization Organization? @relation("OrgOwnedDocuments", fields: [ownerOrganizationId], references: [id], onDelete: SetNull)
 
   // Visibilidad
   isPublic Boolean @default(false)
@@ -296,21 +336,54 @@ model Document {
   @@map("document")
 }
 
-// Roles personalizables por organización
+// ==========================================
+// ORGANIZATION, TEAMS & ROLES
+// ==========================================
+
 model Role {
-  id             String   @id @default(uuid(7))
+  id             String  @id @default(uuid(7))
   organizationId String
   name           String
+  slug           String // "admin", "manager", "viewer"
   description    String?
-  isSystem       Boolean  @default(false) // admin, viewer no se borran
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  isSystem       Boolean @default(false) // admin, viewer no se borran
 
-  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  status RecordStatus @default(ACTIVE)
+
+  // Auditoría
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  restoreAt DateTime?
+
+  createdBy String?
+  creator   User?   @relation("CreatedRoles", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  deletedBy String?
+  deletor   User?   @relation("DeletedRoles", fields: [deletedBy], references: [id], onDelete: SetNull)
+
+  restoreBy String?
+  restorer  User?   @relation("RestoredRoles", fields: [restoreBy], references: [id], onDelete: SetNull)
+
+  updatedBy String?
+  updater   User?   @relation("UpdatedRoles", fields: [updatedBy], references: [id], onDelete: SetNull)
+
+  // Relaciones Estructurales
+  organization Organization         @relation("OrganizationRoles", fields: [organizationId], references: [id], onDelete: Cascade)
   permissions  RolePermission[]
   users        OrganizationMember[]
 
-  @@unique([organizationId, name])
+  // Propiedad (RBAC)
+  ownerId             String?
+  ownerTeamId         String?
+  ownerOrganizationId String?
+
+  owner             User?         @relation("UserOwnedRoles", fields: [ownerId], references: [id], onDelete: SetNull)
+  ownerTeam         Team?         @relation("TeamOwnedRoles", fields: [ownerTeamId], references: [id], onDelete: SetNull)
+  ownerOrganization Organization? @relation("OrgOwnedRoles", fields: [ownerOrganizationId], references: [id], onDelete: SetNull)
+  teamMembers       TeamMember[]
+
+  @@unique([organizationId, slug])
   @@index([organizationId])
   @@map("rbac_roles")
 }
@@ -330,6 +403,7 @@ enum PermissionAction {
   RESTORE
   EXPORT
   IMPORT
+  MANAGE
 }
 
 model RolePermission {
@@ -338,6 +412,13 @@ model RolePermission {
   resource String // 'documents', 'leads', 'invoices'
   action   PermissionAction
   scope    PermissionScope  @default(OWN)
+  scopeId  String?
+
+  grantedAt DateTime @default(now())
+  grantedBy String?
+  granter   User?    @relation("GrantedRolePermissions", fields: [grantedBy], references: [id], onDelete: SetNull)
+  revokedBy String?
+  revoker   User?    @relation("RevokedRolePermissions", fields: [revokedBy], references: [id], onDelete: SetNull)
 
   role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
@@ -347,7 +428,6 @@ model RolePermission {
   @@map("rbac_role_permissions")
 }
 
-// Organizaciones
 model Organization {
   id     String       @id @default(uuid(7))
   name   String
@@ -373,21 +453,25 @@ model Organization {
   updatedBy String?
   updater   User?   @relation("UpdatedOrganizations", fields: [updatedBy], references: [id], onDelete: SetNull)
 
-  // Propiedad (RBAC)
+  // Propiedad (RBAC) - Soporte para sub-organizaciones
   ownerId             String?
   ownerTeamId         String?
   ownerOrganizationId String?
 
-  owner             User?         @relation("OwnedOrganization", fields: [ownerId], references: [id], onDelete: SetNull)
-  ownerTeam         Team?         @relation("OwnedOrganization", fields: [ownerTeamId], references: [id], onDelete: SetNull)
-  ownerOrganization Organization? @relation("OwnedOrganization", fields: [ownerOrganizationId], references: [id], onDelete: SetNull)
+  owner             User?         @relation("UserOwnedOrganizations", fields: [ownerId], references: [id], onDelete: SetNull)
+  ownerTeam         Team?         @relation("TeamOwnedOrganizations", fields: [ownerTeamId], references: [id], onDelete: SetNull)
+  ownerOrganization Organization? @relation("OrgOwnedOrganizations", fields: [ownerOrganizationId], references: [id], onDelete: SetNull)
 
-  members           OrganizationMember[]
-  teams             Team[]
-  roles             Role[]
-  ownedDocuments    Document[]           @relation("OwnedDocuments")
-  ownedCompanies    Company[]            @relation("OwnedCompanies")
-  ownedOrganization Organization[]       @relation("OwnedOrganization")
+  // Relaciones Estructurales
+  members OrganizationMember[]
+  teams   Team[]
+  roles   Role[]               @relation("OrganizationRoles")
+
+  // Elementos que posee esta organización (Reverse RBAC)
+  ownedDocuments     Document[]     @relation("OrgOwnedDocuments")
+  ownedCompanies     Company[]      @relation("OrgOwnedCompanies")
+  ownedRoles         Role[]         @relation("OrgOwnedRoles")
+  ownedOrganizations Organization[] @relation("OrgOwnedOrganizations")
 
   @@index([slug])
   @@map("org_organizations")
@@ -402,6 +486,13 @@ model OrganizationMember {
   joinedAt       DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  invitedBy     String?
+  inviter       User?   @relation("InvitedMembers", fields: [invitedBy], references: [id], onDelete: SetNull)
+  removedBy     String?
+  remover       User?   @relation("RemovedMembers", fields: [removedBy], references: [id], onDelete: SetNull)
+  roleUpdatedBy String?
+  roleUpdater   User?   @relation("RoleUpdatedMembers", fields: [roleUpdatedBy], references: [id], onDelete: SetNull)
+
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   role         Role         @relation(fields: [roleId], references: [id])
@@ -415,18 +506,39 @@ model OrganizationMember {
 }
 
 model Team {
-  id             String   @id @default(uuid(7))
+  id             String       @id @default(uuid(7))
   organizationId String
   name           String
   description    String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  status         RecordStatus @default(ACTIVE)
 
-  organization      Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  members           TeamMember[]
-  ownedDocuments    Document[]     @relation("OwnedDocuments")
-  ownedCompanies    Company[]      @relation("OwnedCompanies")
-  ownedOrganization Organization[] @relation("OwnedOrganization")
+  // Auditoría
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  restoreAt DateTime?
+
+  createdBy String?
+  creator   User?   @relation("CreatedTeams", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  deletedBy String?
+  deletor   User?   @relation("DeletedTeams", fields: [deletedBy], references: [id], onDelete: SetNull)
+
+  restoreBy String?
+  restorer  User?   @relation("RestoredTeams", fields: [restoreBy], references: [id], onDelete: SetNull)
+
+  updatedBy String?
+  updater   User?   @relation("UpdatedTeams", fields: [updatedBy], references: [id], onDelete: SetNull)
+
+  // Relaciones
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members      TeamMember[]
+
+  // Elementos que posee este equipo
+  ownedDocuments     Document[]     @relation("TeamOwnedDocuments")
+  ownedCompanies     Company[]      @relation("TeamOwnedCompanies")
+  ownedRoles         Role[]         @relation("TeamOwnedRoles")
+  ownedOrganizations Organization[] @relation("TeamOwnedOrganizations")
 
   @@unique([organizationId, name])
   @@index([organizationId])
@@ -436,30 +548,54 @@ model Team {
 model TeamMember {
   id       String @id @default(uuid(7))
   teamId   String
-  memberId String // FK a OrganizationMember
+  memberId String
+  roleId   String
+
+  joinedAt DateTime @default(now())
+
+  // Auditoría añadida
+  invitedBy String?
+  inviter   User?   @relation("InvitedTeamMembers", fields: [invitedBy], references: [id], onDelete: SetNull)
+
+  removedBy String?
+  remover   User?   @relation("RemovedTeamMembers", fields: [removedBy], references: [id], onDelete: SetNull)
+
+  roleUpdatedBy String?
+  roleUpdater   User?   @relation("RoleUpdatedTeamMembers", fields: [roleUpdatedBy], references: [id], onDelete: SetNull)
 
   team   Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
   member OrganizationMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  role   Role               @relation(fields: [roleId], references: [id])
 
   @@unique([teamId, memberId])
   @@index([teamId])
   @@index([memberId])
+  @@index([roleId])
   @@map("org_team_members")
+}
+
+enum EntityAccessLevel {
+  OWNER
+  EDITOR
+  VIEWER
 }
 
 // Acceso explícito a entidades concretas (compartir)
 model EntityAccess {
-  id          String    @id @default(uuid(7))
+  id          String            @id @default(uuid(7))
   userId      String
   entityName  String
   entityId    String
-  accessLevel String    @default("viewer") // 'owner' | 'editor' | 'viewer'
+  accessLevel EntityAccessLevel @default(VIEWER)
   grantedBy   String?
-  grantedAt   DateTime  @default(now())
+  grantedAt   DateTime          @default(now())
   expiresAt   DateTime?
+  revokedAt   DateTime?
+  revokedBy   String?
 
-  user    User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user    User  @relation("UserEntityAccess", fields: [userId], references: [id], onDelete: Cascade)
   granter User? @relation("GrantedAccess", fields: [grantedBy], references: [id], onDelete: SetNull)
+  revoker User? @relation("RevokedAccess", fields: [revokedBy], references: [id], onDelete: SetNull)
 
   @@unique([userId, entityName, entityId])
   @@index([expiresAt])
@@ -467,6 +603,10 @@ model EntityAccess {
   @@index([entityName, entityId])
   @@map("rbac_entity_access")
 }
+
+// ==========================================
+// ENTIDADES DE NEGOCIO
+// ==========================================
 
 // Modelo de prueba para patrones base
 model Company {
@@ -478,10 +618,9 @@ model Company {
   description String?
   status      RecordStatus @default(ACTIVE)
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
   // Auditoría
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime?
   restoreAt DateTime?
 
@@ -502,9 +641,9 @@ model Company {
   ownerTeamId         String?
   ownerOrganizationId String?
 
-  owner             User?         @relation("OwnedCompanies", fields: [ownerId], references: [id], onDelete: SetNull)
-  ownerTeam         Team?         @relation("OwnedCompanies", fields: [ownerTeamId], references: [id], onDelete: SetNull)
-  ownerOrganization Organization? @relation("OwnedCompanies", fields: [ownerOrganizationId], references: [id], onDelete: SetNull)
+  owner             User?         @relation("UserOwnedCompanies", fields: [ownerId], references: [id], onDelete: SetNull)
+  ownerTeam         Team?         @relation("TeamOwnedCompanies", fields: [ownerTeamId], references: [id], onDelete: SetNull)
+  ownerOrganization Organization? @relation("OrgOwnedCompanies", fields: [ownerOrganizationId], references: [id], onDelete: SetNull)
 
   @@index([nif])
   @@index([status])
