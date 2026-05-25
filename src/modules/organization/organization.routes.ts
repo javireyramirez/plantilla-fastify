@@ -50,6 +50,8 @@ export default async function organizationRoutes(fastify: FastifyInstance) {
     },
   });
 
+  fastify.addHook('preHandler', requireAuth);
+
   // ==========================================
   // 1. LECTURA
   // ==========================================
@@ -60,7 +62,6 @@ export default async function organizationRoutes(fastify: FastifyInstance) {
       params: OrganizationIdParamsSchema,
       querystring: GetMembersQuerySchema,
       response: { 200: MemberListResponseSchema },
-      preHandler: [requireAuth],
     },
     handler: fastify.organizationController.getAllMembers.bind(fastify.organizationController),
   });
@@ -75,7 +76,6 @@ export default async function organizationRoutes(fastify: FastifyInstance) {
       params: OrganizationIdParamsSchema,
       body: CreateMemberSchema,
       response: { 201: OrganizationMemberResponseSchema },
-      preHandler: [requireAuth],
     },
     handler: fastify.organizationController.addMember.bind(fastify.organizationController),
   });
@@ -85,7 +85,6 @@ export default async function organizationRoutes(fastify: FastifyInstance) {
       tags: ['Organization Members'],
       params: MemberUserIdParamsSchema,
       response: { 200: OrganizationMemberResponseSchema },
-      preHandler: [requireAuth],
     },
     handler: fastify.organizationController.removeMember.bind(fastify.organizationController),
   });
@@ -96,7 +95,6 @@ export default async function organizationRoutes(fastify: FastifyInstance) {
       params: MemberUserIdParamsSchema,
       body: ToggleMemberStatusSchema,
       response: { 200: OrganizationMemberResponseSchema },
-      preHandler: [requireAuth],
     },
     handler: fastify.organizationController.toggleMemberStatus.bind(fastify.organizationController),
   });
@@ -111,7 +109,6 @@ export default async function organizationRoutes(fastify: FastifyInstance) {
       params: OrganizationIdParamsSchema,
       body: BulkMemberIdsBodySchema,
       response: { 201: BulkResponseSchema },
-      preHandler: [requireAuth],
     },
     handler: fastify.organizationController.addMembers.bind(fastify.organizationController),
   });
@@ -122,7 +119,6 @@ export default async function organizationRoutes(fastify: FastifyInstance) {
       params: OrganizationIdParamsSchema,
       body: BulkMemberIdsBodySchema,
       response: { 200: BulkResponseSchema },
-      preHandler: [requireAuth],
     },
     handler: fastify.organizationController.removeMembers.bind(fastify.organizationController),
   });
@@ -133,7 +129,6 @@ export default async function organizationRoutes(fastify: FastifyInstance) {
       params: OrganizationIdParamsSchema,
       body: BulkToggleMemberStatusSchema,
       response: { 200: BulkResponseSchema },
-      preHandler: [requireAuth],
     },
     handler: fastify.organizationController.toggleMembersStatus.bind(
       fastify.organizationController,
