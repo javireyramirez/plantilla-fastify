@@ -6,6 +6,8 @@ import { OrganizationRepository } from '@/modules/organization/organization.repo
 import { RolePermissionRepository } from '@/modules/rbac/role-permission.repository.js';
 import { RoleRepository } from '@/modules/rbac/role.repository.js';
 import { StorageRepository } from '@/modules/storage/storage.repository.js';
+import { TeamMemberRepository } from '@/modules/team/team-member.repository.js';
+import { TeamRepository } from '@/modules/team/team.repository.js';
 
 export default fp(
   async (fastify) => {
@@ -15,18 +17,17 @@ export default fp(
     const organizationMemberRepository = new OrganizationMemberRepository(fastify.prisma);
     const roleRepository = new RoleRepository(fastify.prisma);
     const rolePermissionRepository = new RolePermissionRepository(fastify.prisma);
+    const teamRepository = new TeamRepository(fastify.prisma);
+    const teamMemberRepository = new TeamMemberRepository(fastify.prisma);
 
     fastify.decorate('storageRepository', storageRepository);
-
     fastify.decorate('companiesRepository', companiesRepository);
-
     fastify.decorate('organizationRepository', organizationRepository);
-
     fastify.decorate('organizationMemberRepository', organizationMemberRepository);
-
     fastify.decorate('roleRepository', roleRepository);
-
     fastify.decorate('rolePermissionRepository', rolePermissionRepository);
+    fastify.decorate('teamRepository', teamRepository);
+    fastify.decorate('teamMemberRepository', teamMemberRepository);
 
     fastify.log.info('Repositories ready');
   },
@@ -42,5 +43,7 @@ declare module 'fastify' {
     organizationMemberRepository: OrganizationMemberRepository;
     roleRepository: RoleRepository;
     rolePermissionRepository: RolePermissionRepository;
+    teamRepository: TeamRepository;
+    teamMemberRepository: TeamMemberRepository;
   }
 }

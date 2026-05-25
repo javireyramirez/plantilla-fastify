@@ -6,6 +6,7 @@ import { EmailService } from '@/modules/email/email.service.js';
 import { OrganizationService } from '@/modules/organization/organization.service.js';
 import { RoleService } from '@/modules/rbac/rbac.service.js';
 import { StorageService } from '@/modules/storage/storage.service.js';
+import { TeamService } from '@/modules/team/team.service.js';
 
 export default fp(
   async (fastify) => {
@@ -17,6 +18,11 @@ export default fp(
       fastify.organizationRepository,
       fastify.organizationMemberRepository,
     );
+    const teamService = new TeamService(
+      fastify.teamRepository,
+      fastify.teamMemberRepository,
+      fastify.organizationMemberRepository,
+    );
     const roleService = new RoleService(fastify.roleRepository, fastify.rolePermissionRepository);
 
     fastify.decorate('emailService', emailService);
@@ -24,6 +30,7 @@ export default fp(
     fastify.decorate('storageService', storageService);
     fastify.decorate('companiesService', comparyService);
     fastify.decorate('organizationService', organizationService);
+    fastify.decorate('teamService', teamService);
     fastify.decorate('roleService', roleService);
 
     fastify.log.info('Services ready');
@@ -42,5 +49,6 @@ declare module 'fastify' {
     companiesService: CompaniesService;
     organizationService: OrganizationService;
     roleService: RoleService;
+    teamService: TeamService;
   }
 }

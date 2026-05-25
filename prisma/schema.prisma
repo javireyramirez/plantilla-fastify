@@ -68,6 +68,7 @@ model User {
   deletedTeams  Team[] @relation("DeletedTeams")
   restoredTeams Team[] @relation("RestoredTeams")
   updatedTeams  Team[] @relation("UpdatedTeams")
+  userOwnedTeam Team[] @relation("UserOwnedTeam")
 
   invitedTeamMembers     TeamMember[] @relation("InvitedTeamMembers")
   removedTeamMembers     TeamMember[] @relation("RemovedTeamMembers")
@@ -569,6 +570,7 @@ model Organization {
   ownedCompanies     Company[]      @relation("OrgOwnedCompanies")
   ownedRoles         Role[]         @relation("OrgOwnedRoles")
   ownedOrganizations Organization[] @relation("OrgOwnedOrganizations")
+  orgOwnedTeam       Team[]         @relation("OrgOwnedTeam")
 
   organizationRoleContext RoleAssignment[] @relation("OrganizationRoleContext")
 
@@ -632,6 +634,16 @@ model Team {
   ownedRoles         Role[]           @relation("TeamOwnedRoles")
   ownedOrganizations Organization[]   @relation("TeamOwnedOrganizations")
   roleAssignments    RoleAssignment[] @relation("TeamAssignments")
+  teamOwnedTeam      Team[]           @relation("TeamOwnedTeam")
+
+  // Propiedad (RBAC)
+  ownerId             String?
+  ownerTeamId         String?
+  ownerOrganizationId String?
+
+  owner             User?         @relation("UserOwnedTeam", fields: [ownerId], references: [id], onDelete: SetNull)
+  ownerTeam         Team?         @relation("TeamOwnedTeam", fields: [ownerTeamId], references: [id], onDelete: SetNull)
+  ownerOrganization Organization? @relation("OrgOwnedTeam", fields: [ownerOrganizationId], references: [id], onDelete: SetNull)
 
   @@unique([organizationId, name])
   @@index([organizationId])
