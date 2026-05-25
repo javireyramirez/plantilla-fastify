@@ -29,6 +29,7 @@ model User {
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  isSystem      Boolean  @default(false)
 
   // Auditoría y Propiedad: Documentos
   createdDocuments  Document[] @relation("CreatedDocuments")
@@ -70,9 +71,7 @@ model User {
   updatedTeams  Team[] @relation("UpdatedTeams")
   userOwnedTeam Team[] @relation("UserOwnedTeam")
 
-  invitedTeamMembers     TeamMember[] @relation("InvitedTeamMembers")
-  removedTeamMembers     TeamMember[] @relation("RemovedTeamMembers")
-  roleUpdatedTeamMembers TeamMember[] @relation("RoleUpdatedTeamMembers")
+  invitedTeamMembers TeamMember[] @relation("InvitedTeamMembers")
 
   // Auth Auxiliar
   accounts  Account[]
@@ -451,7 +450,7 @@ enum PermissionAction {
 model RolePermission {
   id        String           @id @default(uuid(7))
   roleId    String
-  moduleKey String // FK a Module.key
+  moduleKey String
   action    PermissionAction
   scope     PermissionScope  @default(OWN)
 
@@ -659,12 +658,6 @@ model TeamMember {
 
   invitedBy String?
   inviter   User?   @relation("InvitedTeamMembers", fields: [invitedBy], references: [id], onDelete: SetNull)
-
-  removedBy String?
-  remover   User?   @relation("RemovedTeamMembers", fields: [removedBy], references: [id], onDelete: SetNull)
-
-  roleUpdatedBy String?
-  roleUpdater   User?   @relation("RoleUpdatedTeamMembers", fields: [roleUpdatedBy], references: [id], onDelete: SetNull)
 
   team   Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
   member OrganizationMember @relation(fields: [memberId], references: [id], onDelete: Cascade)

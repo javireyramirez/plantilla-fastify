@@ -5,6 +5,7 @@ import authRoutes from '@/modules/auth/auth.routes.js';
 import companiesRoutes from '@/modules/companies/companies.routes.js';
 import healthRoutes from '@/modules/health/health.routes.js';
 import organizationRoutes from '@/modules/organization/organization.routes.js';
+import roleRoutes from '@/modules/rbac/rbac.routes.js';
 import storageRoutes from '@/modules/storage/storage.routes.js';
 import teamRoutes from '@/modules/team/team.routes.js';
 import type { RateLimitTier } from '@/plugins/02.security.js';
@@ -35,6 +36,10 @@ export default async function routes(fastify: FastifyInstance) {
 
   fastify.register(teamRoutes, {
     prefix: `${env.API_PREFIX}/team`,
+  });
+
+  fastify.register(roleRoutes, {
+    prefix: `${env.API_PREFIX}/role`,
   });
 
   fastify.log.info('Routes ready');

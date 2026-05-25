@@ -23,7 +23,11 @@ export default fp(
       fastify.teamMemberRepository,
       fastify.organizationMemberRepository,
     );
-    const roleService = new RoleService(fastify.roleRepository, fastify.rolePermissionRepository);
+    const roleService = new RoleService(
+      fastify.roleRepository,
+      fastify.rolePermissionRepository,
+      fastify.roleAssignmentRepository,
+    );
 
     fastify.decorate('emailService', emailService);
     fastify.decorate('authService', authService);

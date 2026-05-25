@@ -33,11 +33,12 @@ export const permissionActionSchema = z.enum([
 
 export const RoleSchema = z.object({
   id: z.uuidv7(),
-  organizationId: z.uuidv7(),
   name: z.string().min(1),
   slug: z.string().min(1),
   description: z.string().optional().nullable(),
   isSystem: z.boolean().default(false),
+  icon: z.string().optional().nullable(),
+  color: z.string().optional().nullable(),
   status: recordStatusSchema,
   // Auditoría
   createdAt: z.date(),
@@ -57,7 +58,7 @@ export const RoleSchema = z.object({
 export const RolePermissionSchema = z.object({
   id: z.uuidv7(),
   roleId: z.uuidv7(),
-  resource: z.string().min(1),
+  moduleKey: z.string().min(1),
   action: permissionActionSchema,
   scope: permissionScopeSchema.default('OWN'),
   scopeId: z.string().optional().nullable(),
@@ -72,6 +73,10 @@ export const RolePermissionSchema = z.object({
 
 export const RoleIdParamsSchema = z.object({
   id: z.uuidv7(),
+});
+
+export const PermissionScopeParamsSchema = z.object({
+  newScope: permissionScopeSchema,
 });
 
 // ==========================================
@@ -147,8 +152,7 @@ export const BulkIdsBodySchema = z.object({
 export const CreatePermissionBodySchema = z.object({
   scope: permissionScopeSchema,
   action: permissionActionSchema,
-  resource: z.string(),
-  scopeId: z.string().optional().nullable(),
+  moduleKey: z.string(),
 });
 
 export const BulkCreatePermissionBodySchema = z.array(CreatePermissionBodySchema);
@@ -217,3 +221,4 @@ export type CreatePermissionBody = z.infer<typeof CreatePermissionBodySchema>;
 export type BulkCreatePermissionBody = z.infer<typeof BulkCreatePermissionBodySchema>;
 export type BulkUpdatePermissionBody = z.infer<typeof BulkUpdatePermissionBodySchema>;
 export type RolePermission = z.infer<typeof RolePermissionResponseSchema>;
+export type PermissionScopeParams = z.infer<typeof PermissionScopeParamsSchema>;
