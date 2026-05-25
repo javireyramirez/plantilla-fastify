@@ -1,31 +1,70 @@
-// modules/rbac/rbac.interfaces.ts
 import { PermissionAction, PermissionScope } from '@prisma/client';
 
+// ── Rol con sus permisos expandidos ──────────────────────────────
 export type RoleWithPermissions = {
   id: string;
   name: string;
   slug: string;
   isSystem: boolean;
   permissions: {
-    resource: string;
+    moduleKey: string; // era "resource", mejor alineado con el schema
     action: PermissionAction;
     scope: PermissionScope;
-    scopeId: string | null;
   }[];
 };
 
+// ── Contexto de membresía (sin permisos resueltos) ───────────────
+// Solo datos estructurales: quién es y dónde está
 export type MemberContext = {
-  member: {
-    id: string;
-    userId: string;
-    organizationId: string;
-    isActive: boolean;
-    role: RoleWithPermissions;
-  };
-  team?: {
-    id: string;
-    memberId: string;
-    role: RoleWithPermissions;
-  };
-  permissions: Set<string>;
+  id: string; // OrganizationMember.id
+  userId: string;
+  organizationId: string;
+  isActive: boolean;
+  teamIds: string[]; // puede estar en varios teams
 };
+
+// ── Permisos ya resueltos para un usuario en un contexto ─────────
+// Se calcula aparte, no se mezcla con la membresía
+export type ResolvedPermissions = {
+  userId: string;
+  organizationId: string;
+  // "crm:READ:ORGANIZATION", "invoices:CREATE:OWN"
+  grants: Set<string>;
+};
+
+// ── Helper para construir/verificar el string de permiso ─────────
+export function buildPermissionKey(
+  moduleKey: string,
+  action: PermissionAction,
+  scope: PermissionScope,
+): string {
+  return `${moduleKey}:${action}:${scope}`;
+}
+
+export function hasPermission(
+  resolved: ResolvedPermissions,
+  moduleKey: string,
+  action: PermissionAction,
+  minScope: PermissionScope,
+): boolean {
+  const scopePrecedence: Record<PermissionScope, number> = {
+    GLOBAL: 4,
+    ORGANIZATION: 3,
+    TEAM: 2,
+    OWN: 1,
+  };
+
+  // Busca si tiene ese action en cualquier scope >= minScope
+  return Array.from(resolved.grants).some((key) => {
+    const [kModule, kAction, kScope] = key.split(':') as [
+      string,
+      PermissionAction,
+      PermissionScope,
+    ];
+    return (
+      kModule === moduleKey &&
+      kAction === action &&
+      scopePrecedence[kScope] >= scopePrecedence[minScope]
+    );
+  });
+}

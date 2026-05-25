@@ -1,3 +1,6 @@
+// ==========================================
+// ENTIDADES DE NEGOCIO
+// ==========================================
 export const withCreatedBy = (userId?: string, ownerId?: string) => ({
   ...(userId && {
     createdBy: userId,
@@ -35,4 +38,21 @@ export const active = () => ({
 export const auditWhere = (extra?: object) => ({
   ...active(),
   ...extra,
+});
+
+// ==========================================
+// MEMBRESÍA (invitedBy, removedBy)
+// ==========================================
+
+export const withInvitedBy = (invitedBy?: string) => ({
+  ...(invitedBy && { invitedBy }),
+});
+
+// ==========================================
+// PERMISOS (grantedBy)
+// ==========================================
+
+export const withGrantedBy = (grantedBy?: string) => ({
+  updatedAt: new Date(),
+  ...(grantedBy && { grantedBy }),
 });

@@ -7,7 +7,6 @@ import {
   OwnerSchema,
   OwnerTeamSchema,
   ResponseListSchemaBase,
-  RoleSchemaBase,
   UserSchemaBase,
   recordStatusSchema,
 } from '@/schemas/base.schema.js';
@@ -21,6 +20,7 @@ export const OrganizationSchema = z.object({
   name: z.string().min(1),
   slug: z.string().min(1),
   image: z.string().optional().nullable(),
+  byDefault: z.boolean().default(false),
   status: recordStatusSchema,
   createdAt: z.date(),
   updatedAt: z.date(),
@@ -38,14 +38,11 @@ export const OrganizationMemberSchemaBase = z.object({
   id: z.uuidv7(),
   userId: z.uuidv7(),
   organizationId: z.uuidv7(),
-  roleId: z.uuidv7(),
   isActive: z.boolean().default(true),
   joinedAt: z.date(),
   updatedAt: z.date(),
   // Auditoría de membresía
   invitedBy: z.string().optional().nullable(),
-  removedBy: z.string().optional().nullable(),
-  roleUpdatedBy: z.string().optional().nullable(),
 });
 
 // ==========================================
@@ -81,7 +78,6 @@ export const GetMembersQuerySchema = z.object({
   sortBy: z.string().optional().default('joinedAt'),
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
   search: z.string().optional(),
-  roleId: z.uuidv7().optional(),
   isActive: z.preprocess((val) => val === 'true' || val === true, z.boolean()).optional(),
   joinedFrom: z.string().datetime().optional(),
   joinedTo: z.string().datetime().optional(),
@@ -95,6 +91,7 @@ export const GetListQuery = GetListQueryBase;
 
 export const CreateOrganizationBodySchema = OrganizationSchema.omit({
   id: true,
+  byDefault: true,
   status: true,
   createdAt: true,
   updatedAt: true,
@@ -111,7 +108,7 @@ export const CreateOrganizationBodySchema = OrganizationSchema.omit({
 
 export const UpdateOrganizationBodySchema = CreateOrganizationBodySchema.partial();
 
-export const BulkCreateOrganizationBodySchema = z.array(CreateOrganizationBodySchema);
+export const BulkCreateOrganizationBodySchema = z.array(CreateOrganizationBodySchema).min(1);
 
 export const BulkIdsBodySchema = z.object({
   ids: z.array(z.uuidv7()),
@@ -119,11 +116,6 @@ export const BulkIdsBodySchema = z.object({
 
 export const CreateMemberSchema = OrganizationMemberSchemaBase.pick({
   userId: true,
-  roleId: true,
-});
-
-export const UpdateMemberRoleSchema = OrganizationMemberSchemaBase.pick({
-  roleId: true,
 });
 
 export const ToggleMemberStatusSchema = OrganizationMemberSchemaBase.pick({
@@ -134,15 +126,9 @@ export const BulkMemberIdsBodySchema = z.object({
   userIds: z.array(z.uuidv7()).min(1),
 });
 
-export const BulkUpdateMemberRoleSchema = BulkMemberIdsBodySchema.extend({
-  roleId: z.uuidv7(),
-});
-
 export const BulkToggleMemberStatusSchema = BulkMemberIdsBodySchema.extend({
   isActive: z.boolean(),
 });
-
-export const BulkCreateMembersSchema = z.array(CreateMemberSchema).min(1);
 
 // ==========================================
 // RESPONSES
@@ -177,7 +163,6 @@ export const OrganizationRestoreResponseSchema = OrganizationSchema;
 export const OrganizationMemberResponseSchema = OrganizationMemberSchemaBase.extend({
   user: UserSchemaBase.optional(),
   organization: OrganizationSchemaBase.optional(),
-  role: RoleSchemaBase.optional(),
 });
 
 export const MemberListResponseSchema = z.object({
@@ -199,7 +184,5 @@ export type CreateOrganization = z.infer<typeof CreateOrganizationBodySchema>;
 export type UpdateOrganization = z.infer<typeof UpdateOrganizationBodySchema>;
 export type OrganizationMember = z.infer<typeof OrganizationMemberSchemaBase>;
 export type CreateMember = z.infer<typeof CreateMemberSchema>;
-export type UpdateMemberRole = z.infer<typeof UpdateMemberRoleSchema>;
-export type BulkUpdateMemberRole = z.infer<typeof BulkUpdateMemberRoleSchema>;
 export type BulkToggleMemberStatus = z.infer<typeof BulkToggleMemberStatusSchema>;
 export type GetMembersQuery = z.infer<typeof GetMembersQuerySchema>;

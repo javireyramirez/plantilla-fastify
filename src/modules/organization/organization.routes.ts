@@ -1,13 +1,12 @@
 import { FastifyInstance } from 'fastify';
 
+import { requireAuth } from '@/hooks/require.auth.js';
 import {
-  BulkCreateMembersSchema,
   BulkCreateOrganizationBodySchema,
   BulkIdsBodySchema,
   BulkMemberIdsBodySchema,
   BulkResponseSchema,
   BulkToggleMemberStatusSchema,
-  BulkUpdateMemberRoleSchema,
   CreateMemberSchema,
   CreateOrganizationBodySchema,
   GetListQuery,
@@ -21,7 +20,6 @@ import {
   OrganizationResponseSchema,
   ResponseListSchema,
   ToggleMemberStatusSchema,
-  UpdateMemberRoleSchema,
   UpdateOrganizationBodySchema,
 } from '@/modules/organization/organization.schema.js';
 import { registerBaseRoutes } from '@/routes/base.routes.js';
@@ -62,6 +60,7 @@ export default async function organizationRoutes(fastify: FastifyInstance) {
       params: OrganizationIdParamsSchema,
       querystring: GetMembersQuerySchema,
       response: { 200: MemberListResponseSchema },
+      preHandler: [requireAuth],
     },
     handler: fastify.organizationController.getAllMembers.bind(fastify.organizationController),
   });
@@ -76,6 +75,7 @@ export default async function organizationRoutes(fastify: FastifyInstance) {
       params: OrganizationIdParamsSchema,
       body: CreateMemberSchema,
       response: { 201: OrganizationMemberResponseSchema },
+      preHandler: [requireAuth],
     },
     handler: fastify.organizationController.addMember.bind(fastify.organizationController),
   });
@@ -85,18 +85,9 @@ export default async function organizationRoutes(fastify: FastifyInstance) {
       tags: ['Organization Members'],
       params: MemberUserIdParamsSchema,
       response: { 200: OrganizationMemberResponseSchema },
+      preHandler: [requireAuth],
     },
     handler: fastify.organizationController.removeMember.bind(fastify.organizationController),
-  });
-
-  fastify.patch('/:id/members/:userId/role', {
-    schema: {
-      tags: ['Organization Members'],
-      params: MemberUserIdParamsSchema,
-      body: UpdateMemberRoleSchema,
-      response: { 200: OrganizationMemberResponseSchema },
-    },
-    handler: fastify.organizationController.updateMemberRole.bind(fastify.organizationController),
   });
 
   fastify.patch('/:id/members/:userId/status', {
@@ -105,6 +96,7 @@ export default async function organizationRoutes(fastify: FastifyInstance) {
       params: MemberUserIdParamsSchema,
       body: ToggleMemberStatusSchema,
       response: { 200: OrganizationMemberResponseSchema },
+      preHandler: [requireAuth],
     },
     handler: fastify.organizationController.toggleMemberStatus.bind(fastify.organizationController),
   });
@@ -117,8 +109,9 @@ export default async function organizationRoutes(fastify: FastifyInstance) {
     schema: {
       tags: ['Organization Members'],
       params: OrganizationIdParamsSchema,
-      body: BulkCreateMembersSchema,
+      body: BulkMemberIdsBodySchema,
       response: { 201: BulkResponseSchema },
+      preHandler: [requireAuth],
     },
     handler: fastify.organizationController.addMembers.bind(fastify.organizationController),
   });
@@ -129,18 +122,9 @@ export default async function organizationRoutes(fastify: FastifyInstance) {
       params: OrganizationIdParamsSchema,
       body: BulkMemberIdsBodySchema,
       response: { 200: BulkResponseSchema },
+      preHandler: [requireAuth],
     },
     handler: fastify.organizationController.removeMembers.bind(fastify.organizationController),
-  });
-
-  fastify.patch('/:id/members/bulk/role', {
-    schema: {
-      tags: ['Organization Members'],
-      params: OrganizationIdParamsSchema,
-      body: BulkUpdateMemberRoleSchema,
-      response: { 200: BulkResponseSchema },
-    },
-    handler: fastify.organizationController.updateMembersRole.bind(fastify.organizationController),
   });
 
   fastify.patch('/:id/members/bulk/status', {
@@ -149,6 +133,7 @@ export default async function organizationRoutes(fastify: FastifyInstance) {
       params: OrganizationIdParamsSchema,
       body: BulkToggleMemberStatusSchema,
       response: { 200: BulkResponseSchema },
+      preHandler: [requireAuth],
     },
     handler: fastify.organizationController.toggleMembersStatus.bind(
       fastify.organizationController,

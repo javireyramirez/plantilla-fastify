@@ -1,8 +1,4 @@
-import {
-  withInvitedBy,
-  withRemovedBy,
-  withRoleUpdatedBy,
-} from '@/decorators/member.audit.decorators.js';
+import { withInvitedBy } from '@/decorators/audit.decorators.js';
 import { BaseAuditService } from '@/services/base.service.js';
 import { HttpError } from '@/utils/http.error.js';
 
@@ -42,7 +38,6 @@ export class OrganizationService extends BaseAuditService<Organization> {
       take?: number;
       orderBy?: Record<string, 'asc' | 'desc'>;
       search?: string;
-      roleId?: string;
       isActive?: boolean;
       joinedFrom?: string;
       joinedTo?: string;
@@ -50,7 +45,7 @@ export class OrganizationService extends BaseAuditService<Organization> {
   ) {
     await this.ensureOrganizationExists(organizationId);
 
-    const { skip, take, orderBy, search, roleId, isActive, joinedFrom, joinedTo } = params;
+    const { skip, take, orderBy, search, isActive, joinedFrom, joinedTo } = params;
 
     const where: any = { organizationId };
 
@@ -63,7 +58,6 @@ export class OrganizationService extends BaseAuditService<Organization> {
       };
     }
 
-    if (roleId) where.roleId = roleId;
     if (typeof isActive === 'boolean') where.isActive = isActive;
 
     if (joinedFrom || joinedTo) {
@@ -79,88 +73,45 @@ export class OrganizationService extends BaseAuditService<Organization> {
       take: take ?? 10,
       orderBy,
       include: {
-        user: { select: { id: true, name: true, email: true, image: true } },
-        role: { select: { id: true, name: true, slug: true } },
+        user: { select: { id: true, name: true, email: true } },
       },
     });
   }
 
-  async getMemberContext(organizationId: string, userId: string): Promise<MemberContext> {
-    await this.ensureOrganizationExists(organizationId);
-
-    const member = await this.organizationMemberRepo.findFirst({
-      where: { organizationId, userId, isActive: true },
-      include: {
-        role: {
-          include: { permissions: true },
-        },
-      },
-    });
-
-    if (!member) throw new HttpError(403, 'No tienes acceso a esta organización');
-
-    return member as MemberContext;
-  }
   // ==========================================
   // 2. OPERACIONES INDIVIDUALES
   // ==========================================
 
-  async addMember(
-    organizationId: string,
-    data: { userId: string; roleId: string },
-    invitedBy?: string,
-  ) {
+  async addMember(organizationId: string, data: { userId: string }, invitedBy?: string) {
     await this.ensureOrganizationExists(organizationId);
 
     const isMember = await this.organizationMemberRepo.exists({
-      userId: data.userId,
-      organizationId,
+      where: {
+        userId: data.userId,
+        organizationId,
+      },
     });
+
     if (isMember) throw new HttpError(400, 'El usuario ya es miembro de esta organización');
 
     return await this.organizationMemberRepo.create({
       data: {
         organizationId,
         userId: data.userId,
-        roleId: data.roleId,
         ...withInvitedBy(invitedBy),
       },
     });
   }
 
-  async removeMember(organizationId: string, userId: string, removedBy?: string) {
+  async removeMember(organizationId: string, userId: string) {
     await this.ensureOrganizationExists(organizationId);
 
     try {
-      // Registramos quién eliminó antes del hard delete
-      await this.organizationMemberRepo.update({
-        where: { userId_organizationId: { userId, organizationId } },
-        data: withRemovedBy(removedBy),
-      });
-
       return await this.organizationMemberRepo.delete({
         where: { userId_organizationId: { userId, organizationId } },
       });
     } catch (error) {
       throw new HttpError(404, 'El miembro no se encuentra en la organización');
-    }
-  }
-
-  async updateMemberRole(
-    organizationId: string,
-    userId: string,
-    newRoleId: string,
-    updatedBy?: string,
-  ) {
-    await this.ensureOrganizationExists(organizationId);
-
-    try {
-      return await this.organizationMemberRepo.update({
-        where: { userId_organizationId: { userId, organizationId } },
-        data: { roleId: newRoleId, ...withRoleUpdatedBy(updatedBy) },
-      });
-    } catch (error) {
-      throw new HttpError(404, 'El miembro no existe en esta organización para actualizar su rol');
     }
   }
 
@@ -181,48 +132,24 @@ export class OrganizationService extends BaseAuditService<Organization> {
   // 3. OPERACIONES MASIVAS (BULK)
   // ==========================================
 
-  async addMembers(
-    organizationId: string,
-    data: { userId: string; roleId: string }[],
-    invitedBy?: string,
-  ) {
+  async addMembers(organizationId: string, userIds: string[], invitedBy?: string) {
     await this.ensureOrganizationExists(organizationId);
 
     return await this.organizationMemberRepo.createMany({
-      data: data.map((item) => ({
-        ...item,
+      data: userIds.map((userId) => ({
         organizationId,
+        userId,
         ...withInvitedBy(invitedBy),
       })),
       skipDuplicates: true,
     });
   }
 
-  async removeMembers(organizationId: string, userIds: string[], removedBy?: string) {
+  async removeMembers(organizationId: string, userIds: string[]) {
     await this.ensureOrganizationExists(organizationId);
-
-    // Registramos quién eliminó antes del hard delete
-    await this.organizationMemberRepo.updateMany({
-      where: { organizationId, userId: { in: userIds } },
-      data: withRemovedBy(removedBy),
-    });
 
     return await this.organizationMemberRepo.deleteMany({
       where: { organizationId, userId: { in: userIds } },
-    });
-  }
-
-  async updateMembersRole(
-    organizationId: string,
-    userIds: string[],
-    newRoleId: string,
-    updatedBy?: string,
-  ) {
-    await this.ensureOrganizationExists(organizationId);
-
-    return await this.organizationMemberRepo.updateMany({
-      where: { organizationId, userId: { in: userIds } },
-      data: { roleId: newRoleId, ...withRoleUpdatedBy(updatedBy) },
     });
   }
 

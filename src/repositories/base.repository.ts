@@ -58,8 +58,8 @@ export abstract class BaseRepository<T> {
     return { data, total };
   }
 
-  async exists(where: any): Promise<boolean> {
-    const count = await this.model.count({ where });
+  async exists(params: { where: any }): Promise<boolean> {
+    const count = await this.model.count(params);
     return count > 0;
   }
 

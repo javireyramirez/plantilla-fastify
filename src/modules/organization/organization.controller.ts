@@ -4,15 +4,12 @@ import { BaseController } from '@/controllers/base.controller.js';
 import { parsePagination } from '@/utils/pagination.js';
 
 import {
-  BulkCreateMembersSchema,
   BulkMemberIdsBodySchema,
   BulkToggleMemberStatusSchema,
-  BulkUpdateMemberRoleSchema,
   CreateMemberSchema,
   GetMembersQuery,
   Organization,
   ToggleMemberStatusSchema,
-  UpdateMemberRoleSchema,
 } from './organization.schema.js';
 import { OrganizationService } from './organization.service.js';
 
@@ -37,7 +34,7 @@ export class OrganizationController extends BaseController<Organization> {
       skip,
       take,
       orderBy,
-      isActive, // ya viene como boolean desde el schema con preprocess
+      isActive,
       ...filters,
     });
 
@@ -61,22 +58,9 @@ export class OrganizationController extends BaseController<Organization> {
     request: FastifyRequest<{ Params: { id: string; userId: string } }>,
     reply: FastifyReply,
   ) {
-    const removedBy = (request.session as any)?.user?.id;
     const { id, userId } = request.params;
 
-    const record = await this.organizationService.removeMember(id, userId, removedBy);
-    return reply.send(record);
-  }
-
-  async updateMemberRole(
-    request: FastifyRequest<{ Params: { id: string; userId: string } }>,
-    reply: FastifyReply,
-  ) {
-    const updatedBy = (request.session as any)?.user?.id;
-    const { id, userId } = request.params;
-    const { roleId } = UpdateMemberRoleSchema.parse(request.body);
-
-    const record = await this.organizationService.updateMemberRole(id, userId, roleId, updatedBy);
+    const record = await this.organizationService.removeMember(id, userId);
     return reply.send(record);
   }
 
@@ -98,30 +82,17 @@ export class OrganizationController extends BaseController<Organization> {
   async addMembers(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
     const invitedBy = (request.session as any)?.user?.id;
     const { id } = request.params;
-    const body = BulkCreateMembersSchema.parse(request.body);
+    const { userIds } = BulkMemberIdsBodySchema.parse(request.body);
 
-    const record = await this.organizationService.addMembers(id, body, invitedBy);
+    const record = await this.organizationService.addMembers(id, userIds, invitedBy);
     return reply.code(201).send(record);
   }
 
   async removeMembers(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
-    const removedBy = (request.session as any)?.user?.id;
     const { id } = request.params;
     const { userIds } = BulkMemberIdsBodySchema.parse(request.body);
 
-    const record = await this.organizationService.removeMembers(id, userIds, removedBy);
-    return reply.send(record);
-  }
-
-  async updateMembersRole(
-    request: FastifyRequest<{ Params: { id: string } }>,
-    reply: FastifyReply,
-  ) {
-    const updatedBy = (request.session as any)?.user?.id;
-    const { id } = request.params;
-    const { userIds, roleId } = BulkUpdateMemberRoleSchema.parse(request.body);
-
-    const record = await this.organizationService.updateMembersRole(id, userIds, roleId, updatedBy);
+    const record = await this.organizationService.removeMembers(id, userIds);
     return reply.send(record);
   }
 

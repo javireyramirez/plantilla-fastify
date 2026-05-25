@@ -35,6 +35,17 @@ export abstract class BaseAuditService<T> {
     };
   }
 
+  protected async ensureNotSystem(
+    id: string,
+    errorMessage = 'No se puede modificar un registro de sistema',
+  ) {
+    const record = await this.repository.findFirst({ where: { id } } as any);
+
+    if (record && (record as any).isSystem) {
+      throw new HttpError(403, errorMessage);
+    }
+  }
+
   // ==========================================
   // 1. OPERACIONES INDIVIDUALES
   // ==========================================
@@ -136,8 +147,8 @@ export abstract class BaseAuditService<T> {
     });
   }
 
-  async exists(where: any): Promise<boolean> {
-    return this.repository.exists(where);
+  async exists(params: any): Promise<boolean> {
+    return this.repository.exists(params);
   }
 
   async findManyWithCount(params: {

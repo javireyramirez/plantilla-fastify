@@ -7,66 +7,78 @@ import {
   OwnerSchema,
   OwnerTeamSchema,
   ResponseListSchemaBase,
-  RoleSchemaBase,
-  UserSchemaBase,
   recordStatusSchema,
 } from '@/schemas/base.schema.js';
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+export const permissionScopeSchema = z.enum(['ALL', 'ORGANIZATION', 'TEAM', 'OWN']);
+
+export const permissionActionSchema = z.enum([
+  'READ',
+  'CREATE',
+  'UPDATE',
+  'DELETE',
+  'RESTORE',
+  'EXPORT',
+  'IMPORT',
+  'MANAGE',
+]);
 
 // ==========================================
 // BASE SCHEMAS
 // ==========================================
 
-export const OrganizationSchema = z.object({
+export const RoleSchema = z.object({
   id: z.uuidv7(),
+  organizationId: z.uuidv7(),
   name: z.string().min(1),
   slug: z.string().min(1),
-  organizationId: z.uuidv7(),
+  description: z.string().optional().nullable(),
   isSystem: z.boolean().default(false),
   status: recordStatusSchema,
+  // Auditoría
   createdAt: z.date(),
   updatedAt: z.date(),
   deletedAt: z.date().optional().nullable(),
+  restoreAt: z.date().optional().nullable(),
   createdBy: z.string().optional().nullable(),
   deletedBy: z.string().optional().nullable(),
   restoreBy: z.string().optional().nullable(),
   updatedBy: z.string().optional().nullable(),
+  // Propiedad (RBAC)
   owner: OwnerSchema.optional().nullable(),
   ownerTeam: OwnerTeamSchema.optional().nullable(),
   ownerOrganization: OwnerOrganizationSchema.optional().nullable(),
 });
 
-export const OrganizationMemberSchemaBase = z.object({
+export const RolePermissionSchema = z.object({
   id: z.uuidv7(),
-  userId: z.uuidv7(),
-  organizationId: z.uuidv7(),
   roleId: z.uuidv7(),
-  isActive: z.boolean().default(true),
-  joinedAt: z.date(),
-  updatedAt: z.date(),
-  // Auditoría de membresía
-  invitedBy: z.string().optional().nullable(),
-  removedBy: z.string().optional().nullable(),
-  roleUpdatedBy: z.string().optional().nullable(),
+  resource: z.string().min(1),
+  action: permissionActionSchema,
+  scope: permissionScopeSchema.default('OWN'),
+  scopeId: z.string().optional().nullable(),
+  grantedAt: z.date(),
+  grantedBy: z.string().optional().nullable(),
+  revokedBy: z.string().optional().nullable(),
 });
 
 // ==========================================
 // PARAMS
 // ==========================================
 
-export const OrganizationIdParamsSchema = z.object({
+export const RoleIdParamsSchema = z.object({
   id: z.uuidv7(),
-});
-
-export const MemberUserIdParamsSchema = z.object({
-  id: z.uuidv7(),
-  userId: z.uuidv7(),
 });
 
 // ==========================================
 // QUERIES
 // ==========================================
 
-export const GetOrganizationQuerySchema = z.object({
+export const GetRoleQuerySchema = z.object({
   page: z.coerce.number().optional().default(1),
   limit: z.coerce.number().optional().default(10),
   isTrash: z.preprocess((val) => val === 'true' || val === true, z.boolean()).default(false),
@@ -76,25 +88,39 @@ export const GetOrganizationQuerySchema = z.object({
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
 });
 
-export const GetMembersQuerySchema = z.object({
+export const GetListQuery = GetListQueryBase;
+
+export const GetPermissionsQuerySchema = z.object({
+  // Paginación y orden
   page: z.coerce.number().optional().default(1),
   limit: z.coerce.number().optional().default(10),
-  sortBy: z.string().optional().default('joinedAt'),
+  sortBy: z.string().optional().default('grantedAt'),
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
-  search: z.string().optional(),
-  roleId: z.uuidv7().optional(),
-  isActive: z.preprocess((val) => val === 'true' || val === true, z.boolean()).optional(),
-  joinedFrom: z.string().datetime().optional(),
-  joinedTo: z.string().datetime().optional(),
-});
 
-export const GetListQuery = GetListQueryBase;
+  // Filtros de RBAC
+  resource: z.preprocess(
+    (val) => (typeof val === 'string' ? val.split(',') : val),
+    z.array(z.string()).optional(),
+  ),
+  action: z.preprocess(
+    (val) => (typeof val === 'string' ? val.split(',') : val),
+    z.array(z.string()).optional(),
+  ),
+  scope: z.preprocess(
+    (val) => (typeof val === 'string' ? val.split(',') : val),
+    z.array(z.string()).optional(),
+  ),
+
+  // Filtros de fecha
+  grantedFrom: z.string().datetime().optional(),
+  grantedTo: z.string().datetime().optional(),
+});
 
 // ==========================================
 // BODIES
 // ==========================================
 
-export const CreateOrganizationBodySchema = OrganizationSchema.omit({
+export const CreateRoleBodySchema = RoleSchema.omit({
   id: true,
   status: true,
   createdAt: true,
@@ -110,51 +136,40 @@ export const CreateOrganizationBodySchema = OrganizationSchema.omit({
   ownerOrganizationId: z.string().optional().nullable(),
 });
 
-export const UpdateOrganizationBodySchema = CreateOrganizationBodySchema.partial();
+export const UpdateRoleBodySchema = CreateRoleBodySchema.partial();
 
-export const BulkCreateOrganizationBodySchema = z.array(CreateOrganizationBodySchema);
+export const BulkCreateRoleBodySchema = z.array(CreateRoleBodySchema);
 
 export const BulkIdsBodySchema = z.object({
   ids: z.array(z.uuidv7()),
 });
 
-export const CreateMemberSchema = OrganizationMemberSchemaBase.pick({
-  userId: true,
-  roleId: true,
+export const CreatePermissionBodySchema = z.object({
+  scope: permissionScopeSchema,
+  action: permissionActionSchema,
+  resource: z.string(),
+  scopeId: z.string().optional().nullable(),
 });
 
-export const UpdateMemberRoleSchema = OrganizationMemberSchemaBase.pick({
-  roleId: true,
-});
+export const BulkCreatePermissionBodySchema = z.array(CreatePermissionBodySchema);
 
-export const ToggleMemberStatusSchema = OrganizationMemberSchemaBase.pick({
-  isActive: true,
-});
-
-export const BulkMemberIdsBodySchema = z.object({
-  userIds: z.array(z.uuidv7()).min(1),
-});
-
-export const BulkUpdateMemberRoleSchema = BulkMemberIdsBodySchema.extend({
-  roleId: z.uuidv7(),
-});
-
-export const BulkToggleMemberStatusSchema = BulkMemberIdsBodySchema.extend({
-  isActive: z.boolean(),
-});
-
-export const BulkCreateMembersSchema = z.array(CreateMemberSchema).min(1);
+export const BulkUpdatePermissionBodySchema = z.array(
+  z.object({
+    id: z.uuidv7(),
+    permission: CreatePermissionBodySchema,
+  }),
+);
 
 // ==========================================
 // RESPONSES
 // ==========================================
 
-export const OrganizationResponseSchema = OrganizationSchema;
+export const RoleResponseSchema = RoleSchema;
 
 export const ResponseListSchema = ResponseListSchemaBase;
 
-export const OrganizationListResponseSchema = z.object({
-  data: z.array(OrganizationSchema),
+export const RoleListResponseSchema = z.object({
+  data: z.array(RoleSchema),
   meta: z.object({
     page: z.number(),
     limit: z.number(),
@@ -163,7 +178,7 @@ export const OrganizationListResponseSchema = z.object({
   }),
 });
 
-export const OrganizationDeletedResponseSchema = z.object({
+export const RoleDeletedResponseSchema = z.object({
   success: z.boolean(),
   message: z.string(),
 });
@@ -172,22 +187,20 @@ export const BulkResponseSchema = z.object({
   count: z.number(),
 });
 
-export const OrganizationDeleteResponseSchema = OrganizationSchema;
-export const OrganizationRestoreResponseSchema = OrganizationSchema;
+export const RoleDeleteResponseSchema = RoleSchema;
+export const RoleRestoreResponseSchema = RoleSchema;
 
-export const OrganizationMemberResponseSchema = OrganizationMemberSchemaBase.extend({
-  user: UserSchemaBase.optional(),
-  organization: OrganizationSchemaBase.optional(),
-  role: RoleSchemaBase.optional(),
+export const RolePermissionResponseSchema = RolePermissionSchema.extend({
+  granter: z.object({ id: z.string(), name: z.string(), email: z.string() }).optional().nullable(),
+  revoker: z.object({ id: z.string(), name: z.string(), email: z.string() }).optional().nullable(),
 });
 
-export const MemberListResponseSchema = z.object({
-  data: z.array(OrganizationMemberResponseSchema),
+export const RolePermissionsListResponseSchema = z.object({
+  data: z.array(RolePermissionResponseSchema),
   meta: z.object({
-    page: z.number(),
-    limit: z.number(),
     total: z.number(),
-    totalPages: z.number(),
+    skip: z.number().optional(),
+    take: z.number().optional(),
   }),
 });
 
@@ -195,12 +208,12 @@ export const MemberListResponseSchema = z.object({
 // TYPES
 // ==========================================
 
-export type Organization = z.infer<typeof OrganizationSchema>;
-export type CreateOrganization = z.infer<typeof CreateOrganizationBodySchema>;
-export type UpdateOrganization = z.infer<typeof UpdateOrganizationBodySchema>;
-export type OrganizationMember = z.infer<typeof OrganizationMemberSchemaBase>;
-export type CreateMember = z.infer<typeof CreateMemberSchema>;
-export type UpdateMemberRole = z.infer<typeof UpdateMemberRoleSchema>;
-export type BulkUpdateMemberRole = z.infer<typeof BulkUpdateMemberRoleSchema>;
-export type BulkToggleMemberStatus = z.infer<typeof BulkToggleMemberStatusSchema>;
-export type GetMembersQuery = z.infer<typeof GetMembersQuerySchema>;
+export type Role = z.infer<typeof RoleSchema>;
+export type CreateRole = z.infer<typeof CreateRoleBodySchema>;
+export type UpdateRole = z.infer<typeof UpdateRoleBodySchema>;
+
+export type GetPermissionsQuery = z.infer<typeof GetPermissionsQuerySchema>;
+export type CreatePermissionBody = z.infer<typeof CreatePermissionBodySchema>;
+export type BulkCreatePermissionBody = z.infer<typeof BulkCreatePermissionBodySchema>;
+export type BulkUpdatePermissionBody = z.infer<typeof BulkUpdatePermissionBodySchema>;
+export type RolePermission = z.infer<typeof RolePermissionResponseSchema>;
