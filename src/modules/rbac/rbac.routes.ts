@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify';
 
+import { requireAuth } from '@/hooks/require.auth.js';
 import {
   BulkCreatePermissionBodySchema,
   BulkCreateRoleBodySchema,
@@ -11,9 +12,11 @@ import {
   GetListQuery,
   GetPermissionsQuerySchema,
   GetRoleQuerySchema,
+  IdParamsSchema,
   ResponseListSchema,
   RoleIdParamsSchema,
   RoleListResponseSchema,
+  RolePermissionIdParamsSchema,
   RolePermissionResponseSchema,
   RolePermissionsListResponseSchema,
   RoleResponseSchema,
@@ -26,7 +29,7 @@ export default async function roleRoutes(fastify: FastifyInstance) {
     tags: ['Role'],
     schemas: {
       // Parámetros
-      idParams: RoleIdParamsSchema,
+      idParams: IdParamsSchema,
       // Query
       getManyQuery: GetRoleQuerySchema,
       GetListQuery: GetListQuery,
@@ -46,6 +49,8 @@ export default async function roleRoutes(fastify: FastifyInstance) {
       getListResponse: ResponseListSchema,
     },
   });
+
+  fastify.addHook('preHandler', requireAuth);
 
   // ==========================================
   // 1. LECTURA
@@ -79,8 +84,8 @@ export default async function roleRoutes(fastify: FastifyInstance) {
     schema: {
       tags: ['Role Permissions'],
       params: {
-        roleId: RoleIdParamsSchema.shape.id,
-        id: RoleIdParamsSchema.shape.id,
+        roleId: RolePermissionIdParamsSchema.shape.roleId,
+        id: RolePermissionIdParamsSchema.shape.id,
       },
       response: { 200: RolePermissionResponseSchema },
     },
@@ -91,13 +96,13 @@ export default async function roleRoutes(fastify: FastifyInstance) {
     schema: {
       tags: ['Role Permissions'],
       params: {
-        roleId: RoleIdParamsSchema.shape.id,
-        id: RoleIdParamsSchema.shape.id,
+        roleId: RolePermissionIdParamsSchema.shape.roleId,
+        id: RolePermissionIdParamsSchema.shape.id,
       },
       body: CreatePermissionBodySchema,
       response: { 200: RolePermissionResponseSchema },
     },
-    handler: fastify.roleController.updatePermission.bind(fastify.roleController),
+    handler: fastify.roleController.updatePermissionScope.bind(fastify.roleController),
   });
 
   // ==========================================

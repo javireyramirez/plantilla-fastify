@@ -1,8 +1,8 @@
+import { PermissionAction, PermissionScope } from '@prisma/client';
 import { z } from 'zod';
 
 import {
   GetListQueryBase,
-  OrganizationSchemaBase,
   OwnerOrganizationSchema,
   OwnerSchema,
   OwnerTeamSchema,
@@ -14,18 +14,8 @@ import {
 // ENUMS
 // ==========================================
 
-export const permissionScopeSchema = z.enum(['ALL', 'ORGANIZATION', 'TEAM', 'OWN']);
-
-export const permissionActionSchema = z.enum([
-  'READ',
-  'CREATE',
-  'UPDATE',
-  'DELETE',
-  'RESTORE',
-  'EXPORT',
-  'IMPORT',
-  'MANAGE',
-]);
+export const permissionScopeSchema = z.enum(PermissionScope);
+export const permissionActionSchema = z.enum(PermissionAction);
 
 // ==========================================
 // BASE SCHEMAS
@@ -71,7 +61,16 @@ export const RolePermissionSchema = z.object({
 // PARAMS
 // ==========================================
 
+export const IdParamsSchema = z.object({
+  id: z.uuidv7(),
+});
+
 export const RoleIdParamsSchema = z.object({
+  roleId: z.uuidv7(),
+});
+
+export const RolePermissionIdParamsSchema = z.object({
+  roleId: z.uuidv7(),
   id: z.uuidv7(),
 });
 
@@ -160,7 +159,7 @@ export const BulkCreatePermissionBodySchema = z.array(CreatePermissionBodySchema
 export const BulkUpdatePermissionBodySchema = z.array(
   z.object({
     id: z.uuidv7(),
-    permission: CreatePermissionBodySchema,
+    scope: permissionScopeSchema,
   }),
 );
 
@@ -222,3 +221,4 @@ export type BulkCreatePermissionBody = z.infer<typeof BulkCreatePermissionBodySc
 export type BulkUpdatePermissionBody = z.infer<typeof BulkUpdatePermissionBodySchema>;
 export type RolePermission = z.infer<typeof RolePermissionResponseSchema>;
 export type PermissionScopeParams = z.infer<typeof PermissionScopeParamsSchema>;
+export type PermissionScopeType = z.infer<typeof permissionScopeSchema>;

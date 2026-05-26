@@ -3,7 +3,7 @@ import { BaseAuditService } from '@/services/base.service.js';
 import { HttpError } from '@/utils/http.error.js';
 
 import { Role } from './rbac.schema.js';
-import { CreatePermissionBody, PermissionScopeParams } from './rbac.schema.js';
+import { CreatePermissionBody, PermissionScopeParams, PermissionScopeType } from './rbac.schema.js';
 import { RoleAssignmentRepository } from './role-assignment.repository.js';
 import { RolePermissionRepository } from './role-permission.repository.js';
 import { RoleRepository } from './role.repository.js';
@@ -206,32 +206,24 @@ export class RoleService extends BaseAuditService<Role> {
 
   async bulkUpdatePermissions(
     roleId: string,
-    // Cambiamos el tipo de dato para que sea explícito que solo vamos a actualizar el scope
-    data: { id: string; scope: PermissionScopeParams }[],
+    data: { id: string; scope: PermissionScopeType }[],
     updatedBy: string,
   ) {
     await this.ensureRoleExists(roleId);
     await this.ensureNotSystem(roleId);
 
     return this.rolePermissionRepo.transaction(async (tx) => {
-      const results = [];
-
-      for (const item of data) {
-        // Usamos el id para identificar el registro y el roleId para seguridad
-        const updated = await tx.rolePermission.update({
-          where: {
-            id: item.id,
-            roleId, // Garantiza que no se modifiquen permisos de otros roles
-          },
-          data: {
-            scope: item.scope,
-            ...withUpdatedBy(updatedBy),
-          },
-        });
-        results.push(updated);
-      }
-
-      return results;
+      return Promise.all(
+        data.map((item) =>
+          tx.rolePermission.update({
+            where: { id: item.id, roleId },
+            data: {
+              scope: item.scope,
+              ...withUpdatedBy(updatedBy),
+            },
+          }),
+        ),
+      );
     });
   }
 }

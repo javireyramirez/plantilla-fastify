@@ -8,6 +8,7 @@ import {
   BulkUpdatePermissionBodySchema,
   CreatePermissionBodySchema,
   GetPermissionsQuery,
+  PermissionScopeParamsSchema,
   Role,
 } from './rbac.schema.js';
 import { RoleService } from './rbac.service.js';
@@ -65,15 +66,17 @@ export class RoleController extends BaseController<Role> {
     return reply.send(record);
   }
 
-  async updatePermission(
-    request: FastifyRequest<{ Params: { id: string; roleId: string } }>,
+  async updatePermissionScope(
+    request: FastifyRequest<{
+      Params: { id: string; roleId: string };
+    }>,
     reply: FastifyReply,
   ) {
     const updatedBy = (request.session as any)?.user?.id;
     const { id, roleId } = request.params;
-    const body = CreatePermissionBodySchema.parse(request.body);
+    const newScope = PermissionScopeParamsSchema.parse(request.body);
 
-    const record = await this.roleService.updatePermission(id, roleId, updatedBy, body);
+    const record = await this.roleService.updatePermissionScope(id, roleId, newScope, updatedBy);
     return reply.send(record);
   }
 
@@ -105,14 +108,16 @@ export class RoleController extends BaseController<Role> {
   }
 
   async bulkUpdatePermissions(
-    request: FastifyRequest<{ Params: { roleId: string } }>,
+    request: FastifyRequest<{
+      Params: { roleId: string };
+    }>,
     reply: FastifyReply,
   ) {
     const updatedBy = (request.session as any)?.user?.id;
     const { roleId } = request.params;
-    const body = BulkUpdatePermissionBodySchema.parse(request.body);
+    const newScope = BulkUpdatePermissionBodySchema.parse(request.body);
 
-    const record = await this.roleService.bulkUpdatePermissions(roleId, body, updatedBy);
+    const record = await this.roleService.bulkUpdatePermissions(roleId, newScope, updatedBy);
     return reply.send(record);
   }
 }
