@@ -7,7 +7,7 @@ export type RoleWithPermissions = {
   slug: string;
   isSystem: boolean;
   permissions: {
-    moduleKey: string; // era "resource", mejor alineado con el schema
+    moduleId: string; // era "resource", mejor alineado con el schema
     action: PermissionAction;
     scope: PermissionScope;
   }[];
@@ -34,16 +34,16 @@ export type ResolvedPermissions = {
 
 // ── Helper para construir/verificar el string de permiso ─────────
 export function buildPermissionKey(
-  moduleKey: string,
+  moduleId: string,
   action: PermissionAction,
   scope: PermissionScope,
 ): string {
-  return `${moduleKey}:${action}:${scope}`;
+  return `${moduleId}:${action}:${scope}`;
 }
 
 export function hasPermission(
   resolved: ResolvedPermissions,
-  moduleKey: string,
+  moduleId: string,
   action: PermissionAction,
   minScope: PermissionScope,
 ): boolean {
@@ -62,7 +62,7 @@ export function hasPermission(
       PermissionScope,
     ];
     return (
-      kModule === moduleKey &&
+      kModule === moduleId &&
       kAction === action &&
       scopePrecedence[kScope] >= scopePrecedence[minScope]
     );

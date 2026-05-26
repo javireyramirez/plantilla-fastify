@@ -4,6 +4,7 @@ import { env } from '@/config/env.js';
 import authRoutes from '@/modules/auth/auth.routes.js';
 import companiesRoutes from '@/modules/companies/companies.routes.js';
 import healthRoutes from '@/modules/health/health.routes.js';
+import moduleRoutes from '@/modules/module/module.routes.js';
 import organizationRoutes from '@/modules/organization/organization.routes.js';
 import roleRoutes from '@/modules/rbac/rbac.routes.js';
 import storageRoutes from '@/modules/storage/storage.routes.js';
@@ -40,6 +41,10 @@ export default async function routes(fastify: FastifyInstance) {
 
   fastify.register(roleRoutes, {
     prefix: `${env.API_PREFIX}/role`,
+  });
+
+  fastify.register(moduleRoutes, {
+    prefix: `${env.API_PREFIX}/module`,
   });
 
   fastify.log.info('Routes ready');

@@ -48,7 +48,7 @@ export const RoleSchema = z.object({
 export const RolePermissionSchema = z.object({
   id: z.uuidv7(),
   roleId: z.uuidv7(),
-  moduleKey: z.string().min(1),
+  moduleId: z.uuidv7(),
   action: permissionActionSchema,
   scope: permissionScopeSchema.default('OWN'),
   scopeId: z.string().optional().nullable(),
@@ -151,7 +151,7 @@ export const BulkIdsBodySchema = z.object({
 export const CreatePermissionBodySchema = z.object({
   scope: permissionScopeSchema,
   action: permissionActionSchema,
-  moduleKey: z.string(),
+  moduleId: z.string(),
 });
 
 export const BulkCreatePermissionBodySchema = z.array(CreatePermissionBodySchema);

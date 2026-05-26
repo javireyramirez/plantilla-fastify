@@ -3,6 +3,7 @@ import fp from 'fastify-plugin';
 import { AuthService } from '@/modules/auth/auth.service.js';
 import { CompaniesService } from '@/modules/companies/companies.service.js';
 import { EmailService } from '@/modules/email/email.service.js';
+import { ModuleService } from '@/modules/module/modules.service.js';
 import { OrganizationService } from '@/modules/organization/organization.service.js';
 import { RoleService } from '@/modules/rbac/rbac.service.js';
 import { StorageService } from '@/modules/storage/storage.service.js';
@@ -28,6 +29,7 @@ export default fp(
       fastify.rolePermissionRepository,
       fastify.roleAssignmentRepository,
     );
+    const moduleService = new ModuleService(fastify.moduleRepository);
 
     fastify.decorate('emailService', emailService);
     fastify.decorate('authService', authService);
@@ -36,6 +38,7 @@ export default fp(
     fastify.decorate('organizationService', organizationService);
     fastify.decorate('teamService', teamService);
     fastify.decorate('roleService', roleService);
+    fastify.decorate('moduleService', moduleService);
 
     fastify.log.info('Services ready');
   },
@@ -54,5 +57,6 @@ declare module 'fastify' {
     organizationService: OrganizationService;
     roleService: RoleService;
     teamService: TeamService;
+    moduleService: ModuleService;
   }
 }

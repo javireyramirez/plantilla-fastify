@@ -1,6 +1,7 @@
 import fp from 'fastify-plugin';
 
 import { CompaniesRepository } from '@/modules/companies/companies.repository.js';
+import { ModuleRepository } from '@/modules/module/module.repository.js';
 import { OrganizationMemberRepository } from '@/modules/organization/organization-member.repository.js';
 import { OrganizationRepository } from '@/modules/organization/organization.repository.js';
 import { RoleAssignmentRepository } from '@/modules/rbac/role-assignment.repository.js';
@@ -21,6 +22,7 @@ export default fp(
     const teamRepository = new TeamRepository(fastify.prisma);
     const teamMemberRepository = new TeamMemberRepository(fastify.prisma);
     const roleAssignmentRepository = new RoleAssignmentRepository(fastify.prisma);
+    const moduleRepository = new ModuleRepository(fastify.prisma);
 
     fastify.decorate('storageRepository', storageRepository);
     fastify.decorate('companiesRepository', companiesRepository);
@@ -31,6 +33,7 @@ export default fp(
     fastify.decorate('roleAssignmentRepository', roleAssignmentRepository);
     fastify.decorate('teamRepository', teamRepository);
     fastify.decorate('teamMemberRepository', teamMemberRepository);
+    fastify.decorate('moduleRepository', moduleRepository);
 
     fastify.log.info('Repositories ready');
   },
@@ -49,5 +52,6 @@ declare module 'fastify' {
     teamRepository: TeamRepository;
     teamMemberRepository: TeamMemberRepository;
     roleAssignmentRepository: RoleAssignmentRepository;
+    moduleRepository: ModuleRepository;
   }
 }

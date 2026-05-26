@@ -101,7 +101,7 @@ export class RoleService extends BaseAuditService<Role> {
 
     const isPermission = await this.rolePermissionRepo.exists({
       where: {
-        moduleKey: data.moduleKey,
+        moduleId: data.moduleId,
         action: data.action,
         roleId,
       },
@@ -110,7 +110,7 @@ export class RoleService extends BaseAuditService<Role> {
 
     return await this.rolePermissionRepo.create({
       data: {
-        moduleKey: data.moduleKey,
+        moduleId: data.moduleId,
         action: data.action,
         scope: data.scope,
         roleId,
@@ -184,18 +184,18 @@ export class RoleService extends BaseAuditService<Role> {
     const existing = await this.rolePermissionRepo.findMany({
       where: {
         roleId,
-        OR: data.map((p) => ({ resource: p.moduleKey, action: p.action })),
+        OR: data.map((p) => ({ resource: p.moduleId, action: p.action })),
       },
     });
 
     if (existing.length > 0) {
-      const duplicates = existing.map((p) => `${p.moduleKey}:${p.action}`).join(', ');
+      const duplicates = existing.map((p) => `${p.moduleId}:${p.action}`).join(', ');
       throw new HttpError(409, `Los siguientes permisos ya existen: ${duplicates}`);
     }
 
     return this.rolePermissionRepo.createMany({
       data: data.map((p) => ({
-        moduleKey: p.moduleKey,
+        moduleId: p.moduleId,
         action: p.action,
         scope: p.scope,
         roleId,
