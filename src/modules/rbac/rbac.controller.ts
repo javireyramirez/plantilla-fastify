@@ -4,9 +4,13 @@ import { BaseController } from '@/controllers/base.controller.js';
 import { parsePagination } from '@/utils/pagination.js';
 
 import {
+  BulkAssignmentIdsBodySchema,
+  BulkCreateAssignmentBodySchema,
   BulkCreatePermissionBodySchema,
   BulkUpdatePermissionBodySchema,
+  CreateAssignmentBodySchema,
   CreatePermissionBodySchema,
+  GetAssignmentsQuery,
   GetPermissionsQuery,
   PermissionScopeParamsSchema,
   Role,
@@ -118,6 +122,89 @@ export class RoleController extends BaseController<Role> {
     const newScope = BulkUpdatePermissionBodySchema.parse(request.body);
 
     const record = await this.roleService.bulkUpdatePermissions(roleId, newScope, updatedBy);
+    return reply.send(record);
+  }
+
+  // ==========================================
+  // Asignaciones
+  // ==========================================
+
+  // ==========================================
+  // 1. LECTURA
+  // ==========================================
+
+  async getAllAssignments(
+    request: FastifyRequest<{ Params: { roleId: string }; Querystring: GetAssignmentsQuery }>,
+    reply: FastifyReply,
+  ) {
+    const { roleId } = request.params;
+    const { page, limit, sortBy, sortOrder, ...filters } = request.query;
+    const { skip, take, orderBy, meta } = parsePagination({ page, limit, sortBy, sortOrder });
+
+    const result = await this.roleService.getAssignmentsWithCount(roleId, {
+      skip,
+      take,
+      orderBy,
+      ...filters,
+    });
+
+    return reply.send({ data: result.data, meta: meta(result.total) });
+  }
+
+  async getAssignmentById(
+    request: FastifyRequest<{ Params: { roleId: string; id: string } }>,
+    reply: FastifyReply,
+  ) {
+    const { roleId, id } = request.params;
+
+    const record = await this.roleService.getAssignmentById(id, roleId);
+    return reply.send(record);
+  }
+
+  // ==========================================
+  // 2. OPERACIONES INDIVIDUALES
+  // ==========================================
+
+  async assign(request: FastifyRequest<{ Params: { roleId: string } }>, reply: FastifyReply) {
+    const assignedBy = (request.session as any)?.user?.id;
+    const { roleId } = request.params;
+    const body = CreateAssignmentBodySchema.parse(request.body);
+
+    const record = await this.roleService.assign(roleId, body, assignedBy);
+    return reply.code(201).send(record);
+  }
+
+  async unassign(
+    request: FastifyRequest<{ Params: { roleId: string; id: string } }>,
+    reply: FastifyReply,
+  ) {
+    const { roleId, id } = request.params;
+
+    const record = await this.roleService.unassign(id, roleId);
+    return reply.send(record);
+  }
+
+  // ==========================================
+  // 3. OPERACIONES MASIVAS (BULK)
+  // ==========================================
+
+  async bulkAssign(request: FastifyRequest<{ Params: { roleId: string } }>, reply: FastifyReply) {
+    const assignedBy = (request.session as any)?.user?.id;
+    const { roleId } = request.params;
+    const body = BulkCreateAssignmentBodySchema.parse(request.body);
+
+    const record = await this.roleService.bulkAssign(roleId, body, assignedBy);
+    return reply.code(201).send(record);
+  }
+
+  async bulkUnassign(
+    request: FastifyRequest<{ Params: { roleId: string }; Body: { ids: string[] } }>,
+    reply: FastifyReply,
+  ) {
+    const { roleId } = request.params;
+    const { ids } = BulkAssignmentIdsBodySchema.parse(request.body);
+
+    const record = await this.roleService.bulkUnassign(roleId, ids);
     return reply.send(record);
   }
 }

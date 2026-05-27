@@ -57,6 +57,17 @@ export const RolePermissionSchema = z.object({
   revokedBy: z.string().optional().nullable(),
 });
 
+export const RoleAssignmentSchema = z.object({
+  id: z.uuidv7(),
+  roleId: z.uuidv7(),
+  userId: z.string().optional().nullable(),
+  teamId: z.string().optional().nullable(),
+  targetOrgId: z.string().optional().nullable(),
+  organizationId: z.string().optional().nullable(),
+  assignedAt: z.date(),
+  assignedBy: z.string().optional().nullable(),
+});
+
 // ==========================================
 // PARAMS
 // ==========================================
@@ -76,6 +87,15 @@ export const RolePermissionIdParamsSchema = z.object({
 
 export const PermissionScopeParamsSchema = z.object({
   newScope: permissionScopeSchema,
+});
+
+export const AssignmentIdParamsSchema = z.object({
+  id: z.uuidv7(),
+});
+
+export const RoleAssignmentParamsSchema = z.object({
+  roleId: z.uuidv7(),
+  id: z.uuidv7(),
 });
 
 // ==========================================
@@ -118,6 +138,21 @@ export const GetPermissionsQuerySchema = z.object({
   // Filtros de fecha
   grantedFrom: z.string().datetime().optional(),
   grantedTo: z.string().datetime().optional(),
+});
+
+export const GetAssignmentsQuerySchema = z.object({
+  page: z.coerce.number().optional().default(1),
+  limit: z.coerce.number().optional().default(10),
+  sortBy: z.string().optional().default('assignedAt'),
+  sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
+
+  userId: z.string().optional(),
+  teamId: z.string().optional(),
+  targetOrgId: z.string().optional(),
+  organizationId: z.string().optional(),
+
+  assignedFrom: z.string().datetime().optional(),
+  assignedTo: z.string().datetime().optional(),
 });
 
 // ==========================================
@@ -163,6 +198,23 @@ export const BulkUpdatePermissionBodySchema = z.array(
   }),
 );
 
+export const CreateAssignmentBodySchema = z
+  .object({
+    userId: z.string().optional().nullable(),
+    teamId: z.string().optional().nullable(),
+    targetOrgId: z.string().optional().nullable(),
+    organizationId: z.string().optional().nullable(),
+  })
+  .refine((data) => data.userId || data.teamId || data.targetOrgId, {
+    message: 'Se debe especificar al menos un destinatario: userId, teamId o targetOrgId',
+  });
+
+export const BulkCreateAssignmentBodySchema = z.array(CreateAssignmentBodySchema);
+
+export const BulkAssignmentIdsBodySchema = z.object({
+  ids: z.array(z.uuidv7()),
+});
+
 // ==========================================
 // RESPONSES
 // ==========================================
@@ -207,6 +259,30 @@ export const RolePermissionsListResponseSchema = z.object({
   }),
 });
 
+export const RoleAssignmentResponseSchema = RoleAssignmentSchema.extend({
+  granter: z.object({ id: z.string(), name: z.string(), email: z.string() }).optional().nullable(),
+  assignedUser: z
+    .object({ id: z.string(), name: z.string(), email: z.string() })
+    .optional()
+    .nullable(),
+  assignedTeam: z.object({ id: z.string(), name: z.string() }).optional().nullable(),
+  assignedOrg: z.object({ id: z.string(), name: z.string() }).optional().nullable(),
+  role: z.object({ id: z.string(), name: z.string(), slug: z.string() }).optional().nullable(),
+});
+
+export const AssignmentListResponseSchema = z.object({
+  data: z.array(RoleAssignmentResponseSchema),
+  meta: z.object({
+    total: z.number(),
+    skip: z.number().optional(),
+    take: z.number().optional(),
+  }),
+});
+
+export const BulkAssignmentResponseSchema = z.object({
+  count: z.number(),
+});
+
 // ==========================================
 // TYPES
 // ==========================================
@@ -222,3 +298,9 @@ export type BulkUpdatePermissionBody = z.infer<typeof BulkUpdatePermissionBodySc
 export type RolePermission = z.infer<typeof RolePermissionResponseSchema>;
 export type PermissionScopeParams = z.infer<typeof PermissionScopeParamsSchema>;
 export type PermissionScopeType = z.infer<typeof permissionScopeSchema>;
+
+export type RoleAssignment = z.infer<typeof RoleAssignmentSchema>;
+export type RoleAssignmentResponse = z.infer<typeof RoleAssignmentResponseSchema>;
+export type CreateAssignmentBody = z.infer<typeof CreateAssignmentBodySchema>;
+export type BulkCreateAssignmentBody = z.infer<typeof BulkCreateAssignmentBodySchema>;
+export type GetAssignmentsQuery = z.infer<typeof GetAssignmentsQuerySchema>;

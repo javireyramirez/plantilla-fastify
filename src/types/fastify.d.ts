@@ -14,11 +14,32 @@ declare module 'fastify' {
     s3: S3Client;
     rateLimitTiers: RateLimitTiers;
     auth: BetterAuthInstance;
+    memberContext: {
+      organizationId: string;
+      organization: {
+        id: string;
+        slug: string;
+        name: string;
+        status: string;
+      };
+      memberId: string;
+      teamIds: string[];
+    };
+    permissions?: {
+      module: string;
+      action: string;
+      scope: PermissionScope;
+    };
   }
 
   interface FastifyRequest {
     session: Awaited<ReturnType<BetterAuthInstance['api']['getSession']>>;
     memberContext: MemberContext | null;
+    permissions?: {
+      module: string;
+      action: PermissionAction;
+      scope: PermissionScope;
+    };
   }
 
   interface FastifyContextConfig {

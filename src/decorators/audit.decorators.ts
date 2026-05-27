@@ -56,3 +56,8 @@ export const withGrantedBy = (grantedBy?: string) => ({
   updatedAt: new Date(),
   ...(grantedBy && { grantedBy }),
 });
+
+export const withAssignedBy = (assignedBy?: string) => ({
+  assignedAt: new Date(),
+  ...(assignedBy && { assignedBy }),
+});

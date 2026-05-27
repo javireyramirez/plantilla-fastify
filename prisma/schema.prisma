@@ -549,6 +549,9 @@ model RoleAssignment {
   assignedTeam Team?         @relation("TeamAssignments", fields: [teamId], references: [id], onDelete: Cascade)
   assignedOrg  Organization? @relation("OrgAssignments", fields: [targetOrgId], references: [id], onDelete: Cascade)
 
+  @@unique([roleId, userId, organizationId])
+  @@unique([roleId, teamId, organizationId])
+  @@unique([roleId, targetOrgId, organizationId])
   @@index([userId])
   @@index([teamId])
   @@index([targetOrgId])

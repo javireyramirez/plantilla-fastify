@@ -2,18 +2,27 @@ import { FastifyInstance } from 'fastify';
 
 import { requireAuth } from '@/hooks/require.auth.js';
 import {
+  AssignmentIdParamsSchema,
+  AssignmentListResponseSchema,
+  BulkAssignmentIdsBodySchema,
+  BulkAssignmentResponseSchema,
+  BulkCreateAssignmentBodySchema,
   BulkCreatePermissionBodySchema,
   BulkCreateRoleBodySchema,
   BulkIdsBodySchema,
   BulkResponseSchema,
   BulkUpdatePermissionBodySchema,
+  CreateAssignmentBodySchema,
   CreatePermissionBodySchema,
   CreateRoleBodySchema,
+  GetAssignmentsQuerySchema,
   GetListQuery,
   GetPermissionsQuerySchema,
   GetRoleQuerySchema,
   IdParamsSchema,
   ResponseListSchema,
+  RoleAssignmentParamsSchema,
+  RoleAssignmentResponseSchema,
   RoleIdParamsSchema,
   RoleListResponseSchema,
   RolePermissionIdParamsSchema,
@@ -137,5 +146,79 @@ export default async function roleRoutes(fastify: FastifyInstance) {
       response: { 200: BulkResponseSchema },
     },
     handler: fastify.roleController.bulkUpdatePermissions.bind(fastify.roleController),
+  });
+
+  // ==========================================
+  // Asignaciones
+  // ==========================================
+
+  // ==========================================
+  // 1. LECTURA
+  // ==========================================
+
+  fastify.get('/:roleId/assignments', {
+    schema: {
+      tags: ['Role Assignments'],
+      params: RoleIdParamsSchema,
+      querystring: GetAssignmentsQuerySchema,
+      response: { 200: AssignmentListResponseSchema },
+    },
+    handler: fastify.roleController.getAllAssignments.bind(fastify.roleController),
+  });
+
+  fastify.get('/:roleId/assignments/:id', {
+    schema: {
+      tags: ['Role Assignments'],
+      params: RoleAssignmentParamsSchema,
+      response: { 200: RoleAssignmentResponseSchema },
+    },
+    handler: fastify.roleController.getAssignmentById.bind(fastify.roleController),
+  });
+
+  // ==========================================
+  // 2. OPERACIONES INDIVIDUALES
+  // ==========================================
+
+  fastify.post('/:roleId/assignments', {
+    schema: {
+      tags: ['Role Assignments'],
+      params: RoleIdParamsSchema,
+      body: CreateAssignmentBodySchema,
+      response: { 201: RoleAssignmentResponseSchema },
+    },
+    handler: fastify.roleController.assign.bind(fastify.roleController),
+  });
+
+  fastify.delete('/:roleId/assignments/:id', {
+    schema: {
+      tags: ['Role Assignments'],
+      params: RoleAssignmentParamsSchema,
+      response: { 200: RoleAssignmentResponseSchema },
+    },
+    handler: fastify.roleController.unassign.bind(fastify.roleController),
+  });
+
+  // ==========================================
+  // 3. OPERACIONES MASIVAS (BULK)
+  // ==========================================
+
+  fastify.post('/:roleId/assignments/bulk', {
+    schema: {
+      tags: ['Role Assignments'],
+      params: RoleIdParamsSchema,
+      body: BulkCreateAssignmentBodySchema,
+      response: { 201: BulkAssignmentResponseSchema },
+    },
+    handler: fastify.roleController.bulkAssign.bind(fastify.roleController),
+  });
+
+  fastify.delete('/:roleId/assignments/bulk', {
+    schema: {
+      tags: ['Role Assignments'],
+      params: RoleIdParamsSchema,
+      body: BulkAssignmentIdsBodySchema,
+      response: { 200: BulkAssignmentResponseSchema },
+    },
+    handler: fastify.roleController.bulkUnassign.bind(fastify.roleController),
   });
 }

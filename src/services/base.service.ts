@@ -8,6 +8,7 @@ import {
 } from '@/decorators/audit.decorators.js';
 import { BaseRepository } from '@/repositories/base.repository.js';
 import { HttpError } from '@/utils/http.error.js';
+import { scopeFromRequest } from '@/utils/scope.js';
 
 const defaultInclude = {
   owner: {

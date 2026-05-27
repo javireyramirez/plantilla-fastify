@@ -2,7 +2,6 @@ import { withInvitedBy } from '@/decorators/audit.decorators.js';
 import { BaseAuditService } from '@/services/base.service.js';
 import { HttpError } from '@/utils/http.error.js';
 
-import { MemberContext } from '../rbac/rbac.interfaces.js';
 import { OrganizationMemberRepository } from './organization-member.repository.js';
 import { OrganizationRepository } from './organization.repository.js';
 import { Organization } from './organization.schema.js';

@@ -1,16 +1,76 @@
-import { FastifyRequest } from 'fastify';
+// hooks/rbac.ts
+import type { PermissionAction, PermissionScope } from '@prisma/client';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { HttpError } from '@/utils/http.error.js';
 
-// hooks/rbac.hook.ts — ahora trivial
-export async function rbacHook(request: FastifyRequest) {
-  const rbac = request.routeOptions.config.rbac;
-  if (!rbac) return;
+const SCOPE_PRIORITY: Record<PermissionScope, number> = {
+  GLOBAL: 4,
+  ORGANIZATION: 3,
+  TEAM: 2,
+  OWN: 1,
+};
 
-  if (!request.memberContext) throw new HttpError(403, 'Sin contexto de acceso');
+function mostPermissive(scopes: PermissionScope[]): PermissionScope {
+  return scopes.reduce((best, current) =>
+    SCOPE_PRIORITY[current] > SCOPE_PRIORITY[best] ? current : best,
+  );
+}
 
-  const key = `${rbac.resource}:${rbac.action}`;
-  if (!request.memberContext.permissions.has(key)) {
-    throw new HttpError(403, 'No tienes permisos para esta acción');
-  }
+export function requirePermission(resource: string, action: PermissionAction) {
+  return async (request: FastifyRequest, reply: FastifyReply) => {
+    const session = request.session;
+    const ctx = request.memberContext;
+
+    if (!session?.user) {
+      return reply.status(401).send({ error: 'Unauthorized' });
+    }
+
+    if (!ctx) {
+      return reply.status(400).send({ error: 'Organization context required' });
+    }
+
+    const { organizationId, teamIds } = ctx;
+    const userId = session.user.id;
+
+    // Una sola query: todos los assignments relevantes con sus permisos filtrados
+    const assignments = await request.server.prisma.roleAssignment.findMany({
+      where: {
+        OR: [
+          // Roles directos del usuario en esta org
+          { userId, organizationId },
+          // Roles directos del usuario globales (sin org)
+          { userId, organizationId: null },
+          // Roles de los teams del usuario en esta org
+          ...(teamIds.length > 0 ? [{ teamId: { in: teamIds }, organizationId }] : []),
+          // Roles asignados a la org completa
+          { targetOrgId: organizationId, organizationId },
+        ],
+      },
+      include: {
+        role: {
+          include: {
+            permissions: {
+              where: {
+                module: { key: resource },
+                action,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const scopes = assignments.flatMap((a) => a.role.permissions).map((p) => p.scope);
+
+    if (scopes.length === 0) {
+      return reply.status(403).send({ error: 'Forbidden' });
+    }
+
+    request.permissions = {
+      module: resource,
+      action,
+      scope: mostPermissive(scopes),
+    };
+  };
 }

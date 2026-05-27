@@ -1,5 +1,35 @@
+// repositories/base.repository.ts
+import { PermissionScope } from '@prisma/client';
 import { PrismaClient } from '@prisma/client';
 import { FastifyInstance } from 'fastify';
+
+// ==========================================
+// SCOPE
+// ==========================================
+
+export interface ScopeContext {
+  scope: PermissionScope;
+  userId: string;
+  organizationId: string;
+  teamIds: string[];
+}
+
+export function buildScopeFilter(ctx: ScopeContext): Record<string, any> {
+  switch (ctx.scope) {
+    case 'GLOBAL':
+      return {};
+    case 'ORGANIZATION':
+      return { ownerOrganizationId: ctx.organizationId };
+    case 'TEAM':
+      return { ownerTeamId: { in: ctx.teamIds } };
+    case 'OWN':
+      return { ownerId: ctx.userId };
+  }
+}
+
+// ==========================================
+// BASE REPOSITORY
+// ==========================================
 
 export abstract class BaseRepository<T> {
   constructor(
@@ -11,16 +41,28 @@ export abstract class BaseRepository<T> {
     return this.prisma[this.modelName] as any;
   }
 
+  // Mezcla el where del caller con el filtro de scope
+  protected mergeScope(where: any = {}, scope?: ScopeContext): any {
+    if (!scope) return where;
+    return { ...where, ...buildScopeFilter(scope) };
+  }
+
   // ==========================================
   // 1. LECTURA (READ)
   // ==========================================
+
   async findFirst(params: {
     where?: any;
     orderBy?: any;
     include?: any;
     select?: any;
+    scope?: ScopeContext;
   }): Promise<T | null> {
-    return this.model.findFirst(params);
+    const { scope, ...rest } = params;
+    return this.model.findFirst({
+      ...rest,
+      where: this.mergeScope(rest.where, scope),
+    });
   }
 
   async findUnique(params: { where: any; include?: any; select?: any }): Promise<T | null> {
@@ -34,15 +76,19 @@ export abstract class BaseRepository<T> {
     orderBy?: any;
     include?: any;
     select?: any;
+    scope?: ScopeContext;
   }): Promise<T[]> {
-    return this.model.findMany(params);
+    const { scope, ...rest } = params;
+    return this.model.findMany({
+      ...rest,
+      where: this.mergeScope(rest.where, scope),
+    });
   }
 
-  async count(where: any = {}): Promise<number> {
-    return this.model.count({ where });
+  async count(where: any = {}, scope?: ScopeContext): Promise<number> {
+    return this.model.count({ where: this.mergeScope(where, scope) });
   }
 
-  // Paginación en una sola query (transaction)
   async findManyWithCount(params: {
     where?: any;
     skip?: number;
@@ -50,11 +96,16 @@ export abstract class BaseRepository<T> {
     orderBy?: any;
     include?: any;
     select?: any;
+    scope?: ScopeContext;
   }): Promise<{ data: T[]; total: number }> {
+    const { scope, ...rest } = params;
+    const mergedWhere = this.mergeScope(rest.where, scope);
+
     const [data, total] = await this.prisma.$transaction([
-      this.model.findMany(params),
-      this.model.count({ where: params.where }),
+      this.model.findMany({ ...rest, where: mergedWhere }),
+      this.model.count({ where: mergedWhere }),
     ]);
+
     return { data, total };
   }
 
@@ -64,8 +115,29 @@ export abstract class BaseRepository<T> {
   }
 
   // ==========================================
+  // OWNERSHIP CHECK (para findUnique + mutaciones)
+  // ==========================================
+  //
+  // Verifica que el registro encontrado pertenece al scope del usuario.
+  // Úsalo después de findUnique antes de UPDATE/DELETE.
+
+  checkOwnership(record: any, ctx: ScopeContext): boolean {
+    switch (ctx.scope) {
+      case 'GLOBAL':
+        return true;
+      case 'ORGANIZATION':
+        return record.ownerOrganizationId === ctx.organizationId;
+      case 'TEAM':
+        return ctx.teamIds.includes(record.ownerTeamId);
+      case 'OWN':
+        return record.ownerId === ctx.userId;
+    }
+  }
+
+  // ==========================================
   // 2. ESCRITURA INDIVIDUAL (WRITE)
   // ==========================================
+
   async create(params: { data: any; include?: any; select?: any }): Promise<T> {
     return this.model.create(params);
   }
@@ -91,21 +163,31 @@ export abstract class BaseRepository<T> {
   // ==========================================
   // 3. OPERACIONES MASIVAS (BULK)
   // ==========================================
+
   async createMany(params: { data: any[]; skipDuplicates?: boolean }) {
     return this.model.createMany(params);
   }
 
-  async updateMany(params: { where: any; data: any }) {
-    return this.model.updateMany(params);
+  async updateMany(params: { where: any; data: any; scope?: ScopeContext }) {
+    const { scope, ...rest } = params;
+    return this.model.updateMany({
+      ...rest,
+      where: this.mergeScope(rest.where, scope),
+    });
   }
 
-  async deleteMany(params: { where: any }) {
-    return this.model.deleteMany(params);
+  async deleteMany(params: { where: any; scope?: ScopeContext }) {
+    const { scope, ...rest } = params;
+    return this.model.deleteMany({
+      ...rest,
+      where: this.mergeScope(rest.where, scope),
+    });
   }
 
   // ==========================================
   // 4. TRANSACCIONES
   // ==========================================
+
   async transaction<R>(
     fn: (tx: Omit<FastifyInstance['prisma'], '$transaction'>) => Promise<R>,
   ): Promise<R> {
