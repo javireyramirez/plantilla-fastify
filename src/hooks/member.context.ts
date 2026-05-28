@@ -6,44 +6,54 @@ export async function memberContext(request: FastifyRequest, reply: FastifyReply
   if (!user) return reply.status(401).send({ error: 'Unauthorized' });
 
   const organizationId =
-    (request.headers['x-organization-id'] as string) ?? (request.params as any)?.organizationId;
+    (request.headers['x-organization-id'] as string | undefined) ??
+    (request.params as any)?.organizationId;
 
+  // Si no viene en el header/params, resolvemos la membresía activa del usuario
   if (!organizationId) {
-    return reply.status(400).send({ error: 'Organization context required' });
+    const defaultMembership = await request.server.prisma.organizationMember.findFirst({
+      where: { userId: user.id, isActive: true },
+      include: {
+        organization: { select: { id: true, slug: true, name: true, status: true } },
+        teamMembers: { select: { teamId: true } },
+      },
+      orderBy: {
+        // si tienes byDefault en org puedes priorizar con un join;
+        // de lo contrario, toma la más reciente
+        joinedAt: 'asc',
+      },
+    });
+
+    if (!defaultMembership) {
+      return reply.status(403).send({ error: 'Not a member of any organization' });
+    }
+    if (!defaultMembership.isActive) {
+      return reply.status(403).send({ error: 'Membership is inactive' });
+    }
+    if (defaultMembership.organization.status !== 'ACTIVE') {
+      return reply.status(403).send({ error: 'Organization is not active' });
+    }
+
+    request.memberContext = {
+      organizationId: defaultMembership.organizationId,
+      organization: defaultMembership.organization,
+      memberId: defaultMembership.id,
+      teamIds: defaultMembership.teamMembers.map((tm) => tm.teamId),
+    };
+    return;
   }
 
+  // Flujo normal cuando sí viene organizationId
   const membership = await request.server.prisma.organizationMember.findUnique({
-    where: {
-      userId_organizationId: {
-        userId: user.id,
-        organizationId,
-      },
-    },
+    where: { userId_organizationId: { userId: user.id, organizationId } },
     include: {
-      organization: {
-        select: {
-          id: true,
-          slug: true,
-          name: true,
-          status: true,
-        },
-      },
-      teamMembers: {
-        select: {
-          teamId: true,
-        },
-      },
+      organization: { select: { id: true, slug: true, name: true, status: true } },
+      teamMembers: { select: { teamId: true } },
     },
   });
 
-  if (!membership) {
-    return reply.status(403).send({ error: 'Not a member of this organization' });
-  }
-
-  if (!membership.isActive) {
-    return reply.status(403).send({ error: 'Membership is inactive' });
-  }
-
+  if (!membership) return reply.status(403).send({ error: 'Not a member of this organization' });
+  if (!membership.isActive) return reply.status(403).send({ error: 'Membership is inactive' });
   if (membership.organization.status !== 'ACTIVE') {
     return reply.status(403).send({ error: 'Organization is not active' });
   }

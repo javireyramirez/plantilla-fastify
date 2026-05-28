@@ -1,4 +1,5 @@
 export interface BaseRoutesOptions {
+  resource: string;
   tags: string[];
 
   schemas: {

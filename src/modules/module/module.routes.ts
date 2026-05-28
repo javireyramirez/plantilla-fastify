@@ -17,6 +17,7 @@ import { registerBaseRoutes } from '@/routes/base.routes.js';
 
 export default async function moduleRoutes(fastify: FastifyInstance) {
   registerBaseRoutes(fastify, fastify.moduleController, {
+    resource: 'modules',
     tags: ['Modules'],
 
     schemas: {

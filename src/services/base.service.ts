@@ -6,9 +6,8 @@ import {
   withRestoredBy,
   withUpdatedBy,
 } from '@/decorators/audit.decorators.js';
-import { BaseRepository } from '@/repositories/base.repository.js';
+import { BaseRepository, ScopeContext } from '@/repositories/base.repository.js';
 import { HttpError } from '@/utils/http.error.js';
-import { scopeFromRequest } from '@/utils/scope.js';
 
 const defaultInclude = {
   owner: {
@@ -71,16 +70,25 @@ export abstract class BaseAuditService<T> {
     id: string,
     data: any,
     userId?: string,
-    options: { include?: any; select?: any } = {},
+    options: { include?: any; select?: any; scope?: ScopeContext } = {},
   ): Promise<T> {
     try {
+      // 1. Verificar existencia y pertenencia al scope antes de mutar
+      const where = { id, ...this.getStatusFilter(false) };
+      const record = await this.repository.findFirst({ where, scope: options.scope });
+      if (!record) {
+        throw new HttpError(404, 'Registro no encontrado o sin permisos');
+      }
+
+      // 2. Ejecutar actualización
       return await this.repository.update({
-        where: { id, ...this.getStatusFilter(false) },
+        where: { id },
         data: { ...data, ...withUpdatedBy(userId) },
         include: { ...defaultInclude, ...(options.include ?? {}) },
         select: options.select,
       });
     } catch (error) {
+      if (error instanceof HttpError) throw error;
       throw new HttpError(404, 'Registro no encontrado para actualizar');
     }
   }
@@ -97,32 +105,50 @@ export abstract class BaseAuditService<T> {
     }
   }
 
-  async softDelete(id: string, userId?: string): Promise<T> {
+  async softDelete(id: string, userId?: string, scope?: ScopeContext): Promise<T> {
     try {
+      const record = await this.repository.findFirst({ where: { id }, scope });
+      if (!record) {
+        throw new HttpError(404, 'Registro no encontrado o sin permisos');
+      }
+
       return await this.repository.update({
         where: { id },
         data: withDeletedBy(userId),
       });
     } catch (error) {
+      if (error instanceof HttpError) throw error;
       throw new HttpError(404, 'Registro no encontrado para borrar');
     }
   }
 
-  async restore(id: string, userId?: string): Promise<T> {
+  async restore(id: string, userId?: string, scope?: ScopeContext): Promise<T> {
     try {
+      const record = await this.repository.findFirst({ where: { id }, scope });
+      if (!record) {
+        throw new HttpError(404, 'Registro no encontrado o sin permisos');
+      }
+
       return await this.repository.update({
         where: { id },
         data: withRestoredBy(userId),
       });
     } catch (error) {
+      if (error instanceof HttpError) throw error;
       throw new HttpError(404, 'Registro no encontrado para restaurar');
     }
   }
 
-  async hardDelete(id: string): Promise<T> {
+  async hardDelete(id: string, scope?: ScopeContext): Promise<T> {
     try {
+      const record = await this.repository.findFirst({ where: { id }, scope });
+      if (!record) {
+        throw new HttpError(404, 'Registro no encontrado o sin permisos');
+      }
+
       return await this.repository.delete({ where: { id } });
     } catch (error) {
+      if (error instanceof HttpError) throw error;
       throw new HttpError(404, 'Registro no encontrado para eliminar permanentemente');
     }
   }
@@ -132,7 +158,7 @@ export abstract class BaseAuditService<T> {
   // ==========================================
 
   async findFirst(
-    params: { where?: any; include?: any; orderBy?: any; select?: any } = {},
+    params: { where?: any; include?: any; orderBy?: any; select?: any; scope?: ScopeContext } = {},
   ): Promise<T | null> {
     return this.repository.findFirst({
       ...params,
@@ -142,6 +168,7 @@ export abstract class BaseAuditService<T> {
       },
     });
   }
+
   async findByIdWithContext(id: string, context: any): Promise<T | null> {
     return this.repository.findFirst({
       where: { id, ...context },
@@ -159,6 +186,7 @@ export abstract class BaseAuditService<T> {
     orderBy?: any;
     include?: any;
     select?: any;
+    scope?: ScopeContext;
   }): Promise<{ data: T[]; total: number }> {
     return this.repository.findManyWithCount({
       ...params,
@@ -175,6 +203,7 @@ export abstract class BaseAuditService<T> {
     orderBy?: any;
     select?: any;
     isTrash?: boolean;
+    scope?: ScopeContext;
   }): Promise<T[]> {
     return this.repository.findMany({
       where: this.getAuditWhere(params.isTrash ?? false, params.where),
@@ -185,8 +214,10 @@ export abstract class BaseAuditService<T> {
         name: true,
         ...(params.select ?? {}),
       },
+      scope: params.scope,
     });
   }
+
   async updateWithContext(where: any, data: any, userId?: string): Promise<T> {
     try {
       return await this.repository.update({
@@ -236,25 +267,30 @@ export abstract class BaseAuditService<T> {
     });
   }
 
-  async softDeleteMany(ids: string[], userId?: string) {
+  async softDeleteMany(ids: string[], userId?: string, scope?: ScopeContext) {
     if (!ids.length) return { count: 0 };
     return this.repository.updateMany({
       where: { id: { in: ids } },
       data: withDeletedBy(userId),
+      scope,
     });
   }
 
-  async restoreMany(ids: string[], userId?: string) {
+  async restoreMany(ids: string[], userId?: string, scope?: ScopeContext) {
     if (!ids.length) return { count: 0 };
     return this.repository.updateMany({
       where: { id: { in: ids } },
       data: withRestoredBy(userId),
+      scope,
     });
   }
 
-  public async hardDeleteMany(ids: string[]) {
+  public async hardDeleteMany(ids: string[], scope?: ScopeContext) {
     if (!ids.length) return { count: 0 };
-    return this.repository.deleteMany({ where: { id: { in: ids } } });
+    return this.repository.deleteMany({
+      where: { id: { in: ids } },
+      scope,
+    });
   }
 
   // ==========================================

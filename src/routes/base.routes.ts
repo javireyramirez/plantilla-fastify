@@ -1,8 +1,11 @@
 import { FastifyInstance } from 'fastify';
 import { ZodTypeProvider } from 'fastify-type-provider-zod';
+import { PermissionAction } from '@prisma/client';
 
 import { BaseController } from '@/controllers/base.controller.js';
 import { requireAuth } from '@/hooks/require.auth.js';
+import { memberContext } from '@/hooks/member.context.js';
+import { requirePermission } from '@/hooks/rbac.js';
 import { BaseRoutesOptions } from '@/types/base-routes.types.js';
 
 export function registerBaseRoutes<T>(
@@ -20,7 +23,11 @@ export function registerBaseRoutes<T>(
         body: options.schemas.bulkCreateBody,
         response: { 201: options.schemas.bulkResponse },
       },
-      preHandler: [requireAuth],
+      preHandler: [
+        requireAuth,
+        memberContext,
+        requirePermission(options.resource, PermissionAction.CREATE),
+      ],
     },
     (req, reply) => controller.createMany(req as any, reply),
   );
@@ -33,7 +40,11 @@ export function registerBaseRoutes<T>(
         body: options.schemas.bulkIdsBody,
         response: { 200: options.schemas.bulkResponse },
       },
-      preHandler: [requireAuth],
+      preHandler: [
+        requireAuth,
+        memberContext,
+        requirePermission(options.resource, PermissionAction.DELETE),
+      ],
     },
     (req, reply) => controller.softDeleteMany(req as any, reply),
   );
@@ -46,7 +57,11 @@ export function registerBaseRoutes<T>(
         body: options.schemas.bulkIdsBody,
         response: { 200: options.schemas.bulkResponse },
       },
-      preHandler: [requireAuth],
+      preHandler: [
+        requireAuth,
+        memberContext,
+        requirePermission(options.resource, PermissionAction.RESTORE),
+      ],
     },
     (req, reply) => controller.restoreMany(req as any, reply),
   );
@@ -59,7 +74,11 @@ export function registerBaseRoutes<T>(
         body: options.schemas.bulkIdsBody,
         response: { 200: options.schemas.bulkResponse },
       },
-      preHandler: [requireAuth],
+      preHandler: [
+        requireAuth,
+        memberContext,
+        requirePermission(options.resource, PermissionAction.DELETE),
+      ],
     },
     (req, reply) => controller.deletePermanentMany(req as any, reply),
   );
@@ -72,7 +91,11 @@ export function registerBaseRoutes<T>(
         querystring: options.schemas.getManyQuery,
         response: { 200: options.schemas.getManyResponse },
       },
-      preHandler: [requireAuth],
+      preHandler: [
+        requireAuth,
+        memberContext,
+        requirePermission(options.resource, PermissionAction.READ),
+      ],
     },
     (req, reply) => controller.getAll(req as any, reply),
   );
@@ -85,7 +108,11 @@ export function registerBaseRoutes<T>(
         querystring: options.schemas.GetListQuery,
         response: { 200: options.schemas.getListResponse },
       },
-      preHandler: [requireAuth],
+      preHandler: [
+        requireAuth,
+        memberContext,
+        requirePermission(options.resource, PermissionAction.READ),
+      ],
     },
     (req, reply) => controller.getList(req as any, reply),
   );
@@ -98,7 +125,11 @@ export function registerBaseRoutes<T>(
         params: options.schemas.idParams,
         response: { 200: options.schemas.getOneResponse },
       },
-      preHandler: [requireAuth],
+      preHandler: [
+        requireAuth,
+        memberContext,
+        requirePermission(options.resource, PermissionAction.READ),
+      ],
     },
     (req, reply) => controller.getById(req as any, reply),
   );
@@ -111,7 +142,11 @@ export function registerBaseRoutes<T>(
         body: options.schemas.createBody,
         response: { 201: options.schemas.createResponse },
       },
-      preHandler: [requireAuth],
+      preHandler: [
+        requireAuth,
+        memberContext,
+        requirePermission(options.resource, PermissionAction.CREATE),
+      ],
     },
     (req, reply) => controller.create(req as any, reply),
   );
@@ -125,7 +160,11 @@ export function registerBaseRoutes<T>(
         body: options.schemas.updateBody,
         response: { 200: options.schemas.updateResponse },
       },
-      preHandler: [requireAuth],
+      preHandler: [
+        requireAuth,
+        memberContext,
+        requirePermission(options.resource, PermissionAction.UPDATE),
+      ],
     },
     (req, reply) => controller.update(req as any, reply),
   );
@@ -138,7 +177,11 @@ export function registerBaseRoutes<T>(
         params: options.schemas.idParams,
         response: { 200: options.schemas.deleteResponse },
       },
-      preHandler: [requireAuth],
+      preHandler: [
+        requireAuth,
+        memberContext,
+        requirePermission(options.resource, PermissionAction.DELETE),
+      ],
     },
     (req, reply) => controller.softDelete(req as any, reply),
   );
@@ -151,7 +194,11 @@ export function registerBaseRoutes<T>(
         params: options.schemas.idParams,
         response: { 200: options.schemas.restoreResponse },
       },
-      preHandler: [requireAuth],
+      preHandler: [
+        requireAuth,
+        memberContext,
+        requirePermission(options.resource, PermissionAction.RESTORE),
+      ],
     },
     (req, reply) => controller.restore(req as any, reply),
   );
@@ -164,7 +211,11 @@ export function registerBaseRoutes<T>(
         params: options.schemas.idParams,
         response: { 204: options.schemas.deleteResponse }, // El 204 no devuelve body
       },
-      preHandler: [requireAuth],
+      preHandler: [
+        requireAuth,
+        memberContext,
+        requirePermission(options.resource, PermissionAction.DELETE),
+      ],
     },
     (req, reply) => controller.deletePermanent(req as any, reply),
   );

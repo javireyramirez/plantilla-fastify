@@ -35,6 +35,7 @@ import { registerBaseRoutes } from '@/routes/base.routes.js';
 
 export default async function roleRoutes(fastify: FastifyInstance) {
   registerBaseRoutes(fastify, fastify.roleController, {
+    resource: 'roles',
     tags: ['Role'],
     schemas: {
       // Parámetros

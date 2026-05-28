@@ -25,6 +25,7 @@ import {
 
 export default async function teamRoutes(fastify: FastifyInstance) {
   registerBaseRoutes(fastify, fastify.teamController, {
+    resource: 'teams',
     tags: ['Team'],
     schemas: {
       // Parámetros

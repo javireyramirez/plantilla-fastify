@@ -26,6 +26,7 @@ import { registerBaseRoutes } from '@/routes/base.routes.js';
 
 export default async function organizationRoutes(fastify: FastifyInstance) {
   registerBaseRoutes(fastify, fastify.organizationController, {
+    resource: 'organizations',
     tags: ['Organization'],
     schemas: {
       // Parámetros
