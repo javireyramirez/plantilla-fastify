@@ -1,5 +1,5 @@
 import { withInvitedBy } from '@/decorators/audit.decorators.js';
-import { BaseAuditService } from '@/services/base-owned.service.js';
+import { BaseRbacService } from '@/services/base-owned.service.js';
 import { HttpError } from '@/utils/http.error.js';
 
 import { OrganizationMemberRepository } from '../organization/organization-member.repository.js';
@@ -7,7 +7,7 @@ import { TeamMemberRepository } from './team-member.repository.js';
 import { TeamRepository } from './team.repository.js';
 import { Team } from './team.schema.js';
 
-export class TeamService extends BaseAuditService<Team> {
+export class TeamService extends BaseRbacService<Team> {
   constructor(
     private readonly teamRepo: TeamRepository,
     private readonly teamMemberRepo: TeamMemberRepository,

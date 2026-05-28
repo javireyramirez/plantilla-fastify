@@ -1,12 +1,12 @@
 import { withInvitedBy } from '@/decorators/audit.decorators.js';
-import { BaseAuditService } from '@/services/base-owned.service.js';
+import { BaseRbacService } from '@/services/base-owned.service.js';
 import { HttpError } from '@/utils/http.error.js';
 
 import { OrganizationMemberRepository } from './organization-member.repository.js';
 import { OrganizationRepository } from './organization.repository.js';
 import { Organization } from './organization.schema.js';
 
-export class OrganizationService extends BaseAuditService<Organization> {
+export class OrganizationService extends BaseRbacService<Organization> {
   constructor(
     private readonly organizationRepo: OrganizationRepository,
     private readonly organizationMemberRepo: OrganizationMemberRepository,

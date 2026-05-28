@@ -1,11 +1,12 @@
+import { PermissionAction } from '@prisma/client';
 import { FastifyInstance } from 'fastify';
 import { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { PermissionAction } from '@prisma/client';
 
 import { BaseController } from '@/controllers/base.controller.js';
-import { requireAuth } from '@/hooks/require.auth.js';
+import { buildPreHandler } from '@/hooks/buildPreHandler.js';
 import { memberContext } from '@/hooks/member.context.js';
 import { requirePermission } from '@/hooks/rbac.js';
+import { requireAuth } from '@/hooks/require.auth.js';
 import { BaseRoutesOptions } from '@/types/base-routes.types.js';
 
 export function registerBaseRoutes<T>(
@@ -23,11 +24,7 @@ export function registerBaseRoutes<T>(
         body: options.schemas.bulkCreateBody,
         response: { 201: options.schemas.bulkResponse },
       },
-      preHandler: [
-        requireAuth,
-        memberContext,
-        requirePermission(options.resource, PermissionAction.CREATE),
-      ],
+      preHandler: buildPreHandler(options.resource, PermissionAction.CREATE, options),
     },
     (req, reply) => controller.createMany(req as any, reply),
   );

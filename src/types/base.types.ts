@@ -1,0 +1,15 @@
+import { PermissionScope } from '@prisma/client';
+
+export interface ScopeContext {
+  scope: PermissionScope;
+  userId: string;
+  organizationId: string;
+  teamIds: string[];
+}
+
+export interface WriteOptions {
+  userId?: string;
+  scope?: ScopeContext;
+  include?: any;
+  select?: any;
+}

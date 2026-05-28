@@ -1,5 +1,5 @@
 import { withAssignedBy, withGrantedBy, withUpdatedBy } from '@/decorators/audit.decorators.js';
-import { BaseAuditService } from '@/services/base-owned.service.js';
+import { BaseRbacService } from '@/services/base-owned.service.js';
 import { HttpError } from '@/utils/http.error.js';
 
 import { Role } from './rbac.schema.js';
@@ -21,7 +21,7 @@ const ASSIGNMENT_INCLUDE = {
   role: { select: { id: true, name: true, slug: true } },
 };
 
-export class RoleService extends BaseAuditService<Role> {
+export class RoleService extends BaseRbacService<Role> {
   constructor(
     private readonly roleRepo: RoleRepository,
     private readonly rolePermissionRepo: RolePermissionRepository,

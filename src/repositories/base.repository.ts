@@ -1,18 +1,12 @@
 // repositories/base.repository.ts
-import { PermissionScope } from '@prisma/client';
 import { PrismaClient } from '@prisma/client';
 import { FastifyInstance } from 'fastify';
+
+import { ScopeContext } from '@/types/base.types.js';
 
 // ==========================================
 // SCOPE
 // ==========================================
-
-export interface ScopeContext {
-  scope: PermissionScope;
-  userId: string;
-  organizationId: string;
-  teamIds: string[];
-}
 
 export function buildScopeFilter(ctx: ScopeContext): Record<string, any> {
   switch (ctx.scope) {
