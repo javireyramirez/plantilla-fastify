@@ -1,4 +1,3 @@
-// hooks/rbac.ts
 import type { PermissionAction, PermissionScope } from '@prisma/client';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
@@ -26,6 +25,15 @@ export function requirePermission(resource: string, action: PermissionAction) {
       return reply.status(401).send({ error: 'Unauthorized' });
     }
 
+    if (session.user.isSuperAdmin) {
+      request.permissions = {
+        module: resource,
+        action,
+        scope: 'GLOBAL',
+      };
+      return;
+    }
+
     if (!ctx) {
       return reply.status(400).send({ error: 'Organization context required' });
     }
@@ -33,18 +41,13 @@ export function requirePermission(resource: string, action: PermissionAction) {
     const { organizationId, teamIds } = ctx;
     const userId = session.user.id;
 
-    // Una sola query: todos los assignments relevantes con sus permisos filtrados
     const assignments = await request.server.prisma.roleAssignment.findMany({
       where: {
         OR: [
-          // Roles directos del usuario en esta org
           { userId, organizationId },
-          // Roles directos del usuario globales (sin org)
           { userId, organizationId: null },
-          // Roles de los teams del usuario en esta org
           ...(teamIds.length > 0 ? [{ teamId: { in: teamIds }, organizationId }] : []),
-          // Roles asignados a la org completa
-          { targetOrgId: organizationId, organizationId },
+          ...(teamIds.length > 0 ? [{ teamId: { in: teamIds }, organizationId: null }] : []),
         ],
       },
       include: {

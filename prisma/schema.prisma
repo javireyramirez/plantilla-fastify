@@ -37,7 +37,6 @@ model User {
   deletedDocuments  Document[] @relation("DeletedDocuments")
   restoredDocuments Document[] @relation("RestoredDocuments")
   updatedDocuments  Document[] @relation("UpdatedDocuments")
-  ownedDocuments    Document[] @relation("UserOwnedDocuments")
 
   // Auditoría y Propiedad: Compañías
   createdCompanies  Company[] @relation("CreatedCompanies")
@@ -60,7 +59,6 @@ model User {
   deletedRoles  Role[] @relation("DeletedRoles")
   restoredRoles Role[] @relation("RestoredRoles")
   updatedRoles  Role[] @relation("UpdatedRoles")
-  ownedRoles    Role[] @relation("UserOwnedRoles")
 
   grantedRolePermissions RolePermission[] @relation("GrantedRolePermissions")
   updatedRolePermissions RolePermission[] @relation("UpdatedRolePermissions")
@@ -70,7 +68,6 @@ model User {
   deletedTeams  Team[] @relation("DeletedTeams")
   restoredTeams Team[] @relation("RestoredTeams")
   updatedTeams  Team[] @relation("UpdatedTeams")
-  userOwnedTeam Team[] @relation("UserOwnedTeam")
 
   invitedTeamMembers TeamMember[] @relation("InvitedTeamMembers")
 
@@ -91,11 +88,10 @@ model User {
   // rolePermissionAuditLogs RolePermissionAuditLog[]
 
   //Modules
-  createdModule   Module[] @relation("CreatedModule")
-  deletedModule   Module[] @relation("DeletedModule")
-  restoredModule  Module[] @relation("RestoredModule")
-  updatedModule   Module[] @relation("UpdatedModule")
-  userOwnedModule Module[] @relation("UserOwnedModule")
+  createdModule  Module[] @relation("CreatedModule")
+  deletedModule  Module[] @relation("DeletedModule")
+  restoredModule Module[] @relation("RestoredModule")
+  updatedModule  Module[] @relation("UpdatedModule")
 
   @@index([email])
   @@index([isActive])
@@ -324,24 +320,12 @@ model Document {
   updatedBy String?
   updater   User?   @relation("UpdatedDocuments", fields: [updatedBy], references: [id], onDelete: SetNull)
 
-  // Propiedad (RBAC)
-  ownerId             String?
-  ownerTeamId         String?
-  ownerOrganizationId String?
-
-  owner             User?         @relation("UserOwnedDocuments", fields: [ownerId], references: [id], onDelete: SetNull)
-  ownerTeam         Team?         @relation("TeamOwnedDocuments", fields: [ownerTeamId], references: [id], onDelete: SetNull)
-  ownerOrganization Organization? @relation("OrgOwnedDocuments", fields: [ownerOrganizationId], references: [id], onDelete: SetNull)
-
   // Visibilidad
   isPublic Boolean @default(false)
 
   @@index([entityId, entityType, status])
   @@index([fileName])
   @@index([createdAt])
-  @@index([ownerId])
-  @@index([ownerTeamId])
-  @@index([ownerOrganizationId])
   @@map("document")
 }
 
@@ -386,15 +370,6 @@ model Module {
   updatedBy String?
   updater   User?   @relation("UpdatedModule", fields: [updatedBy], references: [id], onDelete: SetNull)
 
-  // Propiedad (RBAC sobre el propio rol)
-  ownerId             String?
-  ownerTeamId         String?
-  ownerOrganizationId String?
-
-  owner             User?         @relation("UserOwnedModule", fields: [ownerId], references: [id], onDelete: SetNull)
-  ownerTeam         Team?         @relation("TeamOwnedModule", fields: [ownerTeamId], references: [id], onDelete: SetNull)
-  ownerOrganization Organization? @relation("OrgOwnedModule", fields: [ownerOrganizationId], references: [id], onDelete: SetNull)
-
   permissions RolePermission[]
   // rolePermissionAuditLogs RolePermissionAuditLog[]
 
@@ -433,15 +408,6 @@ model Role {
 
   updatedBy String?
   updater   User?   @relation("UpdatedRoles", fields: [updatedBy], references: [id], onDelete: SetNull)
-
-  // Propiedad (RBAC sobre el propio rol)
-  ownerId             String?
-  ownerTeamId         String?
-  ownerOrganizationId String?
-
-  owner             User?         @relation("UserOwnedRoles", fields: [ownerId], references: [id], onDelete: SetNull)
-  ownerTeam         Team?         @relation("TeamOwnedRoles", fields: [ownerTeamId], references: [id], onDelete: SetNull)
-  ownerOrganization Organization? @relation("OrgOwnedRoles", fields: [ownerOrganizationId], references: [id], onDelete: SetNull)
 
   // Relaciones estructurales
   permissions     RolePermission[]
@@ -533,10 +499,8 @@ model RoleAssignment {
   id     String @id @default(uuid(7))
   roleId String
 
-  userId      String?
-  teamId      String?
-  targetOrgId String?
-
+  userId         String?
+  teamId         String?
   organizationId String?
 
   assignedAt DateTime @default(now())
@@ -546,16 +510,13 @@ model RoleAssignment {
   organization Organization? @relation("OrganizationRoleContext", fields: [organizationId], references: [id], onDelete: Cascade)
   granter      User?         @relation("GrantedAssignments", fields: [assignedBy], references: [id], onDelete: SetNull)
 
-  assignedUser User?         @relation("UserAssignments", fields: [userId], references: [id], onDelete: Cascade)
-  assignedTeam Team?         @relation("TeamAssignments", fields: [teamId], references: [id], onDelete: Cascade)
-  assignedOrg  Organization? @relation("OrgAssignments", fields: [targetOrgId], references: [id], onDelete: Cascade)
+  assignedUser User? @relation("UserAssignments", fields: [userId], references: [id], onDelete: Cascade)
+  assignedTeam Team? @relation("TeamAssignments", fields: [teamId], references: [id], onDelete: Cascade)
 
   @@unique([roleId, userId, organizationId])
   @@unique([roleId, teamId, organizationId])
-  @@unique([roleId, targetOrgId, organizationId])
   @@index([userId])
   @@index([teamId])
-  @@index([targetOrgId])
   @@index([organizationId])
   @@map("rbac_role_assignments")
 }
@@ -600,19 +561,14 @@ model Organization {
   ownerOrganization Organization? @relation("OrgOwnedOrganizations", fields: [ownerOrganizationId], references: [id], onDelete: SetNull)
 
   // Relaciones estructurales
-  members        OrganizationMember[]
-  teams          Team[]
-  orgAssignments RoleAssignment[]     @relation("OrgAssignments")
+  members OrganizationMember[]
+  teams   Team[]
 
   // Elementos que posee esta organización (reverse RBAC)
-  ownedDocuments     Document[]     @relation("OrgOwnedDocuments")
   ownedCompanies     Company[]      @relation("OrgOwnedCompanies")
-  ownedRoles         Role[]         @relation("OrgOwnedRoles")
   ownedOrganizations Organization[] @relation("OrgOwnedOrganizations")
-  orgOwnedTeam       Team[]         @relation("OrgOwnedTeam")
 
   organizationRoleContext RoleAssignment[] @relation("OrganizationRoleContext")
-  orgOwnedModule          Module[]         @relation("OrgOwnedModule")
 
   @@index([slug])
   @@map("org_organizations")
@@ -669,22 +625,9 @@ model Team {
   members      TeamMember[]
 
   // Elementos que posee este team
-  ownedDocuments     Document[]       @relation("TeamOwnedDocuments")
   ownedCompanies     Company[]        @relation("TeamOwnedCompanies")
-  ownedRoles         Role[]           @relation("TeamOwnedRoles")
   ownedOrganizations Organization[]   @relation("TeamOwnedOrganizations")
   roleAssignments    RoleAssignment[] @relation("TeamAssignments")
-  teamOwnedTeam      Team[]           @relation("TeamOwnedTeam")
-
-  // Propiedad (RBAC)
-  ownerId             String?
-  ownerTeamId         String?
-  ownerOrganizationId String?
-
-  owner             User?         @relation("UserOwnedTeam", fields: [ownerId], references: [id], onDelete: SetNull)
-  ownerTeam         Team?         @relation("TeamOwnedTeam", fields: [ownerTeamId], references: [id], onDelete: SetNull)
-  ownerOrganization Organization? @relation("OrgOwnedTeam", fields: [ownerOrganizationId], references: [id], onDelete: SetNull)
-  teamOwnedModule   Module[]      @relation("TeamOwnedModule")
 
   @@unique([organizationId, name])
   @@index([organizationId])
@@ -709,45 +652,6 @@ model TeamMember {
   @@index([memberId])
   @@map("org_team_members")
 }
-
-// ==========================================
-// Auditoría permisos
-// ==========================================
-//
-
-// enum AuditAction {
-//   GRANT
-//   REVOKE
-//   UPDATE_SCOPE
-// }
-
-// model RolePermissionAuditLog {
-//   id          String           @id @default(uuid(7))
-//   roleId      String
-//   moduleId   String
-//   action      PermissionAction
-//   oldScope    PermissionScope?
-//   newScope    PermissionScope
-//   auditAction AuditAction
-//   changedBy   String
-//   changedAt   DateTime         @default(now())
-
-//   role    Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
-//   module  Module @relation(fields: [moduleId], references: [key], onDelete: Cascade)
-//   changer User?  @relation(fields: [changedBy], references: [id], onDelete: SetNull)
-
-//   @@index([roleId])
-//   @@index([changedAt])
-//   @@map("rbac_permission_audit_log")
-// }
-
-// ==========================================
-// ACCESO EXPLÍCITO A ENTIDADES
-// ==========================================
-//
-// Complementa al RBAC para compartir registros concretos
-// con usuarios, teams u orgs específicos.
-// Útil para "compartir esta factura con el usuario X".
 
 enum EntityAccessLevel {
   OWNER
