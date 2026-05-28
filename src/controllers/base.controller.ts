@@ -1,7 +1,7 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
 
 import { CreateSchema } from '@/schemas/base.schema.js';
-import { BaseAuditService } from '@/services/base.service.js';
+import { BaseAuditService } from '@/services/base-owned.service.js';
 import { HttpError } from '@/utils/http.error.js';
 import { parsePagination } from '@/utils/pagination.js';
 import { requireScope } from '@/utils/scope.js';

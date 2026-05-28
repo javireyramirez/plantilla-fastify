@@ -30,6 +30,7 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   isSystem      Boolean  @default(false)
+  isSuperAdmin  Boolean  @default(false)
 
   // Auditoría y Propiedad: Documentos
   createdDocuments  Document[] @relation("CreatedDocuments")

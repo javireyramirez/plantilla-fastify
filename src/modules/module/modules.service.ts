@@ -1,6 +1,6 @@
 import { Module } from '@prisma/client';
 
-import { BaseAuditService } from '@/services/base.service.js';
+import { BaseAuditService } from '@/services/base-owned.service.js';
 
 import { ModuleRepository } from './module.repository.js';
 

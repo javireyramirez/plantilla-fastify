@@ -1,5 +1,5 @@
 import { withInvitedBy } from '@/decorators/audit.decorators.js';
-import { BaseAuditService } from '@/services/base.service.js';
+import { BaseAuditService } from '@/services/base-owned.service.js';
 import { HttpError } from '@/utils/http.error.js';
 
 import { OrganizationMemberRepository } from '../organization/organization-member.repository.js';

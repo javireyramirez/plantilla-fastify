@@ -1,15 +1,18 @@
 // ==========================================
 // ENTIDADES DE NEGOCIO
 // ==========================================
-export const withCreatedBy = (userId?: string, ownerId?: string) => ({
+export const withCreatedBy = (userId?: string) => ({
+  ...(userId && { createdBy: userId, updatedBy: userId }),
+  updatedAt: new Date(),
+});
+
+export const withOwnedCreate = (userId?: string, ownerId?: string) => ({
+  ...withCreatedBy(userId),
   ...(userId && {
-    createdBy: userId,
-    updatedBy: userId,
     ownerId: ownerId ?? userId,
     ownerTeamId: null,
     ownerOrganizationId: null,
   }),
-  updatedAt: new Date(),
 });
 
 export const withUpdatedBy = (userId?: string) => ({

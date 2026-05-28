@@ -3,6 +3,7 @@ import { FastifyInstance } from 'fastify';
 import {
   withCreatedBy,
   withDeletedBy,
+  withOwnedCreate,
   withRestoredBy,
   withUpdatedBy,
 } from '@/decorators/audit.decorators.js';
@@ -57,7 +58,7 @@ export abstract class BaseAuditService<T> {
   ): Promise<T> {
     try {
       return await this.repository.create({
-        data: { ...data, ...withCreatedBy(userId, data?.ownerId) },
+        data: { ...data, ...withOwnedCreate(userId, data?.ownerId) },
         include: { ...defaultInclude, ...(options.include ?? {}) },
         select: options.select,
       });
@@ -258,7 +259,7 @@ export abstract class BaseAuditService<T> {
   async createManyWithAudit(data: any[], userId?: string) {
     const auditData = data.map((item) => ({
       ...item,
-      ...withCreatedBy(userId, item.ownerId),
+      ...withOwnedCreate(userId, item.ownerId),
     }));
 
     return this.repository.createMany({
