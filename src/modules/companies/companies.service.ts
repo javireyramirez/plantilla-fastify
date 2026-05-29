@@ -8,6 +8,14 @@ export class CompaniesService extends BaseRbacService<Company> {
     super(companiesRepo);
   }
 
+  protected override getDefaultInclude() {
+    return {
+      owner: { select: { name: true, email: true } },
+      ownerTeam: { select: { id: true, name: true } },
+      ownerOrganization: { select: { id: true, name: true, slug: true } },
+    };
+  }
+
   protected getStatusFilter(isTrash: boolean) {
     return {
       status: isTrash ? 'TRASHED' : 'ACTIVE',

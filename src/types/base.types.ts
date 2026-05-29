@@ -3,7 +3,7 @@ import { PermissionScope } from '@prisma/client';
 export interface ScopeContext {
   scope: PermissionScope;
   userId: string;
-  organizationId: string;
+  organizationId?: string;
   teamIds: string[];
 }
 

@@ -29,9 +29,6 @@ export const OrganizationSchema = z.object({
   deletedBy: z.string().optional().nullable(),
   restoreBy: z.string().optional().nullable(),
   updatedBy: z.string().optional().nullable(),
-  owner: OwnerSchema.optional().nullable(),
-  ownerTeam: OwnerTeamSchema.optional().nullable(),
-  ownerOrganization: OwnerOrganizationSchema.optional().nullable(),
 });
 
 export const OrganizationMemberSchemaBase = z.object({
@@ -100,10 +97,6 @@ export const CreateOrganizationBodySchema = OrganizationSchema.omit({
   deletedBy: true,
   restoreBy: true,
   updatedBy: true,
-}).extend({
-  ownerId: z.string().optional().nullable(),
-  ownerTeamId: z.string().optional().nullable(),
-  ownerOrganizationId: z.string().optional().nullable(),
 });
 
 export const UpdateOrganizationBodySchema = CreateOrganizationBodySchema.partial();
@@ -146,11 +139,6 @@ export const OrganizationListResponseSchema = z.object({
     total: z.number(),
     totalPages: z.number(),
   }),
-});
-
-export const OrganizationDeletedResponseSchema = z.object({
-  success: z.boolean(),
-  message: z.string(),
 });
 
 export const BulkResponseSchema = z.object({

@@ -6,7 +6,14 @@ Este documento detalla conceptual y técnicamente el funcionamiento del sistema 
 
 ## 1. Conceptos Fundamentales
 
-El sistema de permisos está diseñado en torno al concepto de **recursos multi-inquilino (multi-tenant)**, donde la propiedad de cada registro define quién puede interactuar con él en función de su nivel de acceso.
+El sistema de permisos está diseñado en torno al concepto de **recursos multi-inquilino (multi-tenant)**, donde la **organización** actúa como separador de datos y los **teams** como agrupadores de permisos.
+
+### Principios de Diseño
+
+- **Organización** → separador de datos (tenant). No tiene roles asignados ni ownership propio.
+- **Team** → agrupador de permisos dentro de una organización. Los roles se asignan a teams, no a usuarios individuales (salvo excepciones como roles globales de sistema).
+- **Usuario** → pertenece a uno o varios teams. Hereda los roles de sus teams.
+- **Superadmin** → campo `isSuperAdmin` en `User`. Bypass total del pipeline RBAC, scope `GLOBAL` implícito sobre todos los datos del sistema.
 
 ### Entidades del Modelo
 
@@ -23,11 +30,13 @@ erDiagram
         string id PK
         string email
         boolean isActive
+        boolean isSuperAdmin
     }
     org_organizations {
         string id PK
         string name
         string slug
+        boolean byDefault
     }
     org_teams {
         string id PK
@@ -55,175 +64,277 @@ erDiagram
     rbac_role_assignments {
         string id PK
         string roleId FK
-        string userId FK
-        string teamId FK
-        string targetOrgId FK
-        string organizationId FK "Contexto"
+        string userId FK "rol directo (admin global, casos especiales)"
+        string teamId FK "rol por team (caso normal)"
+        string organizationId FK "contexto: null = global"
     }
 ```
 
 ### Elementos Clave del Control de Acceso
 
-1. **Recurso (`Module`)**: La sección o entidad del sistema sobre la que se quiere actuar (ej: `companies`, `teams`, `invoices`).
-2. **Acción (`PermissionAction`)**: Qué se quiere hacer sobre el recurso. Las acciones estándar son:
-   * `CREATE`: Crear nuevos registros.
-   * `READ`: Visualizar o listar registros.
-   * `UPDATE`: Modificar registros existentes.
-   * `DELETE`: Eliminar (física o lógicamente) registros.
-   * `RESTORE`: Recuperar registros de la papelera.
-3. **Ámbito (`PermissionScope`)**: **Sobre qué registros** tiene permiso el usuario para realizar la acción. El sistema soporta cuatro ámbitos ordenados por nivel de permisividad:
-   * 👑 **`GLOBAL`**: Permite actuar sobre **todos** los registros del sistema.
-   * 🏢 **`ORGANIZATION`**: Permite actuar sobre registros pertenecientes a la **organización activa** (`ownerOrganizationId`).
-   * 👥 **`TEAM`**: Permite actuar sobre registros asignados a los **equipos a los que pertenece el usuario** (`ownerTeamId`).
-   * 👤 **`OWN`**: Permite actuar únicamente sobre registros **creados o poseídos directamente por el usuario** (`ownerId`).
+**Recurso (`Module`)**: La sección o entidad del sistema sobre la que se quiere actuar (ej: `companies`, `teams`, `invoices`). Se registran en seed y son la fuente de verdad de la matriz de permisos.
+
+**Acción (`PermissionAction`)**: Qué se quiere hacer sobre el recurso:
+
+| Acción     | Descripción                        |
+| ---------- | ---------------------------------- |
+| `CREATE`   | Crear nuevos registros             |
+| `READ`     | Visualizar o listar registros      |
+| `UPDATE`   | Modificar registros existentes     |
+| `DELETE`   | Eliminar (lógicamente) registros   |
+| `RESTORE`  | Recuperar registros de la papelera |
+| `EXPORT`   | Exportar datos                     |
+| `IMPORT`   | Importar datos                     |
+| `SETTINGS` | Acceder a configuración            |
+
+**Ámbito (`PermissionScope`)**: Sobre qué registros aplica la acción. Orden de precedencia de mayor a menor permisividad:
+
+| Scope             | Descripción                         | Filtro aplicado               |
+| ----------------- | ----------------------------------- | ----------------------------- |
+| 👑 `GLOBAL`       | Todos los registros del sistema     | `{}` (sin filtro)             |
+| 🏢 `ORGANIZATION` | Registros de la organización activa | `ownerOrganizationId = orgId` |
+| 👥 `TEAM`         | Registros de los teams del usuario  | `ownerTeamId IN [teamIds]`    |
+| 👤 `OWN`          | Solo registros propios del usuario  | `ownerId = userId`            |
 
 ---
 
-## 2. Herencia de Permisos en Runtime
+## 2. Jerarquía de Servicios
 
-Cuando un usuario realiza una petición, el sistema no solo evalúa los roles asignados directamente a su cuenta. En su lugar, resuelve una jerarquía completa basada en su contexto organizativo:
+El sistema está estructurado en tres niveles de herencia que se corresponden con las necesidades de cada tipo de entidad:
+
+```
+BaseCrudService       → CRUD puro, sin userId ni scope
+    └── BaseAuditService  → + auditoría (createdBy, deletedAt, softDelete, restore)
+            └── BaseRbacService   → + scope/ownership RBAC
+```
+
+| Entidad                           | Servicio base      | Ownership en schema |
+| --------------------------------- | ------------------ | ------------------- |
+| `Module`, tokens de verificación  | `BaseCrudService`  | ❌ no aplica        |
+| `Organization`, `Role`, `Team`    | `BaseAuditService` | ❌ eliminado        |
+| `Company`, `Invoice`, `Lead`, ... | `BaseRbacService`  | ✅ mantener         |
+
+### `WriteOptions` — tipo compartido
+
+Todas las firmas de escritura usan un único tipo para evitar incompatibilidades en los overrides:
+
+```typescript
+export type WriteOptions = {
+  userId?: string;
+  scope?: ScopeContext;
+  include?: any;
+  select?: any;
+};
+```
+
+---
+
+## 3. Asignación de Roles
+
+### Caso normal — rol por team
+
+El flujo recomendado para gestionar permisos en apps pequeñas y medianas:
+
+```
+Org: "Mi Empresa"
+  Team: "Admins"    → Rol: org-admin   (GLOBAL en todos los módulos de la org)
+  Team: "Ventas"    → Rol: vendedor    (CREATE/READ/UPDATE en companies, deals)
+  Team: "Soporte"   → Rol: soporte     (READ en todo, scope OWN)
+
+Usuario "María" → miembro de "Ventas"
+  → hereda automáticamente el rol "vendedor"
+  → cambiar su team cambia sus permisos instantáneamente
+```
+
+### Caso especial — rol directo a usuario
+
+Solo para casos excepcionales como invitados con acceso puntual:
+
+```typescript
+// organizationId = null → rol global (aplica en cualquier org)
+// organizationId = <id> → rol restringido a esa organización
+await prisma.roleAssignment.create({
+  data: {
+    roleId: guestRoleId,
+    userId: userId,
+    organizationId: orgId,
+    assignedBy: adminId,
+  },
+});
+```
+
+### Roles de sistema (seed)
+
+Los roles de sistema se crean en seed con `isSystem: true` y no pueden eliminarse desde la UI:
+
+```typescript
+const systemRoles = [
+  {
+    slug: 'org-admin',
+    name: 'Admin de organización',
+    isSystem: true,
+    // Todos los módulos, scope ORGANIZATION
+  },
+  {
+    slug: 'member',
+    name: 'Miembro',
+    isSystem: true,
+    // READ en todo, scope OWN
+  },
+];
+```
+
+Al crear una organización se genera automáticamente un team "Admins" con el rol `org-admin` asignado, y el creador es añadido a ese team.
+
+---
+
+## 4. Herencia de Permisos en Runtime
 
 ```mermaid
 graph TD
-    A[Roles Globales del Usuario] --> E[Matriz de Permisos Resolutiva]
-    B[Roles Directos del Usuario en la Org] --> E
-    C[Roles de los Equipos del Usuario en la Org] --> E
-    D[Roles Asignados a la Organización Completa] --> E
+    A[Roles globales del usuario<br/>organizationId = null] --> E[Matriz de Permisos Resolutiva]
+    B[Roles directos del usuario en la org] --> E
+    C[Roles de los teams del usuario en la org] --> E
+    D[Roles globales de los teams del usuario<br/>organizationId = null] --> E
     E --> F{¿Hay permisos para Module + Action?}
     F -- No --> G[HTTP 403 Forbidden]
     F -- Sí --> H[Tomar el Scope más permisivo:<br/>GLOBAL > ORGANIZATION > TEAM > OWN]
 ```
 
+La query que resuelve todos los assignments en una sola llamada:
+
+```typescript
+const assignments = await prisma.roleAssignment.findMany({
+  where: {
+    OR: [
+      { userId, organizationId }, // rol directo en esta org
+      { userId, organizationId: null }, // rol global directo
+      { teamId: { in: teamIds }, organizationId }, // rol por team en esta org
+      { teamId: { in: teamIds }, organizationId: null }, // rol global por team
+    ],
+  },
+  include: {
+    role: {
+      include: {
+        permissions: {
+          where: { module: { key: resource }, action },
+        },
+      },
+    },
+  },
+});
+```
+
 ---
 
-## 3. Flujo Técnico de una Petición (Pipeline)
-
-El control de acceso se ejecuta de manera transparente y progresiva mediante middlewares (hooks de Fastify) y lógica encapsulada en las clases base.
-
-### Diagrama de Secuencia Completo
+## 5. Flujo Técnico de una Petición (Pipeline)
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor Cliente
     participant Router as BaseRoutes
-    participant Hook1 as Hook: requireAuth
-    participant Hook2 as Hook: memberContext
-    participant Hook3 as Hook: requirePermission
+    participant Hook1 as requireAuth
+    participant Hook2 as memberContext
+    participant Hook3 as requirePermission
     participant Ctrl as BaseController
-    participant Srv as BaseService
+    participant Srv as BaseRbacService
     participant Repo as BaseRepository
     participant DB as Base de Datos
 
     Cliente->>Router: Petición HTTP (ej: PATCH /companies/123)
-    
-    Note over Router: Fase de Middlewares
+
     Router->>Hook1: Ejecuta requireAuth
-    Note over Hook1: Valida que exista sesión activa en Better-Auth
-    Hook1-->>Router: Inyecta request.session
+    Note over Hook1: Valida sesión activa en Better-Auth.<br/>Inyecta request.session (incluye isSuperAdmin).
+    Hook1-->>Router: ✓ request.session
 
     Router->>Hook2: Ejecuta memberContext
-    Note over Hook2: Obtiene ID de Organización (cabecera/parámetro).<br/>Valida que el usuario sea miembro activo.<br/>Resuelve los equipos (teams) del usuario en esa org.
-    Hook2-->>Router: Inyecta request.memberContext
+    Note over Hook2: Obtiene organizationId (header x-organization-id o params).<br/>Valida membresía activa y org activa.<br/>Resuelve teamIds del usuario en esa org.
+    Hook2-->>Router: ✓ request.memberContext
 
     Router->>Hook3: Ejecuta requirePermission('companies', 'UPDATE')
-    Note over Hook3: Ejecuta una query unificada buscando todos los roles aplicables.<br/>Consolida los permisos para el recurso/acción.<br/>Determina el Scope más permisivo.
-    Hook3-->>Router: Inyecta request.permissions
+    Note over Hook3: Si isSuperAdmin → scope GLOBAL, bypass inmediato.<br/>Si no → query unificada de assignments.<br/>Toma el scope más permisivo.
+    Hook3-->>Router: ✓ request.permissions
 
-    Note over Router: Fase de Controlador y Negocio
     Router->>Ctrl: update(req, reply)
-    Note over Ctrl: Extrae el ScopeContext con requireScope(req):<br/>{ scope, userId, organizationId, teamIds }
-    Ctrl->>Srv: update(id, body, userId, { scope })
+    Note over Ctrl: requireScope(req) extrae:<br/>{ scope, userId, organizationId, teamIds }
+    Ctrl->>Srv: update(id, body, { userId, scope })
 
-    Note over Srv: Validación de Seguridad Crítica
-    Srv->>Repo: findFirst({ id }, scope)
-    Note over Repo: Aplica filtro dinámico según el scope:<br/>GLOBAL -> {}<br/>ORGANIZATION -> { ownerOrganizationId }<br/>TEAM -> { ownerTeamId: { in: teamIds } }<br/>OWN -> { ownerId: userId }
-    Repo->>DB: Consulta con filtros aplicados
-    DB-->>Srv: Retorna registro (o null si no cumple el scope)
-    
+    Note over Srv: Validación de scope antes de mutar
+    Srv->>Repo: findFirst({ where: { id }, scope })
+    Note over Repo: buildScopeFilter aplica filtro según scope:<br/>GLOBAL → {}<br/>ORGANIZATION → { ownerOrganizationId }<br/>TEAM → { ownerTeamId: { in: teamIds } }<br/>OWN → { ownerId: userId }
+    Repo->>DB: SELECT con filtros aplicados
+    DB-->>Srv: Registro (o null)
+
     alt Registro no encontrado en el scope del usuario
-        Srv-->>Cliente: HTTP 404/403 (Registro no encontrado o sin permisos)
+        Srv-->>Cliente: HTTP 404 — Registro no encontrado o sin permisos
     else Registro pertenece a su scope
-        Srv->>Repo: update({ id }, data)
-        Repo->>DB: Guarda modificaciones
-        DB-->>Cliente: HTTP 200 OK (Respuesta exitosa)
+        Srv->>Repo: update({ where: { id }, data })
+        Repo->>DB: UPDATE
+        DB-->>Cliente: HTTP 200 OK
     end
 ```
 
 ---
 
-## 4. Detalle de Código e Implementación
+## 6. Superadmin
 
-### Definición de Rutas Automática (`registerBaseRoutes`)
-Al declarar las rutas base de cualquier módulo, se inyecta automáticamente el pipeline de seguridad mapeando el recurso y la acción. Ejemplo:
+El superadmin es un campo en `User` (`isSuperAdmin: boolean`), no un rol del sistema RBAC. Se asigna directamente en base de datos mediante script y nunca desde la UI.
 
 ```typescript
-// src/modules/companies/companies.routes.ts
-registerBaseRoutes(fastify, fastify.companiesController, {
-  resource: 'companies', // Identificador del módulo en la BD
-  tags: ['Companies'],
-  schemas: { ... }
+// scripts/make-superadmin.ts
+await prisma.user.update({
+  where: { email: 'admin@empresa.com' },
+  data: { isSuperAdmin: true },
 });
 ```
 
-En la infraestructura base, esto se asocia a las pre-condiciones:
+**Comportamiento:**
+
+- Bypass total del pipeline de permisos — ni consulta la BD de roles.
+- Scope `GLOBAL` implícito — ve todos los registros de todas las organizaciones sin filtro.
+- No necesita `memberContext` para operar.
+- Para revocar acceso urgente: invalidar sesiones manualmente.
+
 ```typescript
-// src/routes/base.routes.ts
-app.patch(
-  '/:id',
-  {
-    preHandler: [
-      requireAuth,
-      memberContext,
-      requirePermission(options.resource, PermissionAction.UPDATE),
-    ],
-  },
-  (req, reply) => controller.update(req as any, reply)
-);
+// Revocar sesiones activas
+await prisma.session.updateMany({
+  where: { userId },
+  data: { isValid: false },
+});
 ```
 
-### Extracción del Ámbito en Controladores
-Cada método del controlador extrae el contexto de seguridad para delegarlo a la capa de negocio:
+---
+
+## 7. Implementación — Extractos Clave
+
+### `buildPreHandler` — pipeline configurable por ruta
 
 ```typescript
-// src/controllers/base.controller.ts
-async update(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
-  const { id } = request.params;
-  const userId = request.session?.user?.id;
-  const scope = requireScope(request); // Extrae scope, userId, orgId, teamIds
+function buildPreHandler(resource: string, action: PermissionAction, options: BaseRoutesOptions) {
+  const handlers: any[] = [requireAuth];
 
-  const record = await this.service.update(id, request.body, userId, { scope });
-  return reply.send(record);
+  if (!options.auth?.skipMemberContext) handlers.push(memberContext);
+  if (!options.auth?.skipPermissions) handlers.push(requirePermission(resource, action));
+
+  return handlers;
 }
 ```
 
-### Chequeo Previo de Seguridad en Servicios
-Para prevenir escaladas de privilegios en operaciones individuales mediante IDs aleatorios u obtenidos maliciosamente, el servicio valida la propiedad de manera proactiva:
+Uso en rutas de sistema (sin contexto de org ni permisos):
 
 ```typescript
-// src/services/base.service.ts
-async update(id: string, data: any, userId?: string, options: { scope?: ScopeContext }): Promise<T> {
-  const where = { id, ...this.getStatusFilter(false) };
-  
-  // Realiza la búsqueda aplicando estrictamente los filtros del scope resuelto
-  const record = await this.repository.findFirst({ where, scope: options.scope });
-  if (!record) {
-    throw new HttpError(404, 'Registro no encontrado o sin permisos');
-  }
-
-  // Si existe en su scope, procede con la actualización real de forma segura
-  return await this.repository.update({
-    where: { id },
-    data: { ...data, ...withUpdatedBy(userId) },
-  });
-}
+registerBaseRoutes(fastify, modulesController, {
+  resource: 'modules',
+  tags: ['Modules'],
+  schemas: modulesSchemas,
+  auth: { skipMemberContext: true, skipPermissions: true },
+});
 ```
 
-### Inyección de Filtros en Repositorios
-La capa de base de datos se encarga de traducir el ámbito resuelto en filtros nativos de Prisma:
+### `buildScopeFilter` — filtros dinámicos en repositorio
 
 ```typescript
-// src/repositories/base.repository.ts
 export function buildScopeFilter(ctx: ScopeContext): Record<string, any> {
   switch (ctx.scope) {
     case 'GLOBAL':
@@ -237,3 +348,64 @@ export function buildScopeFilter(ctx: ScopeContext): Record<string, any> {
   }
 }
 ```
+
+### `BaseRbacService.update` — verificación de scope antes de mutar
+
+```typescript
+override async update(id: string, data: any, options: WriteOptions = {}): Promise<T> {
+  // Verifica que el registro existe Y pertenece al scope del usuario
+  const record = await this.repository.findFirst({
+    where: { id, ...this.getStatusFilter(false) },
+    scope: options.scope,
+  });
+  if (!record) throw new HttpError(404, 'Registro no encontrado o sin permisos');
+
+  // Delega la actualización con auditoría al nivel superior
+  return super.update(id, data, options);
+}
+```
+
+---
+
+## 8. Patrón para Nuevas Entidades de Negocio
+
+Para añadir un nuevo módulo (ej: `Invoice`) al sistema:
+
+**1. Schema Prisma** — copiar el patrón de `Company`: auditoría completa + `ownerId`, `ownerTeamId`, `ownerOrganizationId`.
+
+**2. Módulo en seed** — registrar la key en `rbac_modules`:
+
+```typescript
+{ key: 'invoices', label: 'Facturas', isConfigurableByOrg: true }
+```
+
+**3. Servicio** — extender `BaseRbacService`:
+
+```typescript
+export class InvoicesService extends BaseRbacService<Invoice> {
+  protected getStatusFilter(isTrash: boolean) {
+    return isTrash
+      ? { status: 'TRASHED', deletedAt: { not: null } }
+      : { status: { not: 'TRASHED' }, deletedAt: null };
+  }
+
+  protected override getDefaultInclude() {
+    return {
+      owner: { select: { name: true, email: true } },
+      ownerOrganization: { select: { id: true, name: true } },
+    };
+  }
+}
+```
+
+**4. Rutas** — registrar con `registerBaseRoutes`:
+
+```typescript
+registerBaseRoutes(fastify, fastify.invoicesController, {
+  resource: 'invoices',
+  tags: ['Invoices'],
+  schemas: invoicesSchemas,
+});
+```
+
+El pipeline de seguridad se inyecta automáticamente.

@@ -92,11 +92,6 @@ export const CompaniesListResponseSchema = z.object({
   }),
 });
 
-export const CompanyDeletedResponseSchema = z.object({
-  success: z.boolean(),
-  message: z.string(),
-});
-
 export const BulkResponseSchema = z.object({
   count: z.number(),
 });

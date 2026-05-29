@@ -5,8 +5,8 @@ export interface BaseRoutesOptions {
   auth?: {
     skipMemberContext?: boolean;
     skipPermissions?: boolean;
+    requireSuperAdmin?: boolean;
   };
-
   schemas: {
     /**
      * PARAMS

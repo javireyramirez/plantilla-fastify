@@ -28,6 +28,11 @@ export default async function organizationRoutes(fastify: FastifyInstance) {
   registerBaseRoutes(fastify, fastify.organizationController, {
     resource: 'organizations',
     tags: ['Organization'],
+    auth: {
+      skipMemberContext: true,
+      skipPermissions: true,
+      requireSuperAdmin: true,
+    },
     schemas: {
       // Parámetros
       idParams: OrganizationIdParamsSchema,

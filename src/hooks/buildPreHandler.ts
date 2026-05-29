@@ -5,6 +5,7 @@ import { BaseRoutesOptions } from '@/types/base-routes.types.js';
 
 import { requirePermission } from './rbac.js';
 import { requireAuth } from './require.auth.js';
+import { requireSuperAdmin } from './require.superadmin.js';
 
 export function buildPreHandler(
   resource: string,
@@ -12,6 +13,11 @@ export function buildPreHandler(
   options: BaseRoutesOptions,
 ) {
   const handlers: any[] = [requireAuth];
+
+  if (options.auth?.requireSuperAdmin) {
+    handlers.push(requireSuperAdmin);
+    return handlers;
+  }
 
   if (!options.auth?.skipMemberContext) {
     handlers.push(memberContext);

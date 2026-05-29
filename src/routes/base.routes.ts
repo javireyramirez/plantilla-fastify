@@ -3,24 +3,8 @@ import { FastifyInstance } from 'fastify';
 import { ZodTypeProvider } from 'fastify-type-provider-zod';
 
 import { BaseController } from '@/controllers/base.controller.js';
-import { memberContext } from '@/hooks/member.context.js';
-import { requirePermission } from '@/hooks/rbac.js';
-import { requireAuth } from '@/hooks/require.auth.js';
+import { buildPreHandler } from '@/hooks/buildPreHandler.js';
 import { BaseRoutesOptions } from '@/types/base-routes.types.js';
-
-function buildPreHandler(resource: string, action: PermissionAction, options: BaseRoutesOptions) {
-  const handlers: any[] = [requireAuth];
-
-  if (!options.auth?.skipMemberContext) {
-    handlers.push(memberContext);
-  }
-
-  if (!options.auth?.skipPermissions) {
-    handlers.push(requirePermission(resource, action));
-  }
-
-  return handlers;
-}
 
 export function registerBaseRoutes<T>(
   fastify: FastifyInstance,
