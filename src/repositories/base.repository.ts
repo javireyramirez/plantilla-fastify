@@ -13,7 +13,7 @@ export function buildScopeFilter(ctx: ScopeContext): Record<string, any> {
     case 'GLOBAL':
       return {};
     case 'ORGANIZATION':
-      return { ownerOrganizationId: ctx.organizationId };
+      return { ownerOrganizationId: { in: ctx.organizationIds } };
     case 'TEAM':
       return { ownerTeamId: { in: ctx.teamIds } };
     case 'OWN':

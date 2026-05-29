@@ -80,6 +80,7 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
     orderBy?: any;
     select?: any;
     isTrash?: boolean;
+    scope?: any;
   }): Promise<T[]> {
     return this.repository.findMany({
       where: this.getAuditWhere(params.isTrash ?? false, params.where),

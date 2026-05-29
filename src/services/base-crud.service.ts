@@ -73,7 +73,7 @@ export abstract class BaseCrudService<T> {
   // ==========================================
 
   async findFirst(
-    params: { where?: any; include?: any; orderBy?: any; select?: any } = {},
+    params: { where?: any; include?: any; orderBy?: any; select?: any; scope?: any } = {},
   ): Promise<T | null> {
     return this.repository.findFirst({
       ...params,
@@ -100,6 +100,7 @@ export abstract class BaseCrudService<T> {
     orderBy?: any;
     include?: any;
     select?: any;
+    scope?: any;
   }): Promise<{ data: T[]; total: number }> {
     return this.repository.findManyWithCount({
       ...params,

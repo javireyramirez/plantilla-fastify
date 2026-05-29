@@ -4,47 +4,53 @@ export async function memberContext(request: FastifyRequest, reply: FastifyReply
   const user = request.session?.user;
   if (!user) return reply.status(401).send({ error: 'Unauthorized' });
 
-  const organizationId =
-    (request.headers['x-organization-id'] as string | undefined) ??
-    (request.params as any)?.organizationId;
+  const rawIds = request.headers['x-organization-ids'] as string | undefined;
+  const organizationIds = rawIds
+    ? rawIds
+        .split(',')
+        .map((id) => id.trim())
+        .filter(Boolean)
+    : null;
 
-  const membership = organizationId
-    ? await request.server.prisma.organizationMember.findUnique({
-        where: { userId_organizationId: { userId: user.id, organizationId } },
+  const memberships = organizationIds
+    ? await request.server.prisma.organizationMember.findMany({
+        where: {
+          userId: user.id,
+          organizationId: { in: organizationIds },
+          isActive: true,
+        },
         include: {
           organization: { select: { id: true, slug: true, name: true, status: true } },
           teamMembers: { select: { teamId: true } },
         },
       })
-    : await request.server.prisma.organizationMember.findFirst({
+    : await request.server.prisma.organizationMember.findMany({
         where: { userId: user.id, isActive: true },
         include: {
           organization: { select: { id: true, slug: true, name: true, status: true } },
           teamMembers: { select: { teamId: true } },
         },
-        orderBy: [{ organization: { byDefault: 'desc' } }, { joinedAt: 'asc' }],
+        orderBy: [{ isPrimary: 'desc' }, { joinedAt: 'asc' }],
+        take: 1,
       });
 
-  if (!membership) {
+  if (memberships.length === 0) {
     return reply.status(403).send({
-      error: organizationId
+      error: organizationIds
         ? 'Not a member of this organization'
         : 'Not a member of any organization',
     });
   }
 
-  if (!membership.isActive) {
-    return reply.status(403).send({ error: 'Membership is inactive' });
+  if (organizationIds && memberships.length !== organizationIds.length) {
+    return reply.status(403).send({ error: 'Not a member of all requested organizations' });
   }
-
-  if (membership.organization.status !== 'ACTIVE') {
-    return reply.status(403).send({ error: 'Organization is not active' });
-  }
-
   request.memberContext = {
-    organizationId: membership.organizationId,
-    organization: membership.organization,
-    memberId: membership.id,
-    teamIds: membership.teamMembers.map((tm) => tm.teamId),
+    organizationIds: memberships.map((m) => m.organizationId),
+    organizationId:
+      memberships.find((m) => m.isPrimary)?.organizationId ?? memberships[0].organizationId,
+    organization: (memberships.find((m) => m.isPrimary) ?? memberships[0]).organization,
+    memberId: (memberships.find((m) => m.isPrimary) ?? memberships[0]).id,
+    teamIds: memberships.flatMap((m) => m.teamMembers.map((tm) => tm.teamId)),
   };
 }

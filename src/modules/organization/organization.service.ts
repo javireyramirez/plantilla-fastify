@@ -84,6 +84,10 @@ export class OrganizationService extends BaseAuditService<Organization> {
   async addMember(organizationId: string, data: { userId: string }, invitedBy?: string) {
     await this.ensureOrganizationExists(organizationId);
 
+    const existingMemberships = await this.organizationMemberRepo.count({
+      where: { userId: data.userId },
+    });
+
     const isMember = await this.organizationMemberRepo.exists({
       where: {
         userId: data.userId,
@@ -97,6 +101,7 @@ export class OrganizationService extends BaseAuditService<Organization> {
       data: {
         organizationId,
         userId: data.userId,
+        isPrimary: existingMemberships === 0,
         ...withInvitedBy(invitedBy),
       },
     });
@@ -125,6 +130,20 @@ export class OrganizationService extends BaseAuditService<Organization> {
     } catch (error) {
       throw new HttpError(404, 'Miembro no encontrado');
     }
+  }
+
+  async setPrimary(organizationId: string, userId: string) {
+    await this.transaction(async (tx) => {
+      await tx.organizationMember.updateMany({
+        where: { userId },
+        data: { isPrimary: false },
+      });
+
+      await tx.organizationMember.update({
+        where: { userId_organizationId: { userId, organizationId } },
+        data: { isPrimary: true },
+      });
+    });
   }
 
   // ==========================================

@@ -1,5 +1,8 @@
+import { PermissionAction } from '@prisma/client';
 import { FastifyInstance } from 'fastify';
 
+import { memberContext } from '@/hooks/member.context.js';
+import { requirePermission } from '@/hooks/rbac.js';
 import { requireAuth } from '@/hooks/require.auth.js';
 import {
   BulkCreateOrganizationBodySchema,
@@ -57,6 +60,8 @@ export default async function organizationRoutes(fastify: FastifyInstance) {
   });
 
   fastify.addHook('preHandler', requireAuth);
+  fastify.addHook('preHandler', memberContext);
+  fastify.addHook('preHandler', requirePermission('organizations', PermissionAction.SETTINGS));
 
   // ==========================================
   // 1. LECTURA

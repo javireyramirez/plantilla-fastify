@@ -526,12 +526,11 @@ model RoleAssignment {
 // ==========================================
 
 model Organization {
-  id        String       @id @default(uuid(7))
-  name      String
-  slug      String       @unique
-  image     String?
-  status    RecordStatus @default(ACTIVE)
-  byDefault Boolean      @default(false)
+  id     String       @id @default(uuid(7))
+  name   String
+  slug   String       @unique
+  image  String?
+  status RecordStatus @default(ACTIVE)
 
   // Auditoría
   createdAt DateTime  @default(now())
@@ -579,6 +578,7 @@ model OrganizationMember {
   userId         String
   organizationId String
   isActive       Boolean  @default(true)
+  isPrimary      Boolean  @default(false)
   joinedAt       DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

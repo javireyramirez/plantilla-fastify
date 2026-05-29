@@ -20,7 +20,6 @@ export const OrganizationSchema = z.object({
   name: z.string().min(1),
   slug: z.string().min(1),
   image: z.string().optional().nullable(),
-  byDefault: z.boolean().default(false),
   status: recordStatusSchema,
   createdAt: z.date(),
   updatedAt: z.date(),
@@ -36,6 +35,7 @@ export const OrganizationMemberSchemaBase = z.object({
   userId: z.uuidv7(),
   organizationId: z.uuidv7(),
   isActive: z.boolean().default(true),
+  isPrimary: z.boolean().default(true),
   joinedAt: z.date(),
   updatedAt: z.date(),
   // Auditoría de membresía

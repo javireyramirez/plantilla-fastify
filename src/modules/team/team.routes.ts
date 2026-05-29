@@ -1,8 +1,10 @@
+import { PermissionAction } from '@prisma/client';
 import { FastifyInstance } from 'fastify';
+import { ZodTypeProvider } from 'fastify-type-provider-zod';
 
+import { memberContext } from '@/hooks/member.context.js';
+import { requirePermission } from '@/hooks/rbac.js';
 import { requireAuth } from '@/hooks/require.auth.js';
-import { registerBaseRoutes } from '@/routes/base.routes.js';
-
 import {
   BulkCreateTeamBodySchema,
   BulkIdsBodySchema,
@@ -22,8 +24,11 @@ import {
   TeamResponseSchema,
   UpdateTeamBodySchema,
 } from '@/modules/team/team.schema.js';
+import { registerBaseRoutes } from '@/routes/base.routes.js';
 
 export default async function teamRoutes(fastify: FastifyInstance) {
+  const app = fastify.withTypeProvider<ZodTypeProvider>();
+
   registerBaseRoutes(fastify, fastify.teamController, {
     resource: 'teams',
     tags: ['Team'],
@@ -51,18 +56,21 @@ export default async function teamRoutes(fastify: FastifyInstance) {
   });
 
   fastify.addHook('preHandler', requireAuth);
+  fastify.addHook('preHandler', memberContext);
+  requirePermission('teams', PermissionAction.SETTINGS);
 
   // ==========================================
   // 1. LECTURA
   // ==========================================
 
-  fastify.get('/:id/members', {
+  app.get('/:id/members', {
     schema: {
       tags: ['Team Members'],
       params: TeamIdParamsSchema,
       querystring: GetTeamMembersQuerySchema,
       response: { 200: TeamMemberListResponseSchema },
     },
+    preHandler: [requireAuth, memberContext, requirePermission('teams', PermissionAction.READ)],
     handler: fastify.teamController.getAllMembers.bind(fastify.teamController),
   });
 
@@ -70,46 +78,49 @@ export default async function teamRoutes(fastify: FastifyInstance) {
   // 2. OPERACIONES INDIVIDUALES
   // ==========================================
 
-  fastify.post('/:id/members', {
+  app.post('/:id/members', {
     schema: {
       tags: ['Team Members'],
       params: TeamIdParamsSchema,
       body: CreateTeamMemberSchema,
       response: { 201: TeamMemberResponseSchema },
     },
+    preHandler: [requireAuth, memberContext, requirePermission('teams', PermissionAction.SETTINGS)],
     handler: fastify.teamController.addMember.bind(fastify.teamController),
   });
 
-  fastify.delete('/:id/members/:memberId', {
+  app.delete('/:id/members/:memberId', {
     schema: {
       tags: ['Team Members'],
       params: TeamMemberIdParamsSchema,
       response: { 200: TeamMemberResponseSchema },
     },
+    preHandler: [requireAuth, memberContext, requirePermission('teams', PermissionAction.SETTINGS)],
     handler: fastify.teamController.removeMember.bind(fastify.teamController),
   });
 
   // ==========================================
   // 3. OPERACIONES MASIVAS (BULK)
   // ==========================================
-
-  fastify.post('/:id/members/bulk', {
+  app.post('/:id/members/bulk', {
     schema: {
       tags: ['Team Members'],
       params: TeamIdParamsSchema,
       body: BulkMemberIdsBodySchema,
       response: { 201: BulkResponseSchema },
     },
+    preHandler: [requireAuth, memberContext, requirePermission('teams', PermissionAction.SETTINGS)],
     handler: fastify.teamController.addMembers.bind(fastify.teamController),
   });
 
-  fastify.delete('/:id/members/bulk', {
+  app.delete('/:id/members/bulk', {
     schema: {
       tags: ['Team Members'],
       params: TeamIdParamsSchema,
       body: BulkMemberIdsBodySchema,
       response: { 200: BulkResponseSchema },
     },
+    preHandler: [requireAuth, memberContext, requirePermission('teams', PermissionAction.SETTINGS)],
     handler: fastify.teamController.removeMembers.bind(fastify.teamController),
   });
 }

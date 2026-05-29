@@ -1,13 +1,14 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
 
 import { CreateSchema } from '@/schemas/base.schema.js';
+import { BaseAuditService } from '@/services/base-audit.service.js';
 import { BaseRbacService } from '@/services/base-owned.service.js';
 import { HttpError } from '@/utils/http.error.js';
 import { parsePagination } from '@/utils/pagination.js';
 import { requireScope } from '@/utils/scope.js';
 
 export abstract class BaseController<T> {
-  constructor(protected readonly service: BaseRbacService<T>) {}
+  constructor(protected readonly service: BaseAuditService<T>) {}
 
   private getUserId(request: FastifyRequest): string | undefined {
     return request.session?.user?.id;

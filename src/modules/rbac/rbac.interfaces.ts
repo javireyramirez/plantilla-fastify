@@ -17,6 +17,7 @@ export type RoleWithPermissions = {
 // Solo datos estructurales: quién es y dónde está
 // modules/rbac/rbac.interfaces.ts
 export interface MemberContext {
+  organizationIds: string[];
   organizationId: string;
   organization: {
     id: string;
