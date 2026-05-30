@@ -20,7 +20,6 @@ export const OrganizationSchema = z.object({
   name: z.string().min(1),
   slug: z.string().min(1),
   image: z.string().optional().nullable(),
-  byDefault: z.boolean().default(false),
   status: recordStatusSchema,
   createdAt: z.date(),
   updatedAt: z.date(),
@@ -29,9 +28,6 @@ export const OrganizationSchema = z.object({
   deletedBy: z.string().optional().nullable(),
   restoreBy: z.string().optional().nullable(),
   updatedBy: z.string().optional().nullable(),
-  owner: OwnerSchema.optional().nullable(),
-  ownerTeam: OwnerTeamSchema.optional().nullable(),
-  ownerOrganization: OwnerOrganizationSchema.optional().nullable(),
 });
 
 export const OrganizationMemberSchemaBase = z.object({
@@ -39,6 +35,7 @@ export const OrganizationMemberSchemaBase = z.object({
   userId: z.uuidv7(),
   organizationId: z.uuidv7(),
   isActive: z.boolean().default(true),
+  isPrimary: z.boolean().default(true),
   joinedAt: z.date(),
   updatedAt: z.date(),
   // Auditoría de membresía
@@ -100,10 +97,6 @@ export const CreateOrganizationBodySchema = OrganizationSchema.omit({
   deletedBy: true,
   restoreBy: true,
   updatedBy: true,
-}).extend({
-  ownerId: z.string().optional().nullable(),
-  ownerTeamId: z.string().optional().nullable(),
-  ownerOrganizationId: z.string().optional().nullable(),
 });
 
 export const UpdateOrganizationBodySchema = CreateOrganizationBodySchema.partial();
@@ -146,11 +139,6 @@ export const OrganizationListResponseSchema = z.object({
     total: z.number(),
     totalPages: z.number(),
   }),
-});
-
-export const OrganizationDeletedResponseSchema = z.object({
-  success: z.boolean(),
-  message: z.string(),
 });
 
 export const BulkResponseSchema = z.object({

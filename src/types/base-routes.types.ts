@@ -2,6 +2,11 @@ export interface BaseRoutesOptions {
   resource: string;
   tags: string[];
 
+  auth?: {
+    skipMemberContext?: boolean;
+    skipPermissions?: boolean;
+    requireSuperAdmin?: boolean;
+  };
   schemas: {
     /**
      * PARAMS

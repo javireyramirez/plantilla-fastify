@@ -1,3 +1,8 @@
 packages:
   - '.' # Tu API principal
   - 'emails' # La carpeta de react-email
+allowBuilds:
+  '@prisma/engines': true
+  esbuild: true
+  prisma: true
+  sharp: true

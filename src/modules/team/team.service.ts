@@ -1,5 +1,6 @@
-import { withInvitedBy } from '@/decorators/audit.decorators.js';
-import { BaseAuditService } from '@/services/base-owned.service.js';
+import { withCreatedBy, withInvitedBy } from '@/decorators/audit.decorators.js';
+import { BaseAuditService } from '@/services/base-audit.service.js';
+import { WriteOptions } from '@/types/base.types.js';
 import { HttpError } from '@/utils/http.error.js';
 
 import { OrganizationMemberRepository } from '../organization/organization-member.repository.js';
@@ -16,6 +17,10 @@ export class TeamService extends BaseAuditService<Team> {
     super(teamRepo);
   }
 
+  protected getDefaultInclude() {
+    return {};
+  }
+
   protected getStatusFilter(isTrash: boolean) {
     return {
       status: isTrash ? 'TRASHED' : 'ACTIVE',
@@ -23,23 +28,43 @@ export class TeamService extends BaseAuditService<Team> {
     };
   }
 
+  override async findManyWithCount(params: any) {
+    return super.findManyWithCount({
+      ...params,
+      where: {
+        ...params.where,
+        organizationId: { in: params.scope?.organizationIds ?? [] },
+      },
+    });
+  }
+
+  override async findList(params: any) {
+    return super.findList({
+      ...params,
+      where: {
+        ...params.where,
+        organizationId: { in: params.scope?.organizationIds ?? [] },
+      },
+    });
+  }
+
+  override async create(data: any, options: WriteOptions = {}): Promise<Team> {
+    return super.create(
+      {
+        ...data,
+        organizationId: data.organizationId ?? options.organizationId,
+      },
+      options,
+    );
+  }
+
+  // ==========================================
+  // HELPERS PRIVADOS
+  // ==========================================
+
   private async ensureTeamExists(teamId: string) {
     const exists = await this.teamRepo.exists({ where: { id: teamId } });
     if (!exists) throw new HttpError(404, 'El equipo no existe');
-  }
-
-  /**
-   * Resuelve el OrganizationMember a partir de un userId + organizationId.
-   * TeamMember referencia OrganizationMember, no User directamente.
-   */
-  private async resolveOrgMember(userId: string, organizationId: string) {
-    const orgMember = await this.organizationMemberRepo.findUnique({
-      where: { userId, organizationId },
-    });
-    if (!orgMember) {
-      throw new HttpError(404, 'El usuario no es miembro de la organización del equipo');
-    }
-    return orgMember;
   }
 
   private async resolveOrgMemberById(memberId: string) {
@@ -52,14 +77,8 @@ export class TeamService extends BaseAuditService<Team> {
     return orgMember;
   }
 
-  private async getTeamOrganizationId(teamId: string): Promise<string> {
-    const team = await this.teamRepo.findUnique({ where: { id: teamId } });
-    if (!team) throw new HttpError(404, 'El equipo no existe');
-    return (team as any).organizationId;
-  }
-
   // ==========================================
-  // 1. LECTURA
+  // LECTURA
   // ==========================================
 
   async getMembersWithCount(
@@ -76,7 +95,6 @@ export class TeamService extends BaseAuditService<Team> {
     await this.ensureTeamExists(teamId);
 
     const { skip, take, orderBy, search, joinedFrom, joinedTo } = params;
-
     const where: any = { teamId };
 
     if (search) {
@@ -117,27 +135,20 @@ export class TeamService extends BaseAuditService<Team> {
   }
 
   // ==========================================
-  // 2. OPERACIONES INDIVIDUALES
+  // MIEMBROS INDIVIDUALES
   // ==========================================
 
   async addMember(teamId: string, memberId: string, invitedBy?: string) {
     await this.ensureTeamExists(teamId);
-
-    // Verificar que el orgMember existe
     await this.resolveOrgMemberById(memberId);
 
     const isTeamMember = await this.teamMemberRepo.exists({
       where: { teamId, memberId },
     });
-
     if (isTeamMember) throw new HttpError(400, 'El miembro ya pertenece a este equipo');
 
-    return await this.teamMemberRepo.create({
-      data: {
-        teamId,
-        memberId,
-        ...withInvitedBy(invitedBy),
-      },
+    return this.teamMemberRepo.create({
+      data: { teamId, memberId, ...withInvitedBy(invitedBy) },
     });
   }
 
@@ -148,19 +159,19 @@ export class TeamService extends BaseAuditService<Team> {
       return await this.teamMemberRepo.delete({
         where: { teamId_memberId: { teamId, memberId } },
       });
-    } catch (error) {
+    } catch {
       throw new HttpError(404, 'El miembro no se encuentra en el equipo');
     }
   }
 
   // ==========================================
-  // 3. OPERACIONES MASIVAS (BULK)
+  // MIEMBROS BULK
   // ==========================================
 
   async addMembers(teamId: string, memberIds: string[], invitedBy?: string) {
     await this.ensureTeamExists(teamId);
 
-    return await this.teamMemberRepo.createMany({
+    return this.teamMemberRepo.createMany({
       data: memberIds.map((memberId) => ({
         teamId,
         memberId,
@@ -173,7 +184,7 @@ export class TeamService extends BaseAuditService<Team> {
   async removeMembers(teamId: string, memberIds: string[]) {
     await this.ensureTeamExists(teamId);
 
-    return await this.teamMemberRepo.deleteMany({
+    return this.teamMemberRepo.deleteMany({
       where: { teamId, memberId: { in: memberIds } },
     });
   }

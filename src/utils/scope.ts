@@ -1,6 +1,6 @@
 import type { FastifyRequest } from 'fastify';
 
-import type { ScopeContext } from '@/repositories/base.repository.js';
+import type { ScopeContext } from '@/types/base.types.js';
 import { HttpError } from '@/utils/http.error.js';
 
 export function scopeFromRequest(request: FastifyRequest): ScopeContext | undefined {
@@ -15,8 +15,13 @@ export function scopeFromRequest(request: FastifyRequest): ScopeContext | undefi
   };
 }
 
-export function requireScope(request: FastifyRequest): ScopeContext {
-  const scope = scopeFromRequest(request);
-  if (!scope) throw new HttpError(403, 'Forbidden');
-  return scope;
+export function requireScope(request: FastifyRequest): ScopeContext | undefined {
+  if (!request.permissions) return undefined;
+
+  return {
+    scope: request.permissions.scope,
+    userId: request.session?.user?.id,
+    organizationId: request.memberContext?.organizationId,
+    teamIds: request.memberContext?.teamIds ?? [],
+  };
 }

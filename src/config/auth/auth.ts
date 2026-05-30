@@ -33,6 +33,16 @@ export const createAuth = (authService: AuthService) =>
       provider: 'postgresql',
     }),
 
+    user: {
+      additionalFields: {
+        isSuperAdmin: {
+          type: 'boolean',
+          required: false,
+          input: false,
+        },
+      },
+    },
+
     emailAndPassword: {
       enabled: true,
       ...emailOptions,
