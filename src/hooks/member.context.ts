@@ -4,6 +4,8 @@ export async function memberContext(request: FastifyRequest, reply: FastifyReply
   const user = request.session?.user;
   if (!user) return reply.status(401).send({ error: 'Unauthorized' });
 
+  if (user.isSuperAdmin) return;
+
   const rawIds = request.headers['x-organization-ids'] as string | undefined;
   const organizationIds = rawIds
     ? rawIds
@@ -18,6 +20,7 @@ export async function memberContext(request: FastifyRequest, reply: FastifyReply
           userId: user.id,
           organizationId: { in: organizationIds },
           isActive: true,
+          organization: { status: 'ACTIVE' },
         },
         include: {
           organization: { select: { id: true, slug: true, name: true, status: true } },
@@ -25,7 +28,11 @@ export async function memberContext(request: FastifyRequest, reply: FastifyReply
         },
       })
     : await request.server.prisma.organizationMember.findMany({
-        where: { userId: user.id, isActive: true },
+        where: {
+          userId: user.id,
+          isActive: true,
+          organization: { status: 'ACTIVE' },
+        },
         include: {
           organization: { select: { id: true, slug: true, name: true, status: true } },
           teamMembers: { select: { teamId: true } },
@@ -45,6 +52,7 @@ export async function memberContext(request: FastifyRequest, reply: FastifyReply
   if (organizationIds && memberships.length !== organizationIds.length) {
     return reply.status(403).send({ error: 'Not a member of all requested organizations' });
   }
+
   request.memberContext = {
     organizationIds: memberships.map((m) => m.organizationId),
     organizationId:

@@ -1,5 +1,6 @@
 import { PermissionAction } from '@prisma/client';
 import { FastifyInstance } from 'fastify';
+import { ZodTypeProvider } from 'fastify-type-provider-zod';
 
 import { memberContext } from '@/hooks/member.context.js';
 import { requirePermission } from '@/hooks/rbac.js';
@@ -28,6 +29,8 @@ import {
 import { registerBaseRoutes } from '@/routes/base.routes.js';
 
 export default async function organizationRoutes(fastify: FastifyInstance) {
+  const app = fastify.withTypeProvider<ZodTypeProvider>();
+
   registerBaseRoutes(fastify, fastify.organizationController, {
     resource: 'organizations',
     tags: ['Organization'],
@@ -59,21 +62,22 @@ export default async function organizationRoutes(fastify: FastifyInstance) {
     },
   });
 
-  fastify.addHook('preHandler', requireAuth);
-  fastify.addHook('preHandler', memberContext);
-  fastify.addHook('preHandler', requirePermission('organizations', PermissionAction.SETTINGS));
-
   // ==========================================
   // 1. LECTURA
   // ==========================================
 
-  fastify.get('/:id/members', {
+  app.get('/:id/members', {
     schema: {
       tags: ['Organization Members'],
       params: OrganizationIdParamsSchema,
       querystring: GetMembersQuerySchema,
       response: { 200: MemberListResponseSchema },
     },
+    preHandler: [
+      requireAuth,
+      memberContext,
+      requirePermission('organizations', PermissionAction.READ),
+    ],
     handler: fastify.organizationController.getAllMembers.bind(fastify.organizationController),
   });
 
@@ -81,32 +85,47 @@ export default async function organizationRoutes(fastify: FastifyInstance) {
   // 2. OPERACIONES INDIVIDUALES
   // ==========================================
 
-  fastify.post('/:id/members', {
+  app.post('/:id/members', {
     schema: {
       tags: ['Organization Members'],
       params: OrganizationIdParamsSchema,
       body: CreateMemberSchema,
       response: { 201: OrganizationMemberResponseSchema },
     },
+    preHandler: [
+      requireAuth,
+      memberContext,
+      requirePermission('organizations', PermissionAction.SETTINGS),
+    ],
     handler: fastify.organizationController.addMember.bind(fastify.organizationController),
   });
 
-  fastify.delete('/:id/members/:userId', {
+  app.delete('/:id/members/:userId', {
     schema: {
       tags: ['Organization Members'],
       params: MemberUserIdParamsSchema,
       response: { 200: OrganizationMemberResponseSchema },
     },
+    preHandler: [
+      requireAuth,
+      memberContext,
+      requirePermission('organizations', PermissionAction.SETTINGS),
+    ],
     handler: fastify.organizationController.removeMember.bind(fastify.organizationController),
   });
 
-  fastify.patch('/:id/members/:userId/status', {
+  app.patch('/:id/members/:userId/status', {
     schema: {
       tags: ['Organization Members'],
       params: MemberUserIdParamsSchema,
       body: ToggleMemberStatusSchema,
       response: { 200: OrganizationMemberResponseSchema },
     },
+    preHandler: [
+      requireAuth,
+      memberContext,
+      requirePermission('organizations', PermissionAction.SETTINGS),
+    ],
     handler: fastify.organizationController.toggleMemberStatus.bind(fastify.organizationController),
   });
 
@@ -114,33 +133,48 @@ export default async function organizationRoutes(fastify: FastifyInstance) {
   // 3. OPERACIONES MASIVAS (BULK)
   // ==========================================
 
-  fastify.post('/:id/members/bulk', {
+  app.post('/:id/members/bulk', {
     schema: {
       tags: ['Organization Members'],
       params: OrganizationIdParamsSchema,
       body: BulkMemberIdsBodySchema,
       response: { 201: BulkResponseSchema },
     },
+    preHandler: [
+      requireAuth,
+      memberContext,
+      requirePermission('organizations', PermissionAction.SETTINGS),
+    ],
     handler: fastify.organizationController.addMembers.bind(fastify.organizationController),
   });
 
-  fastify.delete('/:id/members/bulk', {
+  app.delete('/:id/members/bulk', {
     schema: {
       tags: ['Organization Members'],
       params: OrganizationIdParamsSchema,
       body: BulkMemberIdsBodySchema,
       response: { 200: BulkResponseSchema },
     },
+    preHandler: [
+      requireAuth,
+      memberContext,
+      requirePermission('organizations', PermissionAction.SETTINGS),
+    ],
     handler: fastify.organizationController.removeMembers.bind(fastify.organizationController),
   });
 
-  fastify.patch('/:id/members/bulk/status', {
+  app.patch('/:id/members/bulk/status', {
     schema: {
       tags: ['Organization Members'],
       params: OrganizationIdParamsSchema,
       body: BulkToggleMemberStatusSchema,
       response: { 200: BulkResponseSchema },
     },
+    preHandler: [
+      requireAuth,
+      memberContext,
+      requirePermission('organizations', PermissionAction.SETTINGS),
+    ],
     handler: fastify.organizationController.toggleMembersStatus.bind(
       fastify.organizationController,
     ),

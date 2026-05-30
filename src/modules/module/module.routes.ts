@@ -20,6 +20,12 @@ export default async function moduleRoutes(fastify: FastifyInstance) {
     resource: 'modules',
     tags: ['Modules'],
 
+    auth: {
+      skipMemberContext: true,
+      skipPermissions: true,
+      requireSuperAdmin: true,
+    },
+
     schemas: {
       // Parámetros
       idParams: ModuleKeyParamsSchema,

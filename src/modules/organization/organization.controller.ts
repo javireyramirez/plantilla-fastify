@@ -19,7 +19,7 @@ export class OrganizationController extends BaseController<Organization> {
   }
 
   // ==========================================
-  // 1. LECTURA
+  // LECTURA
   // ==========================================
 
   async getAllMembers(
@@ -30,27 +30,30 @@ export class OrganizationController extends BaseController<Organization> {
     const { page, limit, sortBy, sortOrder, isActive, ...filters } = request.query;
     const { skip, take, orderBy, meta } = parsePagination({ page, limit, sortBy, sortOrder });
 
-    const result = await this.organizationService.getMembersWithCount(id, {
-      skip,
-      take,
-      orderBy,
-      isActive,
-      ...filters,
-    });
+    const result = await this.organizationService.getMembersWithCount(
+      id,
+      { skip, take, orderBy, isActive, ...filters },
+      request.memberContext,
+    );
 
     return reply.send({ data: result.data, meta: meta(result.total) });
   }
 
   // ==========================================
-  // 2. OPERACIONES INDIVIDUALES
+  // OPERACIONES INDIVIDUALES
   // ==========================================
 
   async addMember(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
-    const invitedBy = (request.session as any)?.user?.id;
     const { id } = request.params;
+    const invitedBy = request.session?.user?.id;
     const body = CreateMemberSchema.parse(request.body);
 
-    const record = await this.organizationService.addMember(id, body, invitedBy);
+    const record = await this.organizationService.addMember(
+      id,
+      body,
+      invitedBy,
+      request.memberContext,
+    );
     return reply.code(201).send(record);
   }
 
@@ -60,7 +63,7 @@ export class OrganizationController extends BaseController<Organization> {
   ) {
     const { id, userId } = request.params;
 
-    const record = await this.organizationService.removeMember(id, userId);
+    const record = await this.organizationService.removeMember(id, userId, request.memberContext);
     return reply.send(record);
   }
 
@@ -71,20 +74,30 @@ export class OrganizationController extends BaseController<Organization> {
     const { id, userId } = request.params;
     const { isActive } = ToggleMemberStatusSchema.parse(request.body);
 
-    const record = await this.organizationService.toggleMemberStatus(id, userId, isActive);
+    const record = await this.organizationService.toggleMemberStatus(
+      id,
+      userId,
+      isActive,
+      request.memberContext,
+    );
     return reply.send(record);
   }
 
   // ==========================================
-  // 3. OPERACIONES MASIVAS (BULK)
+  // BULK
   // ==========================================
 
   async addMembers(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
-    const invitedBy = (request.session as any)?.user?.id;
     const { id } = request.params;
+    const invitedBy = request.session?.user?.id;
     const { userIds } = BulkMemberIdsBodySchema.parse(request.body);
 
-    const record = await this.organizationService.addMembers(id, userIds, invitedBy);
+    const record = await this.organizationService.addMembers(
+      id,
+      userIds,
+      invitedBy,
+      request.memberContext,
+    );
     return reply.code(201).send(record);
   }
 
@@ -92,7 +105,7 @@ export class OrganizationController extends BaseController<Organization> {
     const { id } = request.params;
     const { userIds } = BulkMemberIdsBodySchema.parse(request.body);
 
-    const record = await this.organizationService.removeMembers(id, userIds);
+    const record = await this.organizationService.removeMembers(id, userIds, request.memberContext);
     return reply.send(record);
   }
 
@@ -103,7 +116,12 @@ export class OrganizationController extends BaseController<Organization> {
     const { id } = request.params;
     const { userIds, isActive } = BulkToggleMemberStatusSchema.parse(request.body);
 
-    const record = await this.organizationService.toggleMembersStatus(id, userIds, isActive);
+    const record = await this.organizationService.toggleMembersStatus(
+      id,
+      userIds,
+      isActive,
+      request.memberContext,
+    );
     return reply.send(record);
   }
 }

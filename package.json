@@ -18,7 +18,10 @@
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "db:seed": "tsx --env-file=.env prisma/seed.ts"
+    "db:seed": "tsx --env-file=.env prisma/seed.ts",
+    "db:reset": "pnpm db:reset:migrations && pnpm db:reset:db && pnpm db:migrate:dev --name init",
+    "db:reset:migrations": "rimraf prisma/migrations",
+    "db:reset:db": "prisma migrate reset --force"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

@@ -1,16 +1,4 @@
-/**
- * prisma/seed.ts
- *
- * Setup inicial: organización por defecto, usuario admin con rol SUPER_ADMIN
- * y permisos GLOBAL sobre todos los módulos.
- *
- * Variables de entorno requeridas:
- *   SEED_ADMIN_EMAIL      (default: admin@system.local)
- *   SEED_ADMIN_PASSWORD   (default: Adm1n#S3cur3!2025)
- *   SEED_ORG_NAME         (default: My Organization)
- *   SEED_ORG_SLUG         (default: my-org)
- */
-import { PermissionAction, PermissionScope, PrismaClient, RecordStatus } from '@prisma/client';
+import { PermissionAction, PermissionScope, RecordStatus } from '@prisma/client';
 import dotenv from 'dotenv';
 import { Scrypt } from 'oslo/password';
 
@@ -18,30 +6,17 @@ import { prisma } from '../src/config/prisma';
 
 dotenv.config();
 
-/// <reference types="node" />
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-// Mismo hasher que usa better-auth internamente (oslo/password → Scrypt).
-// Garantiza que el hash generado en el seed sea válido para el login normal.
 const scrypt = new Scrypt();
 
 async function hashPassword(plain: string): Promise<string> {
   return scrypt.hash(plain);
 }
 
-// ---------------------------------------------------------------------------
-// Módulos del sistema
-// Añade / quita según los módulos reales de tu aplicación.
-// ---------------------------------------------------------------------------
-
 const SYSTEM_MODULES = [
   {
     key: 'users',
     label: 'Usuarios',
-    description: 'Gestión de usuarios del sistema',
+    description: 'Gestión de usuarios',
     icon: 'users',
     sortOrder: 0,
   },
@@ -76,41 +51,40 @@ const SYSTEM_MODULES = [
   {
     key: 'documents',
     label: 'Documentos',
-    description: 'Gestión de documentos y archivos',
+    description: 'Gestión de documentos',
     icon: 'file',
     sortOrder: 5,
   },
   {
     key: 'storage',
     label: 'Almacenamiento',
-    description: 'Gestión de almacenamiento de archivos',
+    description: 'Gestión de archivos',
     icon: 'hard-drive',
     sortOrder: 6,
   },
   {
     key: 'settings',
     label: 'Configuración',
-    description: 'Configuración general del sistema',
+    description: 'Configuración del sistema',
     icon: 'settings',
     sortOrder: 7,
   },
   {
     key: 'reports',
     label: 'Reportes',
-    description: 'Generación y visualización de reportes',
+    description: 'Generación de reportes',
     icon: 'bar-chart',
     sortOrder: 8,
   },
   {
     key: 'audit',
     label: 'Auditoría',
-    description: 'Logs y auditoría del sistema',
+    description: 'Logs y auditoría',
     icon: 'activity',
     sortOrder: 9,
   },
 ] as const;
 
-// Todas las acciones del enum PermissionAction
 const ALL_ACTIONS: PermissionAction[] = [
   PermissionAction.READ,
   PermissionAction.CREATE,
@@ -122,34 +96,35 @@ const ALL_ACTIONS: PermissionAction[] = [
   PermissionAction.SETTINGS,
 ];
 
-// ---------------------------------------------------------------------------
-// Roles predefinidos (además del SUPER_ADMIN)
-// ---------------------------------------------------------------------------
-
-const PRESET_ROLES = [
-  {
-    name: 'Super Admin',
-    slug: 'super-admin',
-    description: 'Acceso total al sistema. No modificar.',
-    color: '#ef4444',
-    icon: 'shield-alert',
-    isSystem: true,
-  },
+const ROLES = [
   {
     name: 'Admin',
     slug: 'admin',
-    description: 'Administrador de organización con acceso completo dentro de su org.',
+    description: 'Acceso completo dentro de su organización.',
     color: '#f97316',
     icon: 'shield-check',
     isSystem: true,
+    permissions: {
+      actions: ALL_ACTIONS,
+      scope: PermissionScope.ORGANIZATION,
+    },
   },
   {
-    name: 'Member',
-    slug: 'member',
-    description: 'Miembro estándar con acceso a sus propios recursos.',
+    name: 'Editor',
+    slug: 'editor',
+    description: 'Puede crear y editar recursos de su organización.',
     color: '#3b82f6',
-    icon: 'user',
+    icon: 'pencil',
     isSystem: true,
+    permissions: {
+      actions: [
+        PermissionAction.READ,
+        PermissionAction.CREATE,
+        PermissionAction.UPDATE,
+        PermissionAction.DELETE,
+      ],
+      scope: PermissionScope.ORGANIZATION,
+    },
   },
   {
     name: 'Viewer',
@@ -158,49 +133,65 @@ const PRESET_ROLES = [
     color: '#6b7280',
     icon: 'eye',
     isSystem: true,
+    permissions: {
+      actions: [PermissionAction.READ],
+      scope: PermissionScope.ORGANIZATION,
+    },
   },
 ] as const;
-
-// Permisos por rol (módulo: acciones permitidas → scope)
-// Super Admin: todos los módulos, todas las acciones, scope GLOBAL → se genera dinámicamente
-// Admin: todos los módulos, todas las acciones, scope ORGANIZATION
-// Member: acceso limitado, scope OWN
-// Viewer: solo READ, scope ORGANIZATION
-
-type RolePermissionDef = {
-  actions: PermissionAction[];
-  scope: PermissionScope;
-};
-
-const ROLE_PERMISSIONS_BY_SLUG: Record<string, RolePermissionDef> = {
-  admin: { actions: ALL_ACTIONS, scope: PermissionScope.ORGANIZATION },
-  member: {
-    actions: [
-      PermissionAction.READ,
-      PermissionAction.CREATE,
-      PermissionAction.UPDATE,
-      PermissionAction.DELETE,
-    ],
-    scope: PermissionScope.OWN,
-  },
-  viewer: { actions: [PermissionAction.READ], scope: PermissionScope.ORGANIZATION },
-};
 
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
 async function main() {
-  const adminEmail = process.env.SEED_ADMIN_EMAIL ?? 'admin@system.local';
-  const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? 'Adm1n#S3cur3!2025';
-  const orgName = process.env.SEED_ORG_NAME ?? 'My Organization';
-  const orgSlug = process.env.SEED_ORG_SLUG ?? 'my-org';
+  const adminEmail = process.env.SEED_ADMIN_EMAIL;
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+  const orgName = process.env.SEED_ORG_NAME;
+  const orgSlug = process.env.SEED_ORG_SLUG;
+
+  const TEST_USERS = [
+    {
+      email: process.env.SEED_USER_ADMIN_EMAIL,
+      name: 'Admin User',
+      password: process.env.SEED_USER_ADMIN_PASSWORD,
+      roleSlug: 'admin',
+      teamName: 'Admins',
+    },
+    {
+      email: process.env.SEED_USER_EDITOR_EMAIL,
+      name: 'Editor User',
+      password: process.env.SEED_USER_EDITOR_PASSWORD,
+      roleSlug: 'editor',
+      teamName: 'Editors',
+    },
+    {
+      email: process.env.SEED_USER_VIEWER_EMAIL,
+      name: 'Viewer User',
+      password: process.env.SEED_USER_VIEWER_PASSWORD,
+      roleSlug: 'viewer',
+      teamName: 'Viewers',
+    },
+  ] as const;
+
+  if (!adminEmail || !adminPassword || !orgName || !orgSlug) {
+    throw new Error('Faltan variables de entorno para el seed base (admin/org).');
+  }
+
+  for (const u of TEST_USERS) {
+    if (!u.email || !u.password) {
+      throw new Error(
+        `Faltan variables de entorno para el usuario de prueba con rol "${u.roleSlug}".`,
+      );
+    }
+  }
 
   console.log('\n🌱  Iniciando seed...\n');
 
   // ── 1. Módulos ──────────────────────────────────────────────────────────
   console.log('📦  Creando módulos del sistema...');
-  const moduleRecords: { id: string; key: string }[] = [];
+
+  const moduleMap: Record<string, string> = {};
 
   for (const mod of SYSTEM_MODULES) {
     const record = await prisma.module.upsert({
@@ -221,26 +212,23 @@ async function main() {
         isActive: true,
         isConfigurableByOrg: true,
         status: RecordStatus.ACTIVE,
-        defaultPermissions: { read: true, create: false, update: false, delete: false },
       },
     });
-    moduleRecords.push({ id: record.id, key: record.key });
-    console.log(`   ✔ módulo "${record.key}" (${record.id})`);
+    moduleMap[mod.key] = record.id;
   }
 
-  // ── 2. Roles ─────────────────────────────────────────────────────────────
-  console.log('\n🛡️   Creando roles del sistema...');
-  const roleMap: Record<string, string> = {}; // slug → id
+  console.log(`   ✔ módulos creados/actualizados: ${SYSTEM_MODULES.length}`);
 
-  for (const roleDef of PRESET_ROLES) {
+  // ── 2. Roles y permisos ──────────────────────────────────────────────────
+  console.log('\n🛡️   Creando roles del sistema...');
+
+  const roleMap: Record<string, string> = {};
+  let totalPerms = 0;
+
+  for (const roleDef of ROLES) {
     const role = await prisma.role.upsert({
       where: { slug: roleDef.slug },
-      update: {
-        name: roleDef.name,
-        description: roleDef.description,
-        color: roleDef.color,
-        icon: roleDef.icon,
-      },
+      update: { name: roleDef.name, description: roleDef.description },
       create: {
         name: roleDef.name,
         slug: roleDef.slug,
@@ -252,161 +240,188 @@ async function main() {
       },
     });
     roleMap[role.slug] = role.id;
-    console.log(`   ✔ rol "${role.slug}" (${role.id})`);
-  }
 
-  // ── 3. Permisos por rol ──────────────────────────────────────────────────
-  console.log('\n🔐  Asignando permisos a roles...');
-
-  // Super Admin: GLOBAL en todo
-  const superAdminId = roleMap['super-admin'];
-  for (const mod of moduleRecords) {
-    for (const action of ALL_ACTIONS) {
-      await prisma.rolePermission.upsert({
-        where: { roleId_moduleId_action: { roleId: superAdminId, moduleId: mod.id, action } },
-        update: { scope: PermissionScope.GLOBAL },
-        create: { roleId: superAdminId, moduleId: mod.id, action, scope: PermissionScope.GLOBAL },
-      });
-    }
-  }
-  console.log(
-    `   ✔ super-admin → ${moduleRecords.length} módulos × ${ALL_ACTIONS.length} acciones (GLOBAL)`,
-  );
-
-  // Resto de roles
-  for (const [slug, permDef] of Object.entries(ROLE_PERMISSIONS_BY_SLUG)) {
-    const roleId = roleMap[slug];
-    if (!roleId) continue;
-    let count = 0;
-    for (const mod of moduleRecords) {
-      for (const action of permDef.actions) {
+    let permCount = 0;
+    for (const moduleId of Object.values(moduleMap)) {
+      for (const action of roleDef.permissions.actions) {
         await prisma.rolePermission.upsert({
-          where: { roleId_moduleId_action: { roleId, moduleId: mod.id, action } },
-          update: { scope: permDef.scope },
-          create: { roleId, moduleId: mod.id, action, scope: permDef.scope },
+          where: {
+            roleId_moduleId_action: { roleId: role.id, moduleId, action },
+          },
+          update: { scope: roleDef.permissions.scope },
+          create: {
+            roleId: role.id,
+            moduleId,
+            action,
+            scope: roleDef.permissions.scope,
+          },
         });
-        count++;
+        permCount++;
+        totalPerms++;
       }
     }
-    console.log(`   ✔ ${slug} → ${count} permisos (${permDef.scope})`);
   }
+
+  console.log(`   ✔ roles creados/actualizados: ${ROLES.length} (permisos totales: ${totalPerms})`);
+
+  // ── 3. Superadmin ────────────────────────────────────────────────────────
+  console.log('\n👑  Creando superadmin...');
+
+  const hashedAdminPassword = await hashPassword(adminPassword);
+
+  const superAdmin = await prisma.user.upsert({
+    where: { email: adminEmail },
+    update: { name: 'Super Admin', isActive: true, isSuperAdmin: true },
+    create: {
+      email: adminEmail,
+      name: 'Super Admin',
+      emailVerified: true,
+      isActive: true,
+      isSystem: true,
+      isSuperAdmin: true,
+    },
+  });
+
+  await prisma.account.upsert({
+    where: { providerId_accountId: { providerId: 'credential', accountId: adminEmail } },
+    update: { password: hashedAdminPassword },
+    create: {
+      userId: superAdmin.id,
+      providerId: 'credential',
+      accountId: adminEmail,
+      password: hashedAdminPassword,
+    },
+  });
+
+  console.log('   ✔ superadmin creado/actualizado');
 
   // ── 4. Organización por defecto ──────────────────────────────────────────
   console.log('\n🏢  Creando organización por defecto...');
+
   const organization = await prisma.organization.upsert({
     where: { slug: orgSlug },
     update: { name: orgName },
     create: {
       name: orgName,
       slug: orgSlug,
-      byDefault: true,
       status: RecordStatus.ACTIVE,
+      createdBy: superAdmin.id,
+      updatedBy: superAdmin.id,
     },
   });
-  console.log(`   ✔ organización "${organization.name}" (${organization.id})`);
 
-  // ── 5. Usuario administrador ─────────────────────────────────────────────
-  console.log('\n👤  Creando usuario administrador...');
+  console.log('   ✔ organización por defecto creada/actualizada');
 
-  const hashedPassword = await hashPassword(adminPassword);
+  // ── 5. Teams por rol ─────────────────────────────────────────────────────
+  console.log('\n👥  Creando teams...');
 
-  const adminUser = await prisma.user.upsert({
-    where: { email: adminEmail },
-    update: { name: 'System Admin', isActive: true },
-    create: {
-      email: adminEmail,
-      name: 'System Admin',
-      emailVerified: true,
-      isActive: true,
-      isSystem: true,
-    },
-  });
-  console.log(`   ✔ usuario "${adminUser.email}" (${adminUser.id})`);
+  const teamMap: Record<string, string> = {};
 
-  // Cuenta con credenciales (better-auth usa auth_accounts para email/password)
-  await prisma.account.upsert({
-    where: { providerId_accountId: { providerId: 'credential', accountId: adminEmail } },
-    update: { password: hashedPassword },
-    create: {
-      userId: adminUser.id,
-      providerId: 'credential',
-      accountId: adminEmail,
-      password: hashedPassword,
-    },
-  });
-  console.log('   ✔ cuenta de credenciales creada');
+  const teamsToCreate = [
+    { name: 'Admins', roleSlug: 'admin' },
+    { name: 'Editors', roleSlug: 'editor' },
+    { name: 'Viewers', roleSlug: 'viewer' },
+  ];
 
-  // ── 6. Membresía en la organización ─────────────────────────────────────
-  const membership = await prisma.organizationMember.upsert({
-    where: { userId_organizationId: { userId: adminUser.id, organizationId: organization.id } },
-    update: { isActive: true },
-    create: {
-      userId: adminUser.id,
-      organizationId: organization.id,
-      isActive: true,
-    },
-  });
-  console.log(`   ✔ membresía en "${organization.name}"`);
+  for (const teamDef of teamsToCreate) {
+    const team = await prisma.team.upsert({
+      where: { organizationId_name: { organizationId: organization.id, name: teamDef.name } },
+      update: {},
+      create: {
+        organizationId: organization.id,
+        name: teamDef.name,
+        status: RecordStatus.ACTIVE,
+        createdBy: superAdmin.id,
+        updatedBy: superAdmin.id,
+      },
+    });
+    teamMap[teamDef.name] = team.id;
 
-  // ── 7. Asignación del rol super-admin al usuario ─────────────────────────
-  // Rol global (organizationId null) + rol en la org por defecto
-  console.log('\n🎯  Asignando rol super-admin al administrador...');
-
-  // Global (sin contexto de org, aplica en cualquier organización)
-  try {
+    const roleId = roleMap[teamDef.roleSlug];
     await prisma.roleAssignment.upsert({
       where: {
-        roleId_userId_organizationId: {
-          roleId: superAdminId,
-          userId: adminUser.id,
+        roleId_teamId_organizationId: {
+          roleId,
+          teamId: team.id,
           organizationId: organization.id,
         },
       },
       update: {},
       create: {
-        roleId: superAdminId,
-        userId: adminUser.id,
+        roleId,
+        teamId: team.id,
         organizationId: organization.id,
-        assignedBy: adminUser.id,
-      },
-    });
-    console.log(`   ✔ rol super-admin asignado en la organización por defecto`);
-  } catch (err) {
-    console.warn(
-      '   ⚠️  No se pudo crear la asignación de rol (puede que ya exista con distinto unique):',
-      err,
-    );
-  }
-
-  // ── 8. Actualizar FK de auditoría en entidades creadas ───────────────────
-  // Ahora que tenemos el userId, lo asignamos como creador
-  await prisma.organization.update({
-    where: { id: organization.id },
-    data: { createdBy: adminUser.id, updatedBy: adminUser.id, ownerId: adminUser.id },
-  });
-
-  for (const mod of moduleRecords) {
-    await prisma.module.updateMany({
-      where: { id: mod.id, createdBy: null },
-      data: {
-        createdBy: adminUser.id,
-        ownerId: adminUser.id,
-        ownerOrganizationId: organization.id,
+        assignedBy: superAdmin.id,
       },
     });
   }
 
-  console.log('\n✅  Seed completado exitosamente.\n');
-  console.log('═══════════════════════════════════════════');
-  console.log('  CREDENCIALES DE ACCESO');
-  console.log('═══════════════════════════════════════════');
-  console.log(`  Email:        ${adminEmail}`);
-  console.log(`  Password:     ${adminPassword}`);
-  console.log(`  Organización: ${orgName} (slug: ${orgSlug})`);
-  console.log(`  Rol:          Super Admin (GLOBAL)`);
-  console.log('═══════════════════════════════════════════\n');
-  console.log('  ⚠️  Cambia la contraseña tras el primer login.');
-  console.log('  ⚠️  Elimina SEED_ADMIN_PASSWORD del .env en producción.\n');
+  console.log(`   ✔ teams creados/actualizados: ${teamsToCreate.length}`);
+
+  // ── 6. Usuarios de prueba ────────────────────────────────────────────────
+  console.log('\n👤  Creando usuarios de prueba...');
+
+  let createdUsers = 0;
+
+  for (const userDef of TEST_USERS) {
+    const hashedPassword = await hashPassword(userDef.password!);
+
+    const user = await prisma.user.upsert({
+      where: { email: userDef.email! },
+      update: { name: userDef.name, isActive: true },
+      create: {
+        email: userDef.email!,
+        name: userDef.name,
+        emailVerified: true,
+        isActive: true,
+        isSuperAdmin: false,
+      },
+    });
+
+    await prisma.account.upsert({
+      where: { providerId_accountId: { providerId: 'credential', accountId: userDef.email! } },
+      update: { password: hashedPassword },
+      create: {
+        userId: user.id,
+        providerId: 'credential',
+        accountId: userDef.email!,
+        password: hashedPassword,
+      },
+    });
+
+    const membership = await prisma.organizationMember.upsert({
+      where: { userId_organizationId: { userId: user.id, organizationId: organization.id } },
+      update: { isActive: true },
+      create: {
+        userId: user.id,
+        organizationId: organization.id,
+        isActive: true,
+        isPrimary: true,
+        invitedBy: superAdmin.id,
+      },
+    });
+
+    const teamId = teamMap[userDef.teamName];
+    await prisma.teamMember.upsert({
+      where: { teamId_memberId: { teamId, memberId: membership.id } },
+      update: {},
+      create: {
+        teamId,
+        memberId: membership.id,
+        invitedBy: superAdmin.id,
+      },
+    });
+
+    createdUsers++;
+  }
+
+  console.log(`   ✔ usuarios de prueba creados/actualizados: ${createdUsers}`);
+
+  // ── 7. Resumen ───────────────────────────────────────────────────────────
+  console.log('\n✅  Seed completado.\n');
+  console.log(
+    '⚠️  Recuerda cambiar las contraseñas tras el primer login y no usar este seed en producción con datos reales.\n',
+  );
 }
 
 main()
