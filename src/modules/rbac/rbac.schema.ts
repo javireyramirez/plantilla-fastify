@@ -25,6 +25,7 @@ export const RoleSchema = z.object({
   id: z.uuidv7(),
   name: z.string().min(1),
   slug: z.string().min(1),
+  organizationId: z.uuidv7().optional().nullable(),
   description: z.string().optional().nullable(),
   isSystem: z.boolean().default(false),
   icon: z.string().optional().nullable(),
@@ -39,10 +40,6 @@ export const RoleSchema = z.object({
   deletedBy: z.string().optional().nullable(),
   restoreBy: z.string().optional().nullable(),
   updatedBy: z.string().optional().nullable(),
-  // Propiedad (RBAC)
-  owner: OwnerSchema.optional().nullable(),
-  ownerTeam: OwnerTeamSchema.optional().nullable(),
-  ownerOrganization: OwnerOrganizationSchema.optional().nullable(),
 });
 
 export const RolePermissionSchema = z.object({
@@ -107,7 +104,8 @@ export const GetRoleQuerySchema = z.object({
   limit: z.coerce.number().optional().default(10),
   isTrash: z.preprocess((val) => val === 'true' || val === true, z.boolean()).default(false),
   name: z.string().optional(),
-  sector: z.string().optional(),
+  isSystem: z.preprocess((val) => val === 'true' || val === true, z.boolean()).optional(),
+  organizationId: z.uuidv7().optional(),
   sortBy: z.string().optional().default('createdAt'),
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
 });
@@ -161,6 +159,7 @@ export const GetAssignmentsQuerySchema = z.object({
 
 export const CreateRoleBodySchema = RoleSchema.omit({
   id: true,
+  isSystem: true,
   status: true,
   createdAt: true,
   updatedAt: true,
@@ -169,10 +168,6 @@ export const CreateRoleBodySchema = RoleSchema.omit({
   deletedBy: true,
   restoreBy: true,
   updatedBy: true,
-}).extend({
-  ownerId: z.string().optional().nullable(),
-  ownerTeamId: z.string().optional().nullable(),
-  ownerOrganizationId: z.string().optional().nullable(),
 });
 
 export const UpdateRoleBodySchema = CreateRoleBodySchema.partial();

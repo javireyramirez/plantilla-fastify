@@ -10,7 +10,7 @@ import { requireScope } from '@/utils/scope.js';
 export abstract class BaseController<T> {
   constructor(protected readonly service: BaseAuditService<T>) {}
 
-  private getUserId(request: FastifyRequest): string | undefined {
+  protected getUserId(request: FastifyRequest): string | undefined {
     return request.session?.user?.id;
   }
 

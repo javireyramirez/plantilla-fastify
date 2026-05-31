@@ -383,11 +383,14 @@ model Module {
 model Role {
   id          String  @id @default(uuid(7))
   name        String
-  slug        String  @unique
+  slug        String  @unique // ⚠️ ver nota abajo
   description String?
   color       String?
   icon        String?
   isSystem    Boolean @default(false)
+
+  // Scope de organización (null = rol global de sistema)
+  organizationId String?
 
   status RecordStatus @default(ACTIVE)
 
@@ -409,11 +412,14 @@ model Role {
   updatedBy String?
   updater   User?   @relation("UpdatedRoles", fields: [updatedBy], references: [id], onDelete: SetNull)
 
-  // Relaciones estructurales
+  // Relaciones
+  organization    Organization?    @relation("OrgRoles", fields: [organizationId], references: [id], onDelete: Cascade)
   permissions     RolePermission[]
   roleAssignments RoleAssignment[]
-  // rolePermissionAuditLogs RolePermissionAuditLog[]
 
+  @@unique([slug, organizationId]) // slug único por org, no global
+  @@index([organizationId])
+  @@index([isSystem])
   @@map("rbac_roles")
 }
 
@@ -560,14 +566,14 @@ model Organization {
   ownerOrganization Organization? @relation("OrgOwnedOrganizations", fields: [ownerOrganizationId], references: [id], onDelete: SetNull)
 
   // Relaciones estructurales
-  members OrganizationMember[]
-  teams   Team[]
+  members                 OrganizationMember[]
+  teams                   Team[]
+  roles                   Role[]               @relation("OrgRoles")
+  organizationRoleContext RoleAssignment[]     @relation("OrganizationRoleContext")
 
   // Elementos que posee esta organización (reverse RBAC)
   ownedCompanies     Company[]      @relation("OrgOwnedCompanies")
   ownedOrganizations Organization[] @relation("OrgOwnedOrganizations")
-
-  organizationRoleContext RoleAssignment[] @relation("OrganizationRoleContext")
 
   @@index([slug])
   @@map("org_organizations")

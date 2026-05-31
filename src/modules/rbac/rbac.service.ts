@@ -1,5 +1,7 @@
 import { withAssignedBy, withGrantedBy, withUpdatedBy } from '@/decorators/audit.decorators.js';
+import { BaseAuditService } from '@/services/base-audit.service.js';
 import { BaseRbacService } from '@/services/base-owned.service.js';
+import { WriteOptions } from '@/types/base.types.js';
 import { HttpError } from '@/utils/http.error.js';
 
 import { Role } from './rbac.schema.js';
@@ -21,7 +23,7 @@ const ASSIGNMENT_INCLUDE = {
   role: { select: { id: true, name: true, slug: true } },
 };
 
-export class RoleService extends BaseRbacService<Role> {
+export class RoleService extends BaseAuditService<Role> {
   constructor(
     private readonly roleRepo: RoleRepository,
     private readonly rolePermissionRepo: RolePermissionRepository,
@@ -37,9 +39,81 @@ export class RoleService extends BaseRbacService<Role> {
     };
   }
 
-  private async ensureRoleExists(roleId: string) {
-    const exists = await this.roleRepo.exists({ where: { id: roleId } });
-    if (!exists) throw new HttpError(404, 'La organización no existe');
+  // ==========================================
+  // SCOPE DE ORGANIZACIÓN
+  // ==========================================
+
+  override async findManyWithCount(params: any) {
+    return super.findManyWithCount({
+      ...params,
+      where: {
+        ...params.where,
+        OR: [
+          ...(params.scope?.organizationIds?.length
+            ? [{ organizationId: { in: params.scope.organizationIds } }]
+            : []),
+          { isSystem: true, organizationId: null },
+        ],
+      },
+    });
+  }
+
+  override async findList(params: any) {
+    return super.findList({
+      ...params,
+      where: {
+        ...params.where,
+        OR: [
+          ...(params.scope?.organizationIds?.length
+            ? [{ organizationId: { in: params.scope.organizationIds } }]
+            : []),
+          { isSystem: true, organizationId: null },
+        ],
+      },
+    });
+  }
+
+  override async create(data: any, options: WriteOptions = {}): Promise<Role> {
+    return super.create(
+      {
+        ...data,
+        organizationId: data.organizationId ?? options.organizationId,
+        isSystem: false,
+      },
+      options,
+    );
+  }
+
+  // ==========================================
+  // HELPERS PRIVADOS
+  // ==========================================
+
+  private async ensureRoleExists(roleId: string, organizationIds?: string[]) {
+    const where: any = { id: roleId };
+
+    if (organizationIds?.length) {
+      where.OR = [
+        { organizationId: { in: organizationIds } },
+        { isSystem: true, organizationId: null },
+      ];
+    }
+
+    const exists = await this.roleRepo.exists({ where });
+    if (!exists) throw new HttpError(404, 'El rol no existe');
+  }
+
+  private async ensureRoleIsEditable(roleId: string, organizationIds?: string[]) {
+    await this.ensureRoleExists(roleId, organizationIds);
+    await this.ensureNotSystem(roleId);
+
+    if (organizationIds?.length) {
+      const belongsToOrg = await this.roleRepo.exists({
+        where: { id: roleId, organizationId: { in: organizationIds } },
+      });
+      if (!belongsToOrg) {
+        throw new HttpError(403, 'No tienes permisos para modificar este rol');
+      }
+    }
   }
 
   private async ensureAssignmentExists(id: string, roleId?: string) {
@@ -51,11 +125,7 @@ export class RoleService extends BaseRbacService<Role> {
   }
 
   // ==========================================
-  // Permisos
-  // ==========================================
-
-  // ==========================================
-  // 1. LECTURA
+  // PERMISOS — LECTURA
   // ==========================================
 
   async getPermissionsWithCount(
@@ -69,33 +139,17 @@ export class RoleService extends BaseRbacService<Role> {
       scope?: string[];
       grantedFrom?: string;
       grantedTo?: string;
+      organizationIds?: string[];
     },
   ) {
-    await this.ensureRoleExists(roleId);
+    await this.ensureRoleExists(roleId, params.organizationIds);
 
     const { skip, take, orderBy, resource, action, scope, grantedFrom, grantedTo } = params;
-
     const where: any = { roleId };
 
-    if (resource) {
-      where.resource = {
-        in: resource,
-      };
-    }
-
-    if (action) {
-      where.action = {
-        in: action,
-      };
-    }
-
-    if (scope) {
-      where.scope = {
-        in: scope,
-      };
-    }
-
-    if (roleId) where.roleId = roleId;
+    if (resource) where.resource = { in: resource };
+    if (action) where.action = { in: action };
+    if (scope) where.scope = { in: scope };
 
     if (grantedFrom || grantedTo) {
       where.grantedAt = {
@@ -111,29 +165,29 @@ export class RoleService extends BaseRbacService<Role> {
       orderBy,
       include: {
         granter: { select: { id: true, name: true, email: true } },
-        revoker: { select: { id: true, name: true, email: true } },
+        updater: { select: { id: true, name: true, email: true } },
       },
     });
   }
 
   // ==========================================
-  // 2. OPERACIONES INDIVIDUALES
+  // PERMISOS — INDIVIDUALES
   // ==========================================
 
-  async addPermission(roleId: string, data: CreatePermissionBody, grantedBy?: string) {
-    await this.ensureRoleExists(roleId);
-    await this.ensureNotSystem(roleId);
+  async addPermission(
+    roleId: string,
+    data: CreatePermissionBody,
+    grantedBy?: string,
+    organizationIds?: string[],
+  ) {
+    await this.ensureRoleIsEditable(roleId, organizationIds);
 
     const isPermission = await this.rolePermissionRepo.exists({
-      where: {
-        moduleId: data.moduleId,
-        action: data.action,
-        roleId,
-      },
+      where: { moduleId: data.moduleId, action: data.action, roleId },
     });
     if (isPermission) throw new HttpError(409, 'El permiso ya existe en el rol');
 
-    return await this.rolePermissionRepo.create({
+    return this.rolePermissionRepo.create({
       data: {
         moduleId: data.moduleId,
         action: data.action,
@@ -144,18 +198,13 @@ export class RoleService extends BaseRbacService<Role> {
     });
   }
 
-  async revokePermission(id: string, roleId: string) {
-    await this.ensureRoleExists(roleId);
-    await this.ensureNotSystem(roleId);
+  async revokePermission(id: string, roleId: string, organizationIds?: string[]) {
+    await this.ensureRoleIsEditable(roleId, organizationIds);
 
-    const permission = await this.rolePermissionRepo.findFirst({
-      where: { id, roleId },
-    });
+    const permission = await this.rolePermissionRepo.findFirst({ where: { id, roleId } });
     if (!permission) throw new HttpError(404, 'El permiso no se encuentra en el rol');
 
-    return this.rolePermissionRepo.delete({
-      where: { id },
-    });
+    return this.rolePermissionRepo.delete({ where: { id } });
   }
 
   async updatePermissionScope(
@@ -163,56 +212,37 @@ export class RoleService extends BaseRbacService<Role> {
     roleId: string,
     newScope: PermissionScopeParams,
     updatedBy: string,
+    organizationIds?: string[],
   ) {
-    await this.ensureRoleExists(roleId);
-    await this.ensureNotSystem(roleId);
+    await this.ensureRoleIsEditable(roleId, organizationIds);
 
-    const permission = await this.rolePermissionRepo.findFirst({
-      where: { id, roleId },
-    });
+    const permission = await this.rolePermissionRepo.findFirst({ where: { id, roleId } });
     if (!permission) throw new HttpError(404, 'El permiso no se encuentra en el rol');
 
-    return await this.rolePermissionRepo.update({
+    return this.rolePermissionRepo.update({
       where: { id },
-      data: {
-        scope: newScope,
-        ...withUpdatedBy(updatedBy),
-      },
+      data: { scope: newScope, ...withUpdatedBy(updatedBy) },
     });
   }
 
   // ==========================================
-  // 3. OPERACIONES MASIVAS (BULK)
+  // PERMISOS — BULK
   // ==========================================
 
-  async bulkRevokePermissions(roleId: string, permissionIds: string[]) {
-    await this.ensureRoleExists(roleId);
-    await this.ensureNotSystem(roleId);
-
-    const permissions = await this.rolePermissionRepo.findMany({
-      where: { id: { in: permissionIds }, roleId },
-    });
-
-    if (permissions.length !== permissionIds.length) {
-      throw new HttpError(404, 'Uno o más permisos no pertenecen al rol');
-    }
-
-    return this.rolePermissionRepo.deleteMany({
-      where: { id: { in: permissionIds }, roleId },
-    });
-  }
-
-  async bulkAddPermissions(roleId: string, data: CreatePermissionBody[], grantedBy?: string) {
-    await this.ensureRoleExists(roleId);
-    await this.ensureNotSystem(roleId);
+  async bulkAddPermissions(
+    roleId: string,
+    data: CreatePermissionBody[],
+    grantedBy?: string,
+    organizationIds?: string[],
+  ) {
+    await this.ensureRoleIsEditable(roleId, organizationIds);
 
     const existing = await this.rolePermissionRepo.findMany({
       where: {
         roleId,
-        OR: data.map((p) => ({ resource: p.moduleId, action: p.action })),
+        OR: data.map((p) => ({ moduleId: p.moduleId, action: p.action })),
       },
     });
-
     if (existing.length > 0) {
       const duplicates = existing.map((p) => `${p.moduleId}:${p.action}`).join(', ');
       throw new HttpError(409, `Los siguientes permisos ya existen: ${duplicates}`);
@@ -229,23 +259,35 @@ export class RoleService extends BaseRbacService<Role> {
     });
   }
 
+  async bulkRevokePermissions(roleId: string, permissionIds: string[], organizationIds?: string[]) {
+    await this.ensureRoleIsEditable(roleId, organizationIds);
+
+    const permissions = await this.rolePermissionRepo.findMany({
+      where: { id: { in: permissionIds }, roleId },
+    });
+    if (permissions.length !== permissionIds.length) {
+      throw new HttpError(404, 'Uno o más permisos no pertenecen al rol');
+    }
+
+    return this.rolePermissionRepo.deleteMany({
+      where: { id: { in: permissionIds }, roleId },
+    });
+  }
+
   async bulkUpdatePermissions(
     roleId: string,
     data: { id: string; scope: PermissionScopeType }[],
     updatedBy: string,
+    organizationIds?: string[],
   ) {
-    await this.ensureRoleExists(roleId);
-    await this.ensureNotSystem(roleId);
+    await this.ensureRoleIsEditable(roleId, organizationIds);
 
     return this.rolePermissionRepo.transaction(async (tx) => {
       return Promise.all(
         data.map((item) =>
           tx.rolePermission.update({
             where: { id: item.id, roleId },
-            data: {
-              scope: item.scope,
-              ...withUpdatedBy(updatedBy),
-            },
+            data: { scope: item.scope, ...withUpdatedBy(updatedBy) },
           }),
         ),
       );
@@ -253,11 +295,7 @@ export class RoleService extends BaseRbacService<Role> {
   }
 
   // ==========================================
-  // Asignaciones
-  // ==========================================
-
-  // ==========================================
-  // 1. LECTURA
+  // ASIGNACIONES — LECTURA
   // ==========================================
 
   async getAssignmentsWithCount(
@@ -268,29 +306,20 @@ export class RoleService extends BaseRbacService<Role> {
       orderBy?: Record<string, 'asc' | 'desc'>;
       userId?: string;
       teamId?: string;
-      targetOrgId?: string;
       organizationId?: string;
       assignedFrom?: string;
       assignedTo?: string;
+      organizationIds?: string[];
     },
   ) {
-    const {
-      skip,
-      take,
-      orderBy,
-      userId,
-      teamId,
-      targetOrgId,
-      organizationId,
-      assignedFrom,
-      assignedTo,
-    } = params;
+    await this.ensureRoleExists(roleId, params.organizationIds);
 
+    const { skip, take, orderBy, userId, teamId, organizationId, assignedFrom, assignedTo } =
+      params;
     const where: any = { roleId };
 
     if (userId) where.userId = userId;
     if (teamId) where.teamId = teamId;
-    if (targetOrgId) where.targetOrgId = targetOrgId;
     if (organizationId) where.organizationId = organizationId;
 
     if (assignedFrom || assignedTo) {
@@ -309,7 +338,8 @@ export class RoleService extends BaseRbacService<Role> {
     });
   }
 
-  async getAssignmentById(id: string, roleId: string) {
+  async getAssignmentById(id: string, roleId: string, organizationIds?: string[]) {
+    await this.ensureRoleExists(roleId, organizationIds);
     await this.ensureAssignmentExists(id, roleId);
 
     return this.roleAssignmentRepo.findFirst({
@@ -319,14 +349,21 @@ export class RoleService extends BaseRbacService<Role> {
   }
 
   // ==========================================
-  // 2. OPERACIONES INDIVIDUALES
+  // ASIGNACIONES — INDIVIDUALES
   // ==========================================
 
-  async assign(roleId: string, data: CreateAssignmentBody, assignedBy?: string) {
+  async assign(
+    roleId: string,
+    data: CreateAssignmentBody,
+    assignedBy?: string,
+    organizationIds?: string[],
+  ) {
+    // Para asignar un rol solo necesitas verlo (puede ser un rol de sistema)
+    await this.ensureRoleExists(roleId, organizationIds);
+
     const where: any = { roleId };
     if (data.userId) where.userId = data.userId;
     if (data.teamId) where.teamId = data.teamId;
-    if (data.targetOrgId) where.targetOrgId = data.targetOrgId;
 
     const exists = await this.roleAssignmentRepo.exists({ where });
     if (exists) throw new HttpError(409, 'La asignación ya existe para este rol');
@@ -336,7 +373,6 @@ export class RoleService extends BaseRbacService<Role> {
         roleId,
         userId: data.userId,
         teamId: data.teamId,
-        targetOrgId: data.targetOrgId,
         organizationId: data.organizationId,
         ...withAssignedBy(assignedBy),
       },
@@ -344,34 +380,42 @@ export class RoleService extends BaseRbacService<Role> {
     });
   }
 
-  async unassign(id: string, roleId: string) {
+  async unassign(id: string, roleId: string, organizationIds?: string[]) {
+    await this.ensureRoleExists(roleId, organizationIds);
     await this.ensureAssignmentExists(id, roleId);
 
     return this.roleAssignmentRepo.delete({ where: { id } });
   }
 
   // ==========================================
-  // 3. OPERACIONES MASIVAS (BULK)
+  // ASIGNACIONES — BULK
   // ==========================================
 
-  async bulkAssign(roleId: string, data: CreateAssignmentBody[], assignedBy?: string) {
+  async bulkAssign(
+    roleId: string,
+    data: CreateAssignmentBody[],
+    assignedBy?: string,
+    organizationIds?: string[],
+  ) {
+    await this.ensureRoleExists(roleId, organizationIds);
+
     return this.roleAssignmentRepo.createMany({
       data: data.map((item) => ({
         roleId,
         userId: item.userId,
         teamId: item.teamId,
-        targetOrgId: item.targetOrgId,
         organizationId: item.organizationId,
         ...withAssignedBy(assignedBy),
       })),
     });
   }
 
-  async bulkUnassign(roleId: string, ids: string[]) {
+  async bulkUnassign(roleId: string, ids: string[], organizationIds?: string[]) {
+    await this.ensureRoleExists(roleId, organizationIds);
+
     const assignments = await this.roleAssignmentRepo.findMany({
       where: { id: { in: ids }, roleId },
     });
-
     if (assignments.length !== ids.length) {
       throw new HttpError(404, 'Una o más asignaciones no pertenecen al rol');
     }

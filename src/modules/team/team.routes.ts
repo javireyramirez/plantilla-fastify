@@ -55,10 +55,6 @@ export default async function teamRoutes(fastify: FastifyInstance) {
     },
   });
 
-  fastify.addHook('preHandler', requireAuth);
-  fastify.addHook('preHandler', memberContext);
-  requirePermission('teams', PermissionAction.SETTINGS);
-
   // ==========================================
   // 1. LECTURA
   // ==========================================

@@ -22,22 +22,67 @@ export class RoleController extends BaseController<Role> {
     super(roleService);
   }
 
+  private getOrgIds(request: FastifyRequest): string[] | undefined {
+    return request.memberContext?.organizationIds;
+  }
+
   // ==========================================
-  // 1. LECTURA
+  // OVERRIDES DE BASE (scope de org)
   // ==========================================
 
-  async getAllPermissions(
-    request: FastifyRequest<{ Params: { id: string }; Querystring: GetPermissionsQuery }>,
-    reply: FastifyReply,
-  ) {
-    const { id } = request.params;
-    const { page, limit, sortBy, sortOrder, ...filters } = request.query;
+  override async getAll(request: FastifyRequest<{ Querystring: any }>, reply: FastifyReply) {
+    const {
+      page = 1,
+      limit = 10,
+      isTrash = false,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      ...filters
+    } = request.query as any;
+
     const { skip, take, orderBy, meta } = parsePagination({ page, limit, sortBy, sortOrder });
 
-    const result = await this.roleService.getPermissionsWithCount(id, {
+    const result = await this.roleService.findManyWithCount({
+      where: this.roleService.getAuditWhere(String(isTrash) === 'true', filters),
+      scope: { organizationIds: this.getOrgIds(request) },
       skip,
       take,
       orderBy,
+    });
+
+    return reply.send({ data: result.data, meta: meta(result.total) });
+  }
+
+  override async getList(request: FastifyRequest<{ Querystring: any }>, reply: FastifyReply) {
+    const { limit = 20, sortBy = 'name', sortOrder = 'asc', ...filters } = request.query as any;
+
+    const result = await this.roleService.findList({
+      where: { ...filters },
+      scope: { organizationIds: this.getOrgIds(request) },
+      take: Number(limit),
+      orderBy: { [sortBy]: sortOrder },
+    });
+
+    return reply.send(result);
+  }
+
+  // ==========================================
+  // PERMISOS — LECTURA
+  // ==========================================
+
+  async getAllPermissions(
+    request: FastifyRequest<{ Params: { roleId: string }; Querystring: GetPermissionsQuery }>,
+    reply: FastifyReply,
+  ) {
+    const { roleId } = request.params;
+    const { page, limit, sortBy, sortOrder, ...filters } = request.query;
+    const { skip, take, orderBy, meta } = parsePagination({ page, limit, sortBy, sortOrder });
+
+    const result = await this.roleService.getPermissionsWithCount(roleId, {
+      skip,
+      take,
+      orderBy,
+      organizationIds: this.getOrgIds(request),
       ...filters,
     });
 
@@ -45,18 +90,20 @@ export class RoleController extends BaseController<Role> {
   }
 
   // ==========================================
-  // 2. OPERACIONES INDIVIDUALES
+  // PERMISOS — INDIVIDUALES
   // ==========================================
 
   async addPermission(
     request: FastifyRequest<{ Params: { roleId: string } }>,
     reply: FastifyReply,
   ) {
-    const grantedBy = (request.session as any)?.user?.id;
-    const { roleId } = request.params;
     const body = CreatePermissionBodySchema.parse(request.body);
-
-    const record = await this.roleService.addPermission(roleId, body, grantedBy);
+    const record = await this.roleService.addPermission(
+      request.params.roleId,
+      body,
+      this.getUserId(request),
+      this.getOrgIds(request),
+    );
     return reply.code(201).send(record);
   }
 
@@ -65,72 +112,75 @@ export class RoleController extends BaseController<Role> {
     reply: FastifyReply,
   ) {
     const { roleId, id } = request.params;
-
-    const record = await this.roleService.revokePermission(id, roleId);
+    const record = await this.roleService.revokePermission(id, roleId, this.getOrgIds(request));
     return reply.send(record);
   }
 
   async updatePermissionScope(
-    request: FastifyRequest<{
-      Params: { id: string; roleId: string };
-    }>,
+    request: FastifyRequest<{ Params: { id: string; roleId: string } }>,
     reply: FastifyReply,
   ) {
-    const updatedBy = (request.session as any)?.user?.id;
     const { id, roleId } = request.params;
     const newScope = PermissionScopeParamsSchema.parse(request.body);
-
-    const record = await this.roleService.updatePermissionScope(id, roleId, newScope, updatedBy);
+    const record = await this.roleService.updatePermissionScope(
+      id,
+      roleId,
+      newScope,
+      this.getUserId(request)!,
+      this.getOrgIds(request),
+    );
     return reply.send(record);
   }
 
   // ==========================================
-  // 3. OPERACIONES MASIVAS (BULK)
+  // PERMISOS — BULK
   // ==========================================
 
   async bulkAddPermissions(
     request: FastifyRequest<{ Params: { roleId: string } }>,
     reply: FastifyReply,
   ) {
-    const grantedBy = (request.session as any)?.user?.id;
-    const { roleId } = request.params;
     const body = BulkCreatePermissionBodySchema.parse(request.body);
-
-    const record = await this.roleService.bulkAddPermissions(roleId, body, grantedBy);
+    const record = await this.roleService.bulkAddPermissions(
+      request.params.roleId,
+      body,
+      this.getUserId(request),
+      this.getOrgIds(request),
+    );
     return reply.code(201).send(record);
   }
 
   async bulkRevokePermissions(
-    request: FastifyRequest<{ Params: { roleId: string }; Body: string[] }>,
+    request: FastifyRequest<{ Params: { roleId: string }; Body: { ids: string[] } }>,
     reply: FastifyReply,
   ) {
     const { roleId } = request.params;
-    const body = request.body;
+    const { ids } = request.body;
 
-    const record = await this.roleService.bulkRevokePermissions(roleId, body);
+    const record = await this.roleService.bulkRevokePermissions(
+      roleId,
+      ids,
+      this.getOrgIds(request),
+    );
     return reply.send(record);
   }
 
   async bulkUpdatePermissions(
-    request: FastifyRequest<{
-      Params: { roleId: string };
-    }>,
+    request: FastifyRequest<{ Params: { roleId: string } }>,
     reply: FastifyReply,
   ) {
-    const updatedBy = (request.session as any)?.user?.id;
-    const { roleId } = request.params;
     const newScope = BulkUpdatePermissionBodySchema.parse(request.body);
-
-    const record = await this.roleService.bulkUpdatePermissions(roleId, newScope, updatedBy);
+    const record = await this.roleService.bulkUpdatePermissions(
+      request.params.roleId,
+      newScope,
+      this.getUserId(request)!,
+      this.getOrgIds(request),
+    );
     return reply.send(record);
   }
 
   // ==========================================
-  // Asignaciones
-  // ==========================================
-
-  // ==========================================
-  // 1. LECTURA
+  // ASIGNACIONES — LECTURA
   // ==========================================
 
   async getAllAssignments(
@@ -145,6 +195,7 @@ export class RoleController extends BaseController<Role> {
       skip,
       take,
       orderBy,
+      organizationIds: this.getOrgIds(request),
       ...filters,
     });
 
@@ -156,21 +207,22 @@ export class RoleController extends BaseController<Role> {
     reply: FastifyReply,
   ) {
     const { roleId, id } = request.params;
-
-    const record = await this.roleService.getAssignmentById(id, roleId);
+    const record = await this.roleService.getAssignmentById(id, roleId, this.getOrgIds(request));
     return reply.send(record);
   }
 
   // ==========================================
-  // 2. OPERACIONES INDIVIDUALES
+  // ASIGNACIONES — INDIVIDUALES
   // ==========================================
 
   async assign(request: FastifyRequest<{ Params: { roleId: string } }>, reply: FastifyReply) {
-    const assignedBy = (request.session as any)?.user?.id;
-    const { roleId } = request.params;
     const body = CreateAssignmentBodySchema.parse(request.body);
-
-    const record = await this.roleService.assign(roleId, body, assignedBy);
+    const record = await this.roleService.assign(
+      request.params.roleId,
+      body,
+      this.getUserId(request),
+      this.getOrgIds(request),
+    );
     return reply.code(201).send(record);
   }
 
@@ -179,21 +231,22 @@ export class RoleController extends BaseController<Role> {
     reply: FastifyReply,
   ) {
     const { roleId, id } = request.params;
-
-    const record = await this.roleService.unassign(id, roleId);
+    const record = await this.roleService.unassign(id, roleId, this.getOrgIds(request));
     return reply.send(record);
   }
 
   // ==========================================
-  // 3. OPERACIONES MASIVAS (BULK)
+  // ASIGNACIONES — BULK
   // ==========================================
 
   async bulkAssign(request: FastifyRequest<{ Params: { roleId: string } }>, reply: FastifyReply) {
-    const assignedBy = (request.session as any)?.user?.id;
-    const { roleId } = request.params;
     const body = BulkCreateAssignmentBodySchema.parse(request.body);
-
-    const record = await this.roleService.bulkAssign(roleId, body, assignedBy);
+    const record = await this.roleService.bulkAssign(
+      request.params.roleId,
+      body,
+      this.getUserId(request),
+      this.getOrgIds(request),
+    );
     return reply.code(201).send(record);
   }
 
@@ -201,10 +254,12 @@ export class RoleController extends BaseController<Role> {
     request: FastifyRequest<{ Params: { roleId: string }; Body: { ids: string[] } }>,
     reply: FastifyReply,
   ) {
-    const { roleId } = request.params;
     const { ids } = BulkAssignmentIdsBodySchema.parse(request.body);
-
-    const record = await this.roleService.bulkUnassign(roleId, ids);
+    const record = await this.roleService.bulkUnassign(
+      request.params.roleId,
+      ids,
+      this.getOrgIds(request),
+    );
     return reply.send(record);
   }
 }
