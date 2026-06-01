@@ -228,6 +228,7 @@ CREATE TABLE "rbac_roles" (
     "color" TEXT,
     "icon" TEXT,
     "isSystem" BOOLEAN NOT NULL DEFAULT false,
+    "organizationId" TEXT,
     "status" "RecordStatus" NOT NULL DEFAULT 'ACTIVE',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -494,6 +495,15 @@ CREATE UNIQUE INDEX "rbac_modules_key_key" ON "rbac_modules"("key");
 CREATE UNIQUE INDEX "rbac_roles_slug_key" ON "rbac_roles"("slug");
 
 -- CreateIndex
+CREATE INDEX "rbac_roles_organizationId_idx" ON "rbac_roles"("organizationId");
+
+-- CreateIndex
+CREATE INDEX "rbac_roles_isSystem_idx" ON "rbac_roles"("isSystem");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "rbac_roles_slug_organizationId_key" ON "rbac_roles"("slug", "organizationId");
+
+-- CreateIndex
 CREATE INDEX "rbac_role_permissions_roleId_idx" ON "rbac_role_permissions"("roleId");
 
 -- CreateIndex
@@ -621,6 +631,9 @@ ALTER TABLE "rbac_roles" ADD CONSTRAINT "rbac_roles_restoreBy_fkey" FOREIGN KEY 
 
 -- AddForeignKey
 ALTER TABLE "rbac_roles" ADD CONSTRAINT "rbac_roles_updatedBy_fkey" FOREIGN KEY ("updatedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "rbac_roles" ADD CONSTRAINT "rbac_roles_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "org_organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "rbac_role_permissions" ADD CONSTRAINT "rbac_role_permissions_grantedBy_fkey" FOREIGN KEY ("grantedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;

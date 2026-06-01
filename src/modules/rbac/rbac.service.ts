@@ -19,7 +19,7 @@ const ASSIGNMENT_INCLUDE = {
   granter: { select: { id: true, name: true, email: true } },
   assignedUser: { select: { id: true, name: true, email: true } },
   assignedTeam: { select: { id: true, name: true } },
-  assignedOrg: { select: { id: true, name: true } },
+  organization: { select: { id: true, name: true } },
   role: { select: { id: true, name: true, slug: true } },
 };
 

@@ -261,7 +261,7 @@ export const RoleAssignmentResponseSchema = RoleAssignmentSchema.extend({
     .optional()
     .nullable(),
   assignedTeam: z.object({ id: z.string(), name: z.string() }).optional().nullable(),
-  assignedOrg: z.object({ id: z.string(), name: z.string() }).optional().nullable(),
+  organization: z.object({ id: z.string(), name: z.string() }).optional().nullable(),
   role: z.object({ id: z.string(), name: z.string(), slug: z.string() }).optional().nullable(),
 });
 
