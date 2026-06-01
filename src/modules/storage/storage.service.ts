@@ -200,7 +200,7 @@ export class StorageService extends BaseRbacService<any> {
         entityType,
         entityId,
         isPublic: fileData.isPublic,
-        userId: userId,
+        createdBy: userId,
       },
     });
 
