@@ -28,7 +28,7 @@ export default async function routes(fastify: FastifyInstance) {
   });
 
   fastify.register(companiesRoutes, {
-    prefix: `${env.API_PREFIX}/test-companies`,
+    prefix: `${env.API_PREFIX}/companies`,
   });
 
   fastify.register(organizationRoutes, {

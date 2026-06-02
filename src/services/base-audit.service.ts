@@ -10,10 +10,10 @@ import { HttpError } from '@/utils/http.error.js';
 import { BaseCrudService } from './base-crud.service.js';
 
 export abstract class BaseAuditService<T> extends BaseCrudService<T> {
-  public getAuditWhere(isTrash: boolean, extraWhere: object = {}) {
+  public getAuditWhere(isTrash: boolean, extraFilters: Record<string, any> = {}) {
     return {
-      ...extraWhere,
       ...this.getStatusFilter(isTrash),
+      ...this.buildWhereFilters(extraFilters),
     };
   }
 

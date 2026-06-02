@@ -14,6 +14,10 @@ export abstract class BaseCrudService<T> {
 
   protected abstract getStatusFilter(isTrash: boolean): object;
 
+  protected buildWhereFilters(filters: Record<string, any>): object {
+    return filters;
+  }
+
   protected async ensureNotSystem(
     id: string,
     errorMessage = 'No se puede modificar un registro de sistema',

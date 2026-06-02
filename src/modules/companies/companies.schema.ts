@@ -39,13 +39,20 @@ export const CompanyIdParamsSchema = z.object({
 export const GetCompaniesQuerySchema = z.object({
   page: z.coerce.number().optional().default(1),
   limit: z.coerce.number().optional().default(10),
-
   isTrash: z.preprocess((val) => val === 'true' || val === true, z.boolean()).default(false),
-
   name: z.string().optional(),
-  sector: z.string().optional(),
+  nif: z.string().optional(),
 
-  sortBy: z.string().optional().default('createdAt'),
+  sector: z
+    .preprocess((val) => {
+      if (!val) return undefined;
+      if (Array.isArray(val)) return val;
+      return [val];
+    }, z.array(z.string()))
+    .optional(),
+  createdAtFrom: z.coerce.date().optional(),
+  createdAtTo: z.coerce.date().optional(),
+  sortBy: z.enum(['name', 'nif', 'sector', 'createdAt']).optional().default('createdAt'),
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
 });
 
