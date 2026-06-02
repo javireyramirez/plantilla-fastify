@@ -217,7 +217,7 @@ export class StorageService extends BaseRbacService<any> {
     const exists = await this.storage.checkFileExists(document.fileKey);
     if (!exists) throw new HttpError(400, 'El archivo aún no se ha subido al almacenamiento');
 
-    return this.updateWithContext(where, { status: 'ACTIVE' }, userId);
+    return this.updateWithContext(where, { status: 'ACTIVE' }, { userId });
   }
 
   // ==========================================
@@ -231,7 +231,7 @@ export class StorageService extends BaseRbacService<any> {
     data: { fileName?: string; isPublic?: boolean },
     userId: string,
   ) {
-    return this.updateWithContext({ id: documentId, entityType, entityId }, data, userId);
+    return this.updateWithContext({ id: documentId, entityType, entityId }, data, { userId });
   }
 
   async deleteSoftDocument(
