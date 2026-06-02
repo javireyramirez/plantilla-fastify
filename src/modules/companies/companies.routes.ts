@@ -9,12 +9,15 @@ import {
   CompanyResponseSchema,
   CreateCompanyBodySchema,
   GetCompaniesQuerySchema,
+  GetListQuery,
+  ResponseListSchema,
   UpdateCompanyBodySchema,
 } from '@/modules/companies/companies.schema.js';
 import { registerBaseRoutes } from '@/routes/base.routes.js';
 
 export default async function companiesRoutes(fastify: FastifyInstance) {
   registerBaseRoutes(fastify, fastify.companiesController, {
+    resource: 'companies',
     tags: ['Companies'],
 
     schemas: {
@@ -23,6 +26,7 @@ export default async function companiesRoutes(fastify: FastifyInstance) {
 
       //Query
       getManyQuery: GetCompaniesQuerySchema,
+      GetListQuery: GetListQuery,
 
       //Body
       createBody: CreateCompanyBodySchema,
@@ -38,6 +42,7 @@ export default async function companiesRoutes(fastify: FastifyInstance) {
       deleteResponse: CompanyResponseSchema,
       restoreResponse: CompanyResponseSchema,
       bulkResponse: BulkResponseSchema,
+      getListResponse: ResponseListSchema,
     },
   });
 }

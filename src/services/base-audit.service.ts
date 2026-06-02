@@ -1,28 +1,19 @@
-import { FastifyInstance } from 'fastify';
-
 import {
   withCreatedBy,
   withDeletedBy,
   withRestoredBy,
   withUpdatedBy,
 } from '@/decorators/audit.decorators.js';
-import { BaseRepository } from '@/repositories/base.repository.js';
+import { WriteOptions } from '@/types/base.types.js';
 import { HttpError } from '@/utils/http.error.js';
 
-type PrismaTransaction = Omit<
-  FastifyInstance['prisma'],
-  '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
->;
+import { BaseCrudService } from './base-crud.service.js';
 
-export abstract class BaseAuditService<T> {
-  constructor(protected readonly repository: BaseRepository<T>) {}
-
-  protected abstract getStatusFilter(isTrash: boolean): object;
-
-  public getAuditWhere(isTrash: boolean, extraWhere: object = {}) {
+export abstract class BaseAuditService<T> extends BaseCrudService<T> {
+  public getAuditWhere(isTrash: boolean, extraFilters: Record<string, any> = {}) {
     return {
-      ...extraWhere,
       ...this.getStatusFilter(isTrash),
+      ...this.buildWhereFilters(extraFilters),
     };
   }
 
@@ -30,128 +21,90 @@ export abstract class BaseAuditService<T> {
   // 1. OPERACIONES INDIVIDUALES
   // ==========================================
 
-  async create(
-    data: any,
-    userId?: string,
-    options: { include?: any; select?: any } = {},
-  ): Promise<T> {
-    try {
-      return await this.repository.create({
-        data: { ...data, ...withCreatedBy(userId, data?.ownerId) },
-        include: {
-          ...(options.include ?? {}),
-        },
-        select: options.select,
-      });
-    } catch (error) {
-      throw new HttpError(500, `Error al crear el registro: ${(error as Error).message}`);
+  override async create(data: any, options: WriteOptions = {}): Promise<T> {
+    const auditedData = { ...data, ...withCreatedBy(options.userId) };
+    const auditedOptions = {
+      ...options,
+      include: { ...(options.include ?? {}) },
+    };
+    return super.create(auditedData, auditedOptions);
+  }
+
+  override async update(id: string, data: any, options: WriteOptions = {}): Promise<T> {
+    const where = { id, ...this.getStatusFilter(false) };
+    const record = await this.repository.findFirst({ where });
+    if (!record) {
+      throw new HttpError(404, 'Registro no encontrado o sin permisos');
     }
+
+    const auditedData = { ...data, ...withUpdatedBy(options.userId) };
+    const auditedOptions = {
+      ...options,
+      include: { ...(options.include ?? {}) },
+    };
+
+    return super.update(id, auditedData, auditedOptions) as Promise<T>;
   }
 
-  async update(
-    id: string,
-    data: any,
-    userId?: string,
-    options: { include?: any; select?: any } = {},
-  ): Promise<T> {
-    try {
-      return await this.repository.update({
-        where: { id, ...this.getStatusFilter(false) },
-        data: { ...data, ...withUpdatedBy(userId) },
-        include: {
-          ...(options.include ?? {}),
-        },
-        select: options.select,
-      });
-    } catch (error) {
-      throw new HttpError(404, 'Registro no encontrado para actualizar');
-    }
-  }
-
-  async upsert(params: { where: any; create: any; update: any }, userId?: string): Promise<T> {
-    try {
-      return await this.repository.upsert({
-        where: params.where,
-        create: { ...params.create, ...withCreatedBy(userId) },
-        update: { ...params.update, ...withUpdatedBy(userId) },
-      });
-    } catch (error) {
-      throw new HttpError(500, `Error en upsert: ${(error as Error).message}`);
-    }
-  }
-
-  async softDelete(id: string, userId?: string): Promise<T> {
-    try {
-      return await this.repository.update({
-        where: { id },
-        data: withDeletedBy(userId),
-      });
-    } catch (error) {
-      throw new HttpError(404, 'Registro no encontrado para borrar');
-    }
-  }
-
-  async restore(id: string, userId?: string): Promise<T> {
-    try {
-      return await this.repository.update({
-        where: { id },
-        data: withRestoredBy(userId),
-      });
-    } catch (error) {
-      throw new HttpError(404, 'Registro no encontrado para restaurar');
-    }
-  }
-
-  async hardDelete(id: string): Promise<T> {
-    try {
-      return await this.repository.delete({ where: { id } });
-    } catch (error) {
-      throw new HttpError(404, 'Registro no encontrado para eliminar permanentemente');
-    }
-  }
-
-  // ==========================================
-  // 2. LECTURA Y CONTEXTO
-  // ==========================================
-
-  async findFirst(
-    params: { where?: any; include?: any; orderBy?: any; select?: any } = {},
-  ): Promise<T | null> {
-    return this.repository.findFirst(params);
-  }
-  async findByIdWithContext(id: string, context: any): Promise<T | null> {
-    return this.repository.findFirst({
-      where: { id, ...context },
+  async softDelete(id: string, options: WriteOptions = {}): Promise<T> {
+    const record = await this.repository.findFirst({
+      where: { id, ...this.getStatusFilter(false) },
     });
+    if (!record) throw new HttpError(404, 'Registro no encontrado');
+
+    return this.repository.update({
+      where: { id },
+      data: withDeletedBy(options.userId),
+    }) as Promise<T>;
   }
 
-  async exists(where: any): Promise<boolean> {
-    return this.repository.exists(where);
+  async restore(id: string, options: WriteOptions = {}): Promise<T> {
+    const record = await this.repository.findFirst({
+      where: { id, ...this.getStatusFilter(true) },
+    });
+    if (!record) throw new HttpError(404, 'Registro no encontrado o sin permisos');
+
+    return this.repository.update({
+      where: { id },
+      data: withRestoredBy(options.userId),
+    }) as Promise<T>;
   }
 
-  async findManyWithCount(params: {
+  // ==========================================
+  // 2. LECTURAS
+  // ==========================================
+
+  override async findList(params: {
     where?: any;
-    skip?: number;
     take?: number;
     orderBy?: any;
-    include?: any;
     select?: any;
-  }): Promise<{ data: T[]; total: number }> {
-    return this.repository.findManyWithCount(params);
+    isTrash?: boolean;
+    scope?: any;
+  }): Promise<T[]> {
+    return this.repository.findMany({
+      where: this.getAuditWhere(params.isTrash ?? false, params.where),
+      take: params.take ?? 20,
+      orderBy: params.orderBy ?? { name: 'asc' },
+      select: { id: true, name: true, ...(params.select ?? {}) },
+    }) as Promise<T[]>;
   }
 
-  async updateWithContext(where: any, data: any, userId?: string): Promise<T> {
+  // ==========================================
+  // 2. Operaciones con contexto
+  // ==========================================
+  override async updateWithContext(where: any, data: any, options: WriteOptions = {}): Promise<T> {
     try {
       return await this.repository.update({
         where,
-        data: { ...data, ...withUpdatedBy(userId) },
+        data: { ...data, ...withUpdatedBy(options.userId) },
       });
     } catch (error) {
       throw new HttpError(404, 'Registro no encontrado para actualizar');
     }
   }
 
-  async softDeleteWithContext(where: any, userId?: string): Promise<T> {
+  async softDeleteWithContext(where: any, userId: string): Promise<T> {
     try {
       return await this.repository.update({
         where,
@@ -177,10 +130,10 @@ export abstract class BaseAuditService<T> {
   // 3. OPERACIONES MASIVAS (BULK)
   // ==========================================
 
-  async createManyWithAudit(data: any[], userId?: string) {
+  override async createMany(data: any[], options: WriteOptions = {}) {
     const auditData = data.map((item) => ({
       ...item,
-      ...withCreatedBy(userId, item.ownerId),
+      ...withCreatedBy(options.userId),
     }));
 
     return this.repository.createMany({
@@ -189,25 +142,20 @@ export abstract class BaseAuditService<T> {
     });
   }
 
-  async softDeleteMany(ids: string[], userId?: string) {
+  async softDeleteMany(ids: string[], options: WriteOptions = {}) {
     if (!ids.length) return { count: 0 };
     return this.repository.updateMany({
       where: { id: { in: ids } },
-      data: withDeletedBy(userId),
+      data: withDeletedBy(options.userId),
     });
   }
 
-  async restoreMany(ids: string[], userId?: string) {
+  async restoreMany(ids: string[], options: WriteOptions = {}) {
     if (!ids.length) return { count: 0 };
     return this.repository.updateMany({
       where: { id: { in: ids } },
-      data: withRestoredBy(userId),
+      data: withRestoredBy(options.userId),
     });
-  }
-
-  public async hardDeleteMany(ids: string[]) {
-    if (!ids.length) return { count: 0 };
-    return this.repository.deleteMany({ where: { id: { in: ids } } });
   }
 
   // ==========================================
@@ -230,13 +178,5 @@ export abstract class BaseAuditService<T> {
 
   async hardDeleteManyWithContext(where: any) {
     return this.repository.deleteMany({ where });
-  }
-
-  // ==========================================
-  // 5. TRANSACCIONES
-  // ==========================================
-
-  async transaction<R>(fn: (tx: PrismaTransaction) => Promise<R>): Promise<R> {
-    return this.repository.transaction(fn as any);
   }
 }

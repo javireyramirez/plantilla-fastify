@@ -1,8 +1,9 @@
+import { PermissionAction } from '@prisma/client';
 import { FastifyInstance } from 'fastify';
 import { ZodTypeProvider } from 'fastify-type-provider-zod';
 
 import { BaseController } from '@/controllers/base.controller.js';
-import { requireAuth } from '@/hooks/require.auth.js';
+import { buildPreHandler } from '@/hooks/buildPreHandler.js';
 import { BaseRoutesOptions } from '@/types/base-routes.types.js';
 
 export function registerBaseRoutes<T>(
@@ -11,20 +12,23 @@ export function registerBaseRoutes<T>(
   options: BaseRoutesOptions,
 ) {
   const app = fastify.withTypeProvider<ZodTypeProvider>();
+  const { resource, tags, schemas: s } = options;
 
   // ==========================================
-  // BULK ROUTES (Deben ir antes de /:id)
+  // BULK
   // ==========================================
 
   app.post(
     '/bulk',
     {
       schema: {
-        tags: options.tags,
-        body: options.schemas.bulkCreateBody,
-        response: { 201: options.schemas.bulkResponse },
+        tags,
+        body: s.bulkCreateBody,
+        response: {
+          201: s.bulkResponse,
+        },
       },
-      preHandler: [requireAuth],
+      preHandler: buildPreHandler(resource, PermissionAction.CREATE, options),
     },
     (req, reply) => controller.createMany(req as any, reply),
   );
@@ -33,11 +37,13 @@ export function registerBaseRoutes<T>(
     '/bulk',
     {
       schema: {
-        tags: options.tags,
-        body: options.schemas.bulkIdsBody,
-        response: { 200: options.schemas.bulkResponse },
+        tags,
+        body: s.bulkIdsBody,
+        response: {
+          200: s.bulkResponse,
+        },
       },
-      preHandler: [requireAuth],
+      preHandler: buildPreHandler(resource, PermissionAction.DELETE, options),
     },
     (req, reply) => controller.softDeleteMany(req as any, reply),
   );
@@ -46,11 +52,13 @@ export function registerBaseRoutes<T>(
     '/bulk/restore',
     {
       schema: {
-        tags: options.tags,
-        body: options.schemas.bulkIdsBody,
-        response: { 200: options.schemas.bulkResponse },
+        tags,
+        body: s.bulkIdsBody,
+        response: {
+          200: s.bulkResponse,
+        },
       },
-      preHandler: [requireAuth],
+      preHandler: buildPreHandler(resource, PermissionAction.RESTORE, options),
     },
     (req, reply) => controller.restoreMany(req as any, reply),
   );
@@ -59,54 +67,81 @@ export function registerBaseRoutes<T>(
     '/bulk/permanent',
     {
       schema: {
-        tags: options.tags,
-        body: options.schemas.bulkIdsBody,
-        response: { 200: options.schemas.bulkResponse },
+        tags,
+        body: s.bulkIdsBody,
+        response: {
+          200: s.bulkResponse,
+        },
       },
-      preHandler: [requireAuth],
+      preHandler: buildPreHandler(resource, PermissionAction.DELETE, options),
     },
     (req, reply) => controller.deletePermanentMany(req as any, reply),
   );
 
   // ==========================================
-  // STANDARD ROUTES
+  // LECTURA
   // ==========================================
 
   app.get(
     '/',
     {
       schema: {
-        tags: options.tags,
-        querystring: options.schemas.getManyQuery,
-        response: { 200: options.schemas.getManyResponse },
+        tags,
+        querystring: s.getManyQuery,
+        response: {
+          200: s.getManyResponse,
+        },
       },
-      preHandler: [requireAuth],
+      preHandler: buildPreHandler(resource, PermissionAction.READ, options),
     },
     (req, reply) => controller.getAll(req as any, reply),
+  );
+
+  app.get(
+    '/list',
+    {
+      schema: {
+        tags,
+        querystring: s.GetListQuery,
+        response: {
+          200: s.getListResponse,
+        },
+      },
+      preHandler: buildPreHandler(resource, PermissionAction.READ, options),
+    },
+    (req, reply) => controller.getList(req as any, reply),
   );
 
   app.get(
     '/:id',
     {
       schema: {
-        tags: options.tags,
-        params: options.schemas.idParams,
-        response: { 200: options.schemas.getOneResponse },
+        tags,
+        params: s.idParams,
+        response: {
+          200: s.getOneResponse,
+        },
       },
-      preHandler: [requireAuth],
+      preHandler: buildPreHandler(resource, PermissionAction.READ, options),
     },
     (req, reply) => controller.getById(req as any, reply),
   );
+
+  // ==========================================
+  // ESCRITURA INDIVIDUAL
+  // ==========================================
 
   app.post(
     '/',
     {
       schema: {
-        tags: options.tags,
-        body: options.schemas.createBody,
-        response: { 201: options.schemas.createResponse },
+        tags,
+        body: s.createBody,
+        response: {
+          201: s.createResponse,
+        },
       },
-      preHandler: [requireAuth],
+      preHandler: buildPreHandler(resource, PermissionAction.CREATE, options),
     },
     (req, reply) => controller.create(req as any, reply),
   );
@@ -115,25 +150,33 @@ export function registerBaseRoutes<T>(
     '/:id',
     {
       schema: {
-        tags: options.tags,
-        params: options.schemas.idParams,
-        body: options.schemas.updateBody,
-        response: { 200: options.schemas.updateResponse },
+        tags,
+        params: s.idParams,
+        body: s.updateBody,
+        response: {
+          200: s.updateResponse,
+        },
       },
-      preHandler: [requireAuth],
+      preHandler: buildPreHandler(resource, PermissionAction.UPDATE, options),
     },
     (req, reply) => controller.update(req as any, reply),
   );
+
+  // ==========================================
+  // ESTADOS Y BORRADO INDIVIDUAL
+  // ==========================================
 
   app.delete(
     '/:id',
     {
       schema: {
-        tags: options.tags,
-        params: options.schemas.idParams,
-        response: { 200: options.schemas.deleteResponse },
+        tags,
+        params: s.idParams,
+        response: {
+          200: s.deleteResponse,
+        },
       },
-      preHandler: [requireAuth],
+      preHandler: buildPreHandler(resource, PermissionAction.DELETE, options),
     },
     (req, reply) => controller.softDelete(req as any, reply),
   );
@@ -142,11 +185,13 @@ export function registerBaseRoutes<T>(
     '/:id/restore',
     {
       schema: {
-        tags: options.tags,
-        params: options.schemas.idParams,
-        response: { 200: options.schemas.restoreResponse },
+        tags,
+        params: s.idParams,
+        response: {
+          200: s.restoreResponse,
+        },
       },
-      preHandler: [requireAuth],
+      preHandler: buildPreHandler(resource, PermissionAction.RESTORE, options),
     },
     (req, reply) => controller.restore(req as any, reply),
   );
@@ -155,11 +200,13 @@ export function registerBaseRoutes<T>(
     '/:id/permanent',
     {
       schema: {
-        tags: options.tags,
-        params: options.schemas.idParams,
-        response: { 204: options.schemas.deleteResponse }, // El 204 no devuelve body
+        tags,
+        params: s.idParams,
+        response: {
+          204: s.deleteResponse,
+        },
       },
-      preHandler: [requireAuth],
+      preHandler: buildPreHandler(resource, PermissionAction.DELETE, options),
     },
     (req, reply) => controller.deletePermanent(req as any, reply),
   );

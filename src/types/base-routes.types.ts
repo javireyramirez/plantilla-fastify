@@ -1,6 +1,12 @@
 export interface BaseRoutesOptions {
+  resource: string;
   tags: string[];
 
+  auth?: {
+    skipMemberContext?: boolean;
+    skipPermissions?: boolean;
+    requireSuperAdmin?: boolean;
+  };
   schemas: {
     /**
      * PARAMS
@@ -11,6 +17,7 @@ export interface BaseRoutesOptions {
      * QUERIES
      */
     getManyQuery?: any;
+    GetListQuery?: any;
 
     /**
      * INDIVIDUAL BODIES
@@ -40,5 +47,6 @@ export interface BaseRoutesOptions {
      * BULK RESPONSES
      */
     bulkResponse?: any; // z.object({ count: z.number() })
+    getListResponse?: any;
   };
 }

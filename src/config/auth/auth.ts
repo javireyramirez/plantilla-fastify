@@ -2,6 +2,7 @@ import { i18n } from '@better-auth/i18n';
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { openAPI } from 'better-auth/plugins';
+import { customSession } from 'better-auth/plugins';
 
 import {
   createHooksAuth,
@@ -32,6 +33,16 @@ export const createAuth = (authService: AuthService) =>
       provider: 'postgresql',
     }),
 
+    user: {
+      additionalFields: {
+        isSuperAdmin: {
+          type: 'boolean',
+          required: false,
+          input: false,
+        },
+      },
+    },
+
     emailAndPassword: {
       enabled: true,
       ...emailOptions,
@@ -54,6 +65,20 @@ export const createAuth = (authService: AuthService) =>
           },
         },
       }),
+      customSession(async ({ user, session }) => {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: user.id },
+          select: { isSuperAdmin: true },
+        });
+
+        return {
+          user: {
+            ...user,
+            isSuperAdmin: dbUser?.isSuperAdmin ?? false,
+          },
+          session,
+        };
+      }),
     ],
 
     baseURL: env.BACKEND_URL,
@@ -71,5 +96,8 @@ export const createAuth = (authService: AuthService) =>
 
     advanced: {
       useSecureCookies: isProd,
+      database: {
+        generateId: false,
+      },
     },
   });

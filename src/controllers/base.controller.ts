@@ -1,14 +1,21 @@
-import fastify, { FastifyReply, FastifyRequest } from 'fastify';
+import { FastifyReply, FastifyRequest } from 'fastify';
 
 import { CreateSchema } from '@/schemas/base.schema.js';
 import { BaseAuditService } from '@/services/base-audit.service.js';
+import { BaseRbacService } from '@/services/base-owned.service.js';
 import { HttpError } from '@/utils/http.error.js';
+import { parsePagination } from '@/utils/pagination.js';
+import { requireScope } from '@/utils/scope.js';
 
 export abstract class BaseController<T> {
   constructor(protected readonly service: BaseAuditService<T>) {}
 
+  protected getUserId(request: FastifyRequest): string | undefined {
+    return request.session?.user?.id;
+  }
+
   // ==========================================
-  // 1. LECTURA (READ)
+  // LECTURA
   // ==========================================
 
   async getAll(request: FastifyRequest<{ Querystring: any }>, reply: FastifyReply) {
@@ -21,24 +28,18 @@ export abstract class BaseController<T> {
       ...filters
     } = request.query as any;
 
-    const shouldShowTrash = String(isTrash) === 'true';
+    const { skip, take, orderBy, meta } = parsePagination({ page, limit, sortBy, sortOrder });
+    const scope = requireScope(request);
 
     const result = await this.service.findManyWithCount({
-      where: this.service.getAuditWhere(shouldShowTrash, filters),
-      skip: (Number(page) - 1) * Number(limit),
-      take: Number(limit),
-      orderBy: { [sortBy]: sortOrder },
+      where: this.service.getAuditWhere(String(isTrash) === 'true', filters),
+      skip,
+      take,
+      orderBy,
+      scope,
     });
 
-    return reply.send({
-      data: result.data,
-      meta: {
-        total: result.total,
-        page: Number(page),
-        limit: Number(limit),
-        totalPages: Math.ceil(result.total / Number(limit)),
-      },
-    });
+    return reply.send({ data: result.data, meta: meta(result.total) });
   }
 
   async getById(
@@ -46,37 +47,52 @@ export abstract class BaseController<T> {
     reply: FastifyReply,
   ) {
     const { id } = request.params;
-    const isTrash = request.query.isTrash === 'true';
+    const scope = requireScope(request);
 
     const record = await this.service.findFirst({
       where: {
         id,
-        ...this.service.getAuditWhere(isTrash),
+        ...this.service.getAuditWhere(request.query.isTrash === 'true'),
       },
+      scope,
     });
 
-    if (!record) {
-      throw new HttpError(404, 'Registro no encontrado');
-    }
+    if (!record) throw new HttpError(404, 'Registro no encontrado');
 
     return reply.send(record);
   }
 
+  async getList(request: FastifyRequest<{ Querystring: any }>, reply: FastifyReply) {
+    const { limit = 20, sortBy = 'name', sortOrder = 'asc', ...filters } = request.query as any;
+    const scope = requireScope(request);
+
+    const result = await this.service.findList({
+      where: filters,
+      take: Number(limit),
+      orderBy: { [sortBy]: sortOrder },
+      scope,
+    });
+
+    return reply.send(result);
+  }
+
   // ==========================================
-  // 2. ESCRITURA INDIVIDUAL (WRITE)
+  // ESCRITURA INDIVIDUAL
   // ==========================================
 
-  async create(request: FastifyRequest, reply: FastifyReply) {
-    const userId = (request.session as any)?.user?.id;
+  async create(request: FastifyRequest<{ Body: any }>, reply: FastifyReply) {
+    const userId = this.getUserId(request);
+    const { organizationId } = request.memberContext ?? {};
 
     const body = CreateSchema.parse(request.body);
 
     const data = {
       ...body,
-      ownerId: body.ownerId || userId,
+      ownerId: body.ownerId ?? userId,
+      ownerOrganizationId: body.ownerOrganizationId ?? organizationId,
     };
 
-    const record = await this.service.create(data, userId);
+    const record = await this.service.create(data, { userId });
     return reply.code(201).send(record);
   }
 
@@ -85,66 +101,76 @@ export abstract class BaseController<T> {
     reply: FastifyReply,
   ) {
     const { id } = request.params;
-    const userId = (request.session as any)?.user?.id;
+    const userId = this.getUserId(request);
+    const scope = requireScope(request);
 
-    const record = await this.service.update(id, request.body, userId);
+    const record = await this.service.update(id, request.body, { userId, scope });
     return reply.send(record);
   }
 
   // ==========================================
-  // 3. ESTADOS Y BORRADO INDIVIDUAL
+  // ESTADOS Y BORRADO INDIVIDUAL
   // ==========================================
 
   async softDelete(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
     const { id } = request.params;
-    const userId = (request.session as any)?.user?.id;
+    const userId = this.getUserId(request);
+    const scope = requireScope(request);
 
-    const record = await this.service.softDelete(id, userId);
+    const record = await this.service.softDelete(id, { userId, scope });
     return reply.send(record);
   }
 
   async restore(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
     const { id } = request.params;
-    const userId = (request.session as any)?.user?.id;
+    const userId = this.getUserId(request);
+    const scope = requireScope(request);
 
-    const record = await this.service.restore(id, userId);
+    const record = await this.service.restore(id, { userId, scope });
     return reply.send(record);
   }
 
   async deletePermanent(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
     const { id } = request.params;
-    await this.service.hardDelete(id);
+    const scope = requireScope(request);
+
+    await this.service.hardDelete(id, { scope });
     return reply.code(204).send();
   }
 
   // ==========================================
-  // 4. OPERACIONES MASIVAS (BULK)
+  // BULK
   // ==========================================
 
   async createMany(request: FastifyRequest<{ Body: any[] }>, reply: FastifyReply) {
-    const userId = (request.session as any)?.user?.id;
-    const payload = request.body.map((item) => ({
+    const userId = this.getUserId(request);
+    const { organizationId } = request.memberContext ?? {};
+
+    const data = request.body.map((item) => ({
       ...item,
-      ownerId: item.ownerId || userId,
+      ownerId: item.ownerId ?? userId,
+      ownerOrganizationId: item.ownerOrganizationId ?? organizationId,
     }));
 
-    const result = await this.service.createManyWithAudit(payload, userId);
+    const result = await this.service.createMany(data, { userId });
     return reply.code(201).send(result);
   }
 
   async softDeleteMany(request: FastifyRequest<{ Body: { ids: string[] } }>, reply: FastifyReply) {
-    const userId = (request.session as any)?.user?.id;
+    const userId = this.getUserId(request);
+    const scope = requireScope(request);
     const { ids } = request.body;
 
-    const result = await this.service.softDeleteMany(ids, userId);
+    const result = await this.service.softDeleteMany(ids, { userId, scope });
     return reply.send(result);
   }
 
   async restoreMany(request: FastifyRequest<{ Body: { ids: string[] } }>, reply: FastifyReply) {
-    const userId = (request.session as any)?.user?.id;
+    const userId = this.getUserId(request);
+    const scope = requireScope(request);
     const { ids } = request.body;
 
-    const result = await this.service.restoreMany(ids, userId);
+    const result = await this.service.restoreMany(ids, { userId, scope });
     return reply.send(result);
   }
 
@@ -152,8 +178,10 @@ export abstract class BaseController<T> {
     request: FastifyRequest<{ Body: { ids: string[] } }>,
     reply: FastifyReply,
   ) {
+    const scope = requireScope(request);
     const { ids } = request.body;
-    const result = await this.service.hardDeleteMany(ids);
+
+    const result = await this.service.hardDeleteMany(ids, { scope });
     return reply.send(result);
   }
 }

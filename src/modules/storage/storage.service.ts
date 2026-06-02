@@ -1,7 +1,7 @@
 import { Zip, ZipPassThrough } from 'fflate';
 import { PassThrough, Readable } from 'stream';
 
-import { BaseAuditService } from '@/services/base-audit.service.js';
+import { BaseRbacService } from '@/services/base-owned.service.js';
 import { HttpError } from '@/utils/http.error.js';
 
 import type { IStorageProvider } from './interfaces/storage.provider.interface.js';
@@ -9,7 +9,7 @@ import { GLOBAL_UPLOAD_RULES } from './storage.constants.js';
 import { StorageRepository } from './storage.repository.js';
 import { RequestUploadParams } from './storage.schema.js';
 
-export class StorageService extends BaseAuditService<any> {
+export class StorageService extends BaseRbacService<any> {
   constructor(
     private readonly storageRepo: StorageRepository,
     private readonly storage: IStorageProvider,
@@ -190,8 +190,8 @@ export class StorageService extends BaseAuditService<any> {
     const ext = fileData.fileName.split('.').pop();
     const fileKey = `${entityType.toLowerCase()}/${entityId}/${crypto.randomUUID()}.${ext}`;
 
-    const document = await this.create(
-      {
+    const document = await this.storageRepo.create({
+      data: {
         fileName: fileData.fileName,
         fileKey,
         contentType: fileData.mimeType,
@@ -200,9 +200,9 @@ export class StorageService extends BaseAuditService<any> {
         entityType,
         entityId,
         isPublic: fileData.isPublic,
+        createdBy: userId,
       },
-      userId,
-    );
+    });
 
     const uploadUrl = await this.storage.generateUploadUrl(fileKey, fileData.mimeType);
     return { uploadUrl, documentId: document.id, fileKey };

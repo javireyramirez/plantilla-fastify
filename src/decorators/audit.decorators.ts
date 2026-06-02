@@ -1,6 +1,14 @@
-export const withCreatedBy = (userId?: string, ownerId?: string) => ({
+// ==========================================
+// ENTIDADES DE NEGOCIO
+// ==========================================
+export const withCreatedBy = (userId?: string) => ({
+  ...(userId && { createdBy: userId, updatedBy: userId }),
+  updatedAt: new Date(),
+});
+
+export const withOwnedCreate = (userId?: string, ownerId?: string) => ({
+  ...withCreatedBy(userId),
   ...(userId && {
-    createdBy: userId,
     ownerId: ownerId ?? userId,
     ownerTeamId: null,
     ownerOrganizationId: null,
@@ -33,4 +41,26 @@ export const active = () => ({
 export const auditWhere = (extra?: object) => ({
   ...active(),
   ...extra,
+});
+
+// ==========================================
+// MEMBRESÍA (invitedBy, removedBy)
+// ==========================================
+
+export const withInvitedBy = (invitedBy?: string) => ({
+  ...(invitedBy && { invitedBy }),
+});
+
+// ==========================================
+// PERMISOS (grantedBy)
+// ==========================================
+
+export const withGrantedBy = (grantedBy?: string) => ({
+  updatedAt: new Date(),
+  ...(grantedBy && { grantedBy }),
+});
+
+export const withAssignedBy = (assignedBy?: string) => ({
+  assignedAt: new Date(),
+  ...(assignedBy && { assignedBy }),
 });
