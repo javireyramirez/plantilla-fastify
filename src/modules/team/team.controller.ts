@@ -3,20 +3,15 @@ import { FastifyReply, FastifyRequest } from 'fastify';
 import { BaseController } from '@/controllers/base.controller.js';
 import { parsePagination } from '@/utils/pagination.js';
 
-import {
-  BulkMemberIdsBodySchema,
-  CreateTeamMemberSchema,
-  GetTeamMembersQuery,
-  Team,
-} from './team.schema.js';
+import { BulkMemberIdsBodySchema, CreateTeamMemberSchema } from './team.schema.js';
 import { TeamService } from './team.service.js';
 
-export class TeamController extends BaseController<Team> {
+export class TeamController extends BaseController<any> {
   constructor(private readonly teamService: TeamService) {
     super(teamService);
   }
 
-  override async getAll(request: FastifyRequest<{ Querystring: any }>, reply: FastifyReply) {
+  override async getAll(request: FastifyRequest, reply: FastifyReply) {
     const {
       page = 1,
       limit = 10,
@@ -27,7 +22,7 @@ export class TeamController extends BaseController<Team> {
     } = request.query as any;
 
     const { skip, take, orderBy, meta } = parsePagination({ page, limit, sortBy, sortOrder });
-    const organizationIds = request.memberContext?.organizationIds;
+    const organizationIds = (request as any).memberContext?.organizationIds;
 
     const result = await this.teamService.findManyWithCount({
       where: {
@@ -42,9 +37,9 @@ export class TeamController extends BaseController<Team> {
     return reply.send({ data: result.data, meta: meta(result.total) });
   }
 
-  override async getList(request: FastifyRequest<{ Querystring: any }>, reply: FastifyReply) {
+  override async getList(request: FastifyRequest, reply: FastifyReply) {
     const { limit = 20, sortBy = 'name', sortOrder = 'asc', ...filters } = request.query as any;
-    const organizationIds = request.memberContext?.organizationIds;
+    const organizationIds = (request as any).memberContext?.organizationIds;
 
     const result = await this.teamService.findList({
       where: {
@@ -62,12 +57,10 @@ export class TeamController extends BaseController<Team> {
   // 1. LECTURA
   // ==========================================
 
-  async getAllMembers(
-    request: FastifyRequest<{ Params: { id: string }; Querystring: GetTeamMembersQuery }>,
-    reply: FastifyReply,
-  ) {
-    const { id } = request.params;
-    const { page, limit, sortBy, sortOrder, ...filters } = request.query;
+  async getAllMembers(request: FastifyRequest, reply: FastifyReply) {
+    const { id } = request.params as any;
+    const { page, limit, sortBy, sortOrder, ...filters } = request.query as any;
+
     const { skip, take, orderBy, meta } = parsePagination({ page, limit, sortBy, sortOrder });
 
     const result = await this.teamService.getMembersWithCount(id, {
@@ -84,20 +77,17 @@ export class TeamController extends BaseController<Team> {
   // 2. OPERACIONES INDIVIDUALES
   // ==========================================
 
-  async addMember(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
-    const invitedBy = (request.session as any)?.user?.id;
-    const { id } = request.params;
+  async addMember(request: FastifyRequest, reply: FastifyReply) {
+    const invitedBy = (request as any).session?.user?.id;
+    const { id } = request.params as any;
     const { memberId } = CreateTeamMemberSchema.parse(request.body);
 
     const record = await this.teamService.addMember(id, memberId, invitedBy);
     return reply.code(201).send(record);
   }
 
-  async removeMember(
-    request: FastifyRequest<{ Params: { id: string; memberId: string } }>,
-    reply: FastifyReply,
-  ) {
-    const { id, memberId } = request.params;
+  async removeMember(request: FastifyRequest, reply: FastifyReply) {
+    const { id, memberId } = request.params as any;
 
     const record = await this.teamService.removeMember(id, memberId);
     return reply.send(record);
@@ -107,17 +97,17 @@ export class TeamController extends BaseController<Team> {
   // 3. OPERACIONES MASIVAS (BULK)
   // ==========================================
 
-  async addMembers(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
-    const invitedBy = (request.session as any)?.user?.id;
-    const { id } = request.params;
+  async addMembers(request: FastifyRequest, reply: FastifyReply) {
+    const invitedBy = (request as any).session?.user?.id;
+    const { id } = request.params as any;
     const { memberIds } = BulkMemberIdsBodySchema.parse(request.body);
 
     const record = await this.teamService.addMembers(id, memberIds, invitedBy);
     return reply.code(201).send(record);
   }
 
-  async removeMembers(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
-    const { id } = request.params;
+  async removeMembers(request: FastifyRequest, reply: FastifyReply) {
+    const { id } = request.params as any;
     const { memberIds } = BulkMemberIdsBodySchema.parse(request.body);
 
     const record = await this.teamService.removeMembers(id, memberIds);

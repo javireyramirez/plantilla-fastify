@@ -10,27 +10,24 @@ import {
   BulkUpdatePermissionBodySchema,
   CreateAssignmentBodySchema,
   CreatePermissionBodySchema,
-  GetAssignmentsQuery,
-  GetPermissionsQuery,
   PermissionScopeParamsSchema,
-  Role,
 } from './rbac.schema.js';
 import { RoleService } from './rbac.service.js';
 
-export class RoleController extends BaseController<Role> {
+export class RoleController extends BaseController<any> {
   constructor(private readonly roleService: RoleService) {
     super(roleService);
   }
 
-  private getOrgIds(request: FastifyRequest): string[] | undefined {
+  private getOrgIds(request: any): string[] | undefined {
     return request.memberContext?.organizationIds;
   }
 
   // ==========================================
-  // OVERRIDES DE BASE (scope de org)
+  // OVERRIDES DE BASE
   // ==========================================
 
-  override async getAll(request: FastifyRequest<{ Querystring: any }>, reply: FastifyReply) {
+  override async getAll(request: FastifyRequest, reply: FastifyReply) {
     const {
       page = 1,
       limit = 10,
@@ -53,7 +50,7 @@ export class RoleController extends BaseController<Role> {
     return reply.send({ data: result.data, meta: meta(result.total) });
   }
 
-  override async getList(request: FastifyRequest<{ Querystring: any }>, reply: FastifyReply) {
+  override async getList(request: FastifyRequest, reply: FastifyReply) {
     const { limit = 20, sortBy = 'name', sortOrder = 'asc', ...filters } = request.query as any;
 
     const result = await this.roleService.findList({
@@ -70,12 +67,10 @@ export class RoleController extends BaseController<Role> {
   // PERMISOS — LECTURA
   // ==========================================
 
-  async getAllPermissions(
-    request: FastifyRequest<{ Params: { roleId: string }; Querystring: GetPermissionsQuery }>,
-    reply: FastifyReply,
-  ) {
-    const { roleId } = request.params;
-    const { page, limit, sortBy, sortOrder, ...filters } = request.query;
+  async getAllPermissions(request: FastifyRequest, reply: FastifyReply) {
+    const { roleId } = request.params as any;
+    const { page, limit, sortBy, sortOrder, ...filters } = request.query as any;
+
     const { skip, take, orderBy, meta } = parsePagination({ page, limit, sortBy, sortOrder });
 
     const result = await this.roleService.getPermissionsWithCount(roleId, {
@@ -93,35 +88,32 @@ export class RoleController extends BaseController<Role> {
   // PERMISOS — INDIVIDUALES
   // ==========================================
 
-  async addPermission(
-    request: FastifyRequest<{ Params: { roleId: string } }>,
-    reply: FastifyReply,
-  ) {
+  async addPermission(request: FastifyRequest, reply: FastifyReply) {
+    const { roleId } = request.params as any;
     const body = CreatePermissionBodySchema.parse(request.body);
+
     const record = await this.roleService.addPermission(
-      request.params.roleId,
+      roleId,
       body,
       this.getUserId(request),
       this.getOrgIds(request),
     );
+
     return reply.code(201).send(record);
   }
 
-  async revokePermission(
-    request: FastifyRequest<{ Params: { id: string; roleId: string } }>,
-    reply: FastifyReply,
-  ) {
-    const { roleId, id } = request.params;
+  async revokePermission(request: FastifyRequest, reply: FastifyReply) {
+    const { id, roleId } = request.params as any;
+
     const record = await this.roleService.revokePermission(id, roleId, this.getOrgIds(request));
+
     return reply.send(record);
   }
 
-  async updatePermissionScope(
-    request: FastifyRequest<{ Params: { id: string; roleId: string } }>,
-    reply: FastifyReply,
-  ) {
-    const { id, roleId } = request.params;
+  async updatePermissionScope(request: FastifyRequest, reply: FastifyReply) {
+    const { id, roleId } = request.params as any;
     const newScope = PermissionScopeParamsSchema.parse(request.body);
+
     const record = await this.roleService.updatePermissionScope(
       id,
       roleId,
@@ -129,6 +121,7 @@ export class RoleController extends BaseController<Role> {
       this.getUserId(request)!,
       this.getOrgIds(request),
     );
+
     return reply.send(record);
   }
 
@@ -136,46 +129,44 @@ export class RoleController extends BaseController<Role> {
   // PERMISOS — BULK
   // ==========================================
 
-  async bulkAddPermissions(
-    request: FastifyRequest<{ Params: { roleId: string } }>,
-    reply: FastifyReply,
-  ) {
+  async bulkAddPermissions(request: FastifyRequest, reply: FastifyReply) {
+    const { roleId } = request.params as any;
     const body = BulkCreatePermissionBodySchema.parse(request.body);
+
     const record = await this.roleService.bulkAddPermissions(
-      request.params.roleId,
+      roleId,
       body,
       this.getUserId(request),
       this.getOrgIds(request),
     );
+
     return reply.code(201).send(record);
   }
 
-  async bulkRevokePermissions(
-    request: FastifyRequest<{ Params: { roleId: string }; Body: { ids: string[] } }>,
-    reply: FastifyReply,
-  ) {
-    const { roleId } = request.params;
-    const { ids } = request.body;
+  async bulkRevokePermissions(request: FastifyRequest, reply: FastifyReply) {
+    const { roleId } = request.params as any;
+    const { ids } = BulkAssignmentIdsBodySchema.parse(request.body);
 
     const record = await this.roleService.bulkRevokePermissions(
       roleId,
       ids,
       this.getOrgIds(request),
     );
+
     return reply.send(record);
   }
 
-  async bulkUpdatePermissions(
-    request: FastifyRequest<{ Params: { roleId: string } }>,
-    reply: FastifyReply,
-  ) {
+  async bulkUpdatePermissions(request: FastifyRequest, reply: FastifyReply) {
+    const { roleId } = request.params as any;
     const newScope = BulkUpdatePermissionBodySchema.parse(request.body);
+
     const record = await this.roleService.bulkUpdatePermissions(
-      request.params.roleId,
+      roleId,
       newScope,
       this.getUserId(request)!,
       this.getOrgIds(request),
     );
+
     return reply.send(record);
   }
 
@@ -183,12 +174,10 @@ export class RoleController extends BaseController<Role> {
   // ASIGNACIONES — LECTURA
   // ==========================================
 
-  async getAllAssignments(
-    request: FastifyRequest<{ Params: { roleId: string }; Querystring: GetAssignmentsQuery }>,
-    reply: FastifyReply,
-  ) {
-    const { roleId } = request.params;
-    const { page, limit, sortBy, sortOrder, ...filters } = request.query;
+  async getAllAssignments(request: FastifyRequest, reply: FastifyReply) {
+    const { roleId } = request.params as any;
+    const { page, limit, sortBy, sortOrder, ...filters } = request.query as any;
+
     const { skip, take, orderBy, meta } = parsePagination({ page, limit, sortBy, sortOrder });
 
     const result = await this.roleService.getAssignmentsWithCount(roleId, {
@@ -202,12 +191,11 @@ export class RoleController extends BaseController<Role> {
     return reply.send({ data: result.data, meta: meta(result.total) });
   }
 
-  async getAssignmentById(
-    request: FastifyRequest<{ Params: { roleId: string; id: string } }>,
-    reply: FastifyReply,
-  ) {
-    const { roleId, id } = request.params;
+  async getAssignmentById(request: FastifyRequest, reply: FastifyReply) {
+    const { roleId, id } = request.params as any;
+
     const record = await this.roleService.getAssignmentById(id, roleId, this.getOrgIds(request));
+
     return reply.send(record);
   }
 
@@ -215,23 +203,25 @@ export class RoleController extends BaseController<Role> {
   // ASIGNACIONES — INDIVIDUALES
   // ==========================================
 
-  async assign(request: FastifyRequest<{ Params: { roleId: string } }>, reply: FastifyReply) {
+  async assign(request: FastifyRequest, reply: FastifyReply) {
+    const { roleId } = request.params as any;
     const body = CreateAssignmentBodySchema.parse(request.body);
+
     const record = await this.roleService.assign(
-      request.params.roleId,
+      roleId,
       body,
       this.getUserId(request),
       this.getOrgIds(request),
     );
+
     return reply.code(201).send(record);
   }
 
-  async unassign(
-    request: FastifyRequest<{ Params: { roleId: string; id: string } }>,
-    reply: FastifyReply,
-  ) {
-    const { roleId, id } = request.params;
+  async unassign(request: FastifyRequest, reply: FastifyReply) {
+    const { roleId, id } = request.params as any;
+
     const record = await this.roleService.unassign(id, roleId, this.getOrgIds(request));
+
     return reply.send(record);
   }
 
@@ -239,27 +229,26 @@ export class RoleController extends BaseController<Role> {
   // ASIGNACIONES — BULK
   // ==========================================
 
-  async bulkAssign(request: FastifyRequest<{ Params: { roleId: string } }>, reply: FastifyReply) {
+  async bulkAssign(request: FastifyRequest, reply: FastifyReply) {
+    const { roleId } = request.params as any;
     const body = BulkCreateAssignmentBodySchema.parse(request.body);
+
     const record = await this.roleService.bulkAssign(
-      request.params.roleId,
+      roleId,
       body,
       this.getUserId(request),
       this.getOrgIds(request),
     );
+
     return reply.code(201).send(record);
   }
 
-  async bulkUnassign(
-    request: FastifyRequest<{ Params: { roleId: string }; Body: { ids: string[] } }>,
-    reply: FastifyReply,
-  ) {
+  async bulkUnassign(request: FastifyRequest, reply: FastifyReply) {
+    const { roleId } = request.params as any;
     const { ids } = BulkAssignmentIdsBodySchema.parse(request.body);
-    const record = await this.roleService.bulkUnassign(
-      request.params.roleId,
-      ids,
-      this.getOrgIds(request),
-    );
+
+    const record = await this.roleService.bulkUnassign(roleId, ids, this.getOrgIds(request));
+
     return reply.send(record);
   }
 }
