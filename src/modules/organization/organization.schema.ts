@@ -88,7 +88,6 @@ export const GetListQuery = GetListQueryBase;
 
 export const CreateOrganizationBodySchema = OrganizationSchema.omit({
   id: true,
-  byDefault: true,
   status: true,
   createdAt: true,
   updatedAt: true,
