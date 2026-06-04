@@ -146,7 +146,7 @@ export function registerBaseRoutes<T>(
     (req, reply) => controller.create(req as any, reply),
   );
 
-  app.patch(
+  app.put(
     '/:id',
     {
       schema: {
