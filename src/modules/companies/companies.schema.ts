@@ -50,8 +50,22 @@ export const GetCompaniesQuerySchema = z.object({
       return [val];
     }, z.array(z.string()))
     .optional(),
-  createdAtFrom: z.coerce.date().optional(),
-  createdAtTo: z.coerce.date().optional(),
+  createdAtFrom: z
+    .preprocess((val) => {
+      if (!val) return undefined;
+      const num = Number(val);
+      return isNaN(num) ? val : new Date(num);
+    }, z.date())
+    .optional(),
+
+  createdAtTo: z
+    .preprocess((val) => {
+      if (!val) return undefined;
+      const num = Number(val);
+      return isNaN(num) ? val : new Date(num);
+    }, z.date())
+    .optional(),
+
   sortBy: z.enum(['name', 'nif', 'sector', 'createdAt']).optional().default('createdAt'),
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
 });
