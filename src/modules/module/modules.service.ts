@@ -10,6 +10,16 @@ export class ModuleService extends BaseAuditService<Module> {
     super(modulesRepo);
   }
 
+  protected override buildWhereFilters(filters: Record<string, any>) {
+    return {
+      ...this.buildStringFilter('name', filters.name),
+
+      ...this.buildDateRangeFilter('createdAt', filters.createdAtFrom, filters.createdAtTo),
+    };
+  }
+
+  // Define el filtro base para registros activos vs papelera
+
   protected getStatusFilter(isTrash: boolean) {
     return {
       status: isTrash ? 'TRASHED' : 'ACTIVE',
