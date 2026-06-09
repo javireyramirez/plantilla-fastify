@@ -22,6 +22,14 @@ export class OrganizationService extends BaseAuditService<Organization> {
     };
   }
 
+  protected override buildWhereFilters(filters: Record<string, any>) {
+    return {
+      ...this.buildStringFilter('name', filters.name),
+
+      ...this.buildDateRangeFilter('createdAt', filters.createdAtFrom, filters.createdAtTo),
+    };
+  }
+
   private async ensureOrganizationExists(organizationId: string) {
     const exists = await this.organizationRepo.exists({ where: { id: organizationId } });
     if (!exists) throw new HttpError(404, 'La organización no existe');

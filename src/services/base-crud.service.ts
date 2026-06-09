@@ -12,11 +12,54 @@ type PrismaTransaction = Omit<
 export abstract class BaseCrudService<T> {
   constructor(protected readonly repository: BaseRepository<T>) {}
 
-  protected abstract getStatusFilter(isTrash: boolean): object;
-
-  protected buildWhereFilters(filters: Record<string, any>): object {
-    return filters;
+  // Filtros texto
+  protected buildStringFilter(field: string, value?: string) {
+    return value ? { [field]: { contains: value, mode: 'insensitive' } } : {};
   }
+
+  // Filtros seleccion
+  protected buildExactMatchFilters(filters: Record<string, any>, fields: string[]) {
+    const where: any = {};
+    for (const field of fields) {
+      const val = filters[field];
+      if (val !== undefined && val !== null) {
+        where[field] = Array.isArray(val) ? { in: val } : val;
+      }
+    }
+    return where;
+  }
+
+  protected buildMultiSelectFilter(field: string, value: any) {
+    if (!value) return {};
+
+    if (Array.isArray(value)) {
+      return { [field]: { in: value } };
+    }
+
+    if (typeof value === 'string') {
+      const values = value.split(',');
+      return { [field]: { in: values } };
+    }
+
+    return {};
+  }
+
+  // Filtros fechas
+  protected buildDateRangeFilter(field: string, from?: Date | string, to?: Date | string) {
+    if (!from && !to) return {};
+
+    return {
+      [field]: {
+        ...(from && { gte: new Date(from) }),
+        ...(to && { lte: new Date(new Date(to).setHours(23, 59, 59, 999)) }),
+      },
+    };
+  }
+
+  // Construcción de filtros
+  protected abstract buildWhereFilters(filters: Record<string, any>): object;
+
+  protected abstract getStatusFilter(isTrash: boolean): object;
 
   protected async ensureNotSystem(
     id: string,
