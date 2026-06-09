@@ -32,19 +32,19 @@ export default async function routes(fastify: FastifyInstance) {
   });
 
   fastify.register(organizationRoutes, {
-    prefix: `${env.API_PREFIX}/organization`,
+    prefix: `${env.API_PREFIX}/organizations`,
   });
 
   fastify.register(teamRoutes, {
-    prefix: `${env.API_PREFIX}/team`,
+    prefix: `${env.API_PREFIX}/teams`,
   });
 
   fastify.register(roleRoutes, {
-    prefix: `${env.API_PREFIX}/role`,
+    prefix: `${env.API_PREFIX}/roles`,
   });
 
   fastify.register(moduleRoutes, {
-    prefix: `${env.API_PREFIX}/module`,
+    prefix: `${env.API_PREFIX}/modules`,
   });
 
   fastify.log.info('Routes ready');
