@@ -11,6 +11,7 @@ export function scopeFromRequest(request: FastifyRequest): ScopeContext | undefi
     scope: permissions.scope,
     userId: session.user.id,
     organizationId: memberContext.organizationId,
+    organizationIds: memberContext.organizationIds,
     teamIds: memberContext.teamIds,
   };
 }
@@ -22,6 +23,7 @@ export function requireScope(request: FastifyRequest): ScopeContext | undefined 
     scope: request.permissions.scope,
     userId: request.session?.user?.id,
     organizationId: request.memberContext?.organizationId,
+    organizationIds: request.memberContext?.organizationIds,
     teamIds: request.memberContext?.teamIds ?? [],
   };
 }

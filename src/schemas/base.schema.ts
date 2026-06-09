@@ -42,6 +42,7 @@ export const GetListQueryBase = z.object({
   limit: z.coerce.number().int().positive().max(100).default(20),
   sortBy: z.string().optional().default('name'),
   sortOrder: z.enum(['asc', 'desc']).optional().default('asc'),
+  name: z.string().optional(),
 });
 
 export const ResponseListSchemaBase = z.array(

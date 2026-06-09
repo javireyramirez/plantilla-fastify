@@ -86,13 +86,7 @@ export abstract class BaseController<T> {
 
     const body = CreateSchema.parse(request.body);
 
-    const data = {
-      ...body,
-      ownerId: body.ownerId ?? userId,
-      ownerOrganizationId: body.ownerOrganizationId ?? organizationId,
-    };
-
-    const record = await this.service.create(data, { userId });
+    const record = await this.service.create(body, { userId });
     return reply.code(201).send(record);
   }
 

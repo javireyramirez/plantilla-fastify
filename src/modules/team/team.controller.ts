@@ -11,48 +11,6 @@ export class TeamController extends BaseController<any> {
     super(teamService);
   }
 
-  override async getAll(request: FastifyRequest, reply: FastifyReply) {
-    const {
-      page = 1,
-      limit = 10,
-      isTrash = false,
-      sortBy = 'createdAt',
-      sortOrder = 'desc',
-      ...filters
-    } = request.query as any;
-
-    const { skip, take, orderBy, meta } = parsePagination({ page, limit, sortBy, sortOrder });
-    const organizationIds = (request as any).memberContext?.organizationIds;
-
-    const result = await this.teamService.findManyWithCount({
-      where: {
-        ...this.teamService.getAuditWhere(String(isTrash) === 'true', filters),
-        ...(organizationIds && { organizationId: { in: organizationIds } }),
-      },
-      skip,
-      take,
-      orderBy,
-    });
-
-    return reply.send({ data: result.data, meta: meta(result.total) });
-  }
-
-  override async getList(request: FastifyRequest, reply: FastifyReply) {
-    const { limit = 20, sortBy = 'name', sortOrder = 'asc', ...filters } = request.query as any;
-    const organizationIds = (request as any).memberContext?.organizationIds;
-
-    const result = await this.teamService.findList({
-      where: {
-        ...filters,
-        ...(organizationIds && { organizationId: { in: organizationIds } }),
-      },
-      take: Number(limit),
-      orderBy: { [sortBy]: sortOrder },
-    });
-
-    return reply.send(result);
-  }
-
   // ==========================================
   // 1. LECTURA
   // ==========================================
