@@ -28,8 +28,10 @@ export abstract class BaseController<T> {
       ...filters
     } = request.query as any;
 
-    const { skip, take, orderBy, meta } = parsePagination({ page, limit, sortBy, sortOrder });
+    const { skip, take, meta } = parsePagination({ page, limit, sortBy, sortOrder });
     const scope = requireScope(request);
+
+    const orderBy = this.service.buildOrderBy(sortBy, sortOrder);
 
     const result = await this.service.findManyWithCount({
       where: this.service.getAuditWhere(String(isTrash) === 'true', filters),

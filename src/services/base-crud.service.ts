@@ -12,6 +12,12 @@ type PrismaTransaction = Omit<
 export abstract class BaseCrudService<T> {
   constructor(protected readonly repository: BaseRepository<T>) {}
 
+  //Includes
+  // TeamService
+  protected getDefaultInclude() {
+    return {};
+  }
+
   // Filtros texto
   protected buildStringFilter(field: string, value?: string) {
     return value ? { [field]: { contains: value, mode: 'insensitive' } } : {};
@@ -60,6 +66,24 @@ export abstract class BaseCrudService<T> {
   protected abstract buildWhereFilters(filters: Record<string, any>): object;
 
   protected abstract getStatusFilter(isTrash: boolean): object;
+
+  //Ordenamiento
+  protected getAvailableSorts(): Record<string, object> {
+    return {};
+  }
+
+  public buildOrderBy(sortBy?: string, sortOrder: 'asc' | 'desc' = 'asc') {
+    if (!sortBy) return { createdAt: 'desc' };
+
+    const relational = this.getAvailableSorts();
+    if (sortBy in relational) {
+      return JSON.parse(
+        JSON.stringify(relational[sortBy]).replace('"__order__"', `"${sortOrder}"`),
+      );
+    }
+
+    return { [sortBy]: sortOrder };
+  }
 
   protected async ensureNotSystem(
     id: string,
@@ -125,6 +149,8 @@ export abstract class BaseCrudService<T> {
     return this.repository.findFirst({
       ...params,
       include: {
+        ...this.getDefaultInclude(),
+
         ...(params.include || {}),
       },
     });
@@ -152,6 +178,8 @@ export abstract class BaseCrudService<T> {
     return this.repository.findManyWithCount({
       ...params,
       include: {
+        ...this.getDefaultInclude(),
+
         ...(params.include || {}),
       },
     });

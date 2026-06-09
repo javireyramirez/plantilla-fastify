@@ -18,7 +18,9 @@ export class TeamService extends BaseAuditService<Team> {
   }
 
   protected getDefaultInclude() {
-    return {};
+    return {
+      organization: { select: { id: true, name: true } },
+    };
   }
 
   protected override buildWhereFilters(filters: Record<string, any>) {
@@ -29,7 +31,12 @@ export class TeamService extends BaseAuditService<Team> {
     };
   }
 
-  // Define el filtro base para registros activos vs papelera
+  protected getAvailableSorts() {
+    return {
+      organization: { organization: { name: '__order__' } },
+      createdBy: { createdByUser: { name: '__order__' } },
+    };
+  }
 
   protected getStatusFilter(isTrash: boolean) {
     return {
