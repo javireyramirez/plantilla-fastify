@@ -1,4 +1,4 @@
-import { withCreatedBy, withInvitedBy } from '@/decorators/audit.decorators.js';
+import { withInvitedBy } from '@/decorators/audit.decorators.js';
 import { BaseAuditService } from '@/services/base-audit.service.js';
 import { WriteOptions } from '@/types/base.types.js';
 import { HttpError } from '@/utils/http.error.js';
@@ -18,7 +18,9 @@ export class TeamService extends BaseAuditService<Team> {
   }
 
   protected getDefaultInclude() {
-    return {};
+    return {
+      organization: { select: { id: true, name: true } },
+    };
   }
 
   protected override buildWhereFilters(filters: Record<string, any>) {
@@ -29,7 +31,12 @@ export class TeamService extends BaseAuditService<Team> {
     };
   }
 
-  // Define el filtro base para registros activos vs papelera
+  protected getAvailableSorts() {
+    return {
+      organization: { organization: { name: '__order__' } },
+      createdBy: { createdByUser: { name: '__order__' } },
+    };
+  }
 
   protected getStatusFilter(isTrash: boolean) {
     return {
@@ -38,22 +45,49 @@ export class TeamService extends BaseAuditService<Team> {
     };
   }
 
+  /**
+   * Team usa organizationId (FK directa) — NO ownerOrganizationId.
+   * El scope RBAC genérico no aplica aquí: filtramos por la org del usuario.
+   */
+  private extractOrgIds(scope?: any): string[] {
+    // El scope puede traer organizationIds (array) u organizationId (string único)
+    if (scope?.organizationIds?.length) return scope.organizationIds;
+    if (scope?.organizationId) return [scope.organizationId];
+    return [];
+  }
+
   override async findManyWithCount(params: any) {
+    const organizationIds = this.extractOrgIds(params.scope);
     return super.findManyWithCount({
       ...params,
+      scope: undefined, // evitar que buildScopeFilter busque ownerOrganizationId
       where: {
         ...params.where,
-        organizationId: { in: params.scope?.organizationIds ?? [] },
+        ...(organizationIds.length ? { organizationId: { in: organizationIds } } : {}),
       },
     });
   }
 
   override async findList(params: any) {
+    const organizationIds = this.extractOrgIds(params.scope);
     return super.findList({
       ...params,
+      scope: undefined,
       where: {
         ...params.where,
-        organizationId: { in: params.scope?.organizationIds ?? [] },
+        ...(organizationIds.length ? { organizationId: { in: organizationIds } } : {}),
+      },
+    });
+  }
+
+  override async findFirst(params: any): Promise<Team | null> {
+    const organizationIds = this.extractOrgIds(params.scope);
+    return super.findFirst({
+      ...params,
+      scope: undefined,
+      where: {
+        ...params.where,
+        ...(organizationIds.length ? { organizationId: { in: organizationIds } } : {}),
       },
     });
   }

@@ -1,6 +1,6 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
 
-import { BaseController } from '@/controllers/base.controller.js';
+import { OwnedController } from '@/controllers/base-owned.controller.js';
 import { parsePagination } from '@/utils/pagination.js';
 
 import {
@@ -11,7 +11,7 @@ import {
 } from './organization.schema.js';
 import { OrganizationService } from './organization.service.js';
 
-export class OrganizationController extends BaseController<any> {
+export class OrganizationController extends OwnedController<any> {
   constructor(private readonly organizationService: OrganizationService) {
     super(organizationService);
   }

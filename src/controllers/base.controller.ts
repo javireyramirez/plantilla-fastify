@@ -28,8 +28,10 @@ export abstract class BaseController<T> {
       ...filters
     } = request.query as any;
 
-    const { skip, take, orderBy, meta } = parsePagination({ page, limit, sortBy, sortOrder });
+    const { skip, take, meta } = parsePagination({ page, limit, sortBy, sortOrder });
     const scope = requireScope(request);
+
+    const orderBy = this.service.buildOrderBy(sortBy, sortOrder);
 
     const result = await this.service.findManyWithCount({
       where: this.service.getAuditWhere(String(isTrash) === 'true', filters),
@@ -86,13 +88,7 @@ export abstract class BaseController<T> {
 
     const body = CreateSchema.parse(request.body);
 
-    const data = {
-      ...body,
-      ownerId: body.ownerId ?? userId,
-      ownerOrganizationId: body.ownerOrganizationId ?? organizationId,
-    };
-
-    const record = await this.service.create(data, { userId });
+    const record = await this.service.create(body, { userId });
     return reply.code(201).send(record);
   }
 

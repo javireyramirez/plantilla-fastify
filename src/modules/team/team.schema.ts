@@ -30,7 +30,7 @@ export const TeamSchema = z.object({
 export const TeamMemberSchemaBase = z.object({
   id: z.uuidv7(),
   teamId: z.uuidv7(),
-  memberId: z.uuidv7(), // FK a OrganizationMember
+  memberId: z.uuidv7(),
   joinedAt: z.date(),
   invitedBy: z.string().optional().nullable(),
   removedBy: z.string().optional().nullable(),
