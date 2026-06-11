@@ -26,7 +26,7 @@ export class TeamService extends BaseAuditService<Team> {
   protected override buildWhereFilters(filters: Record<string, any>) {
     return {
       ...this.buildStringFilter('name', filters.name),
-
+      ...this.buildMultiSelectFilter('organizationId', filters.organizationId),
       ...this.buildDateRangeFilter('createdAt', filters.createdAtFrom, filters.createdAtTo),
     };
   }
