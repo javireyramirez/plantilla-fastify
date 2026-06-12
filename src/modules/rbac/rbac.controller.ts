@@ -19,8 +19,9 @@ export class RoleController extends BaseController<any> {
     super(roleService);
   }
 
-  private getOrgIds(request: any): string[] | undefined {
-    return request.memberContext?.organizationIds;
+  // Extrae los equipos del contexto si los necesitas para filtrar asignaciones
+  private getTeamIds(request: any): string[] | undefined {
+    return request.memberContext?.teamIds;
   }
 
   // ==========================================
@@ -39,9 +40,9 @@ export class RoleController extends BaseController<any> {
 
     const { skip, take, orderBy, meta } = parsePagination({ page, limit, sortBy, sortOrder });
 
+    // CORREGIDO: Eliminado el parámetro 'scope' ya que los roles son globales
     const result = await this.roleService.findManyWithCount({
       where: this.roleService.getAuditWhere(String(isTrash) === 'true', filters),
-      scope: { organizationIds: this.getOrgIds(request) },
       skip,
       take,
       orderBy,
@@ -53,9 +54,9 @@ export class RoleController extends BaseController<any> {
   override async getList(request: FastifyRequest, reply: FastifyReply) {
     const { limit = 20, sortBy = 'name', sortOrder = 'asc', ...filters } = request.query as any;
 
+    // CORREGIDO: Eliminado el parámetro 'scope'
     const result = await this.roleService.findList({
       where: { ...filters },
-      scope: { organizationIds: this.getOrgIds(request) },
       take: Number(limit),
       orderBy: { [sortBy]: sortOrder },
     });
@@ -73,11 +74,11 @@ export class RoleController extends BaseController<any> {
 
     const { skip, take, orderBy, meta } = parsePagination({ page, limit, sortBy, sortOrder });
 
+    // CORREGIDO: Eliminado 'teamIds' ya que la lectura de permisos de un rol no se filtra por equipo
     const result = await this.roleService.getPermissionsWithCount(roleId, {
       skip,
       take,
       orderBy,
-      organizationIds: this.getOrgIds(request),
       ...filters,
     });
 
@@ -92,12 +93,8 @@ export class RoleController extends BaseController<any> {
     const { roleId } = request.params as any;
     const body = CreatePermissionBodySchema.parse(request.body);
 
-    const record = await this.roleService.addPermission(
-      roleId,
-      body,
-      this.getUserId(request),
-      this.getOrgIds(request),
-    );
+    // CORREGIDO: Removido 'this.getTeamIds(request)'
+    const record = await this.roleService.addPermission(roleId, body, this.getUserId(request));
 
     return reply.code(201).send(record);
   }
@@ -105,7 +102,8 @@ export class RoleController extends BaseController<any> {
   async revokePermission(request: FastifyRequest, reply: FastifyReply) {
     const { id, roleId } = request.params as any;
 
-    const record = await this.roleService.revokePermission(id, roleId, this.getOrgIds(request));
+    // CORREGIDO: Removido 'this.getTeamIds(request)'
+    const record = await this.roleService.revokePermission(id, roleId);
 
     return reply.send(record);
   }
@@ -114,12 +112,12 @@ export class RoleController extends BaseController<any> {
     const { id, roleId } = request.params as any;
     const newScope = PermissionScopeParamsSchema.parse(request.body);
 
+    // CORREGIDO: Removido 'this.getTeamIds(request)' de los argumentos
     const record = await this.roleService.updatePermissionScope(
       id,
       roleId,
-      newScope,
+      newScope as any,
       this.getUserId(request)!,
-      this.getOrgIds(request),
     );
 
     return reply.send(record);
@@ -133,12 +131,8 @@ export class RoleController extends BaseController<any> {
     const { roleId } = request.params as any;
     const body = BulkCreatePermissionBodySchema.parse(request.body);
 
-    const record = await this.roleService.bulkAddPermissions(
-      roleId,
-      body,
-      this.getUserId(request),
-      this.getOrgIds(request),
-    );
+    // CORREGIDO: Removido 'this.getTeamIds(request)'
+    const record = await this.roleService.bulkAddPermissions(roleId, body, this.getUserId(request));
 
     return reply.code(201).send(record);
   }
@@ -147,11 +141,8 @@ export class RoleController extends BaseController<any> {
     const { roleId } = request.params as any;
     const { ids } = BulkAssignmentIdsBodySchema.parse(request.body);
 
-    const record = await this.roleService.bulkRevokePermissions(
-      roleId,
-      ids,
-      this.getOrgIds(request),
-    );
+    // CORREGIDO: Removido 'this.getTeamIds(request)'
+    const record = await this.roleService.bulkRevokePermissions(roleId, ids);
 
     return reply.send(record);
   }
@@ -160,11 +151,11 @@ export class RoleController extends BaseController<any> {
     const { roleId } = request.params as any;
     const newScope = BulkUpdatePermissionBodySchema.parse(request.body);
 
+    // CORREGIDO: Removido 'this.getTeamIds(request)'
     const record = await this.roleService.bulkUpdatePermissions(
       roleId,
       newScope,
       this.getUserId(request)!,
-      this.getOrgIds(request),
     );
 
     return reply.send(record);
@@ -180,11 +171,12 @@ export class RoleController extends BaseController<any> {
 
     const { skip, take, orderBy, meta } = parsePagination({ page, limit, sortBy, sortOrder });
 
+    // AQUÍ SÍ SE MANTIENE: Las asignaciones sí pertenecen a los contextos de los equipos
     const result = await this.roleService.getAssignmentsWithCount(roleId, {
       skip,
       take,
       orderBy,
-      organizationIds: this.getOrgIds(request),
+      teamIds: this.getTeamIds(request),
       ...filters,
     });
 
@@ -194,7 +186,8 @@ export class RoleController extends BaseController<any> {
   async getAssignmentById(request: FastifyRequest, reply: FastifyReply) {
     const { roleId, id } = request.params as any;
 
-    const record = await this.roleService.getAssignmentById(id, roleId, this.getOrgIds(request));
+    // CORREGIDO: Removido 'this.getTeamIds(request)'
+    const record = await this.roleService.getAssignmentById(id, roleId);
 
     return reply.send(record);
   }
@@ -207,12 +200,8 @@ export class RoleController extends BaseController<any> {
     const { roleId } = request.params as any;
     const body = CreateAssignmentBodySchema.parse(request.body);
 
-    const record = await this.roleService.assign(
-      roleId,
-      body,
-      this.getUserId(request),
-      this.getOrgIds(request),
-    );
+    // CORREGIDO: Removido 'this.getTeamIds(request)'
+    const record = await this.roleService.assign(roleId, body, this.getUserId(request));
 
     return reply.code(201).send(record);
   }
@@ -220,7 +209,8 @@ export class RoleController extends BaseController<any> {
   async unassign(request: FastifyRequest, reply: FastifyReply) {
     const { roleId, id } = request.params as any;
 
-    const record = await this.roleService.unassign(id, roleId, this.getOrgIds(request));
+    // CORREGIDO: Removido 'this.getTeamIds(request)'
+    const record = await this.roleService.unassign(id, roleId);
 
     return reply.send(record);
   }
@@ -233,12 +223,8 @@ export class RoleController extends BaseController<any> {
     const { roleId } = request.params as any;
     const body = BulkCreateAssignmentBodySchema.parse(request.body);
 
-    const record = await this.roleService.bulkAssign(
-      roleId,
-      body,
-      this.getUserId(request),
-      this.getOrgIds(request),
-    );
+    // CORREGIDO: Removido 'this.getTeamIds(request)'
+    const record = await this.roleService.bulkAssign(roleId, body, this.getUserId(request));
 
     return reply.code(201).send(record);
   }
@@ -247,7 +233,8 @@ export class RoleController extends BaseController<any> {
     const { roleId } = request.params as any;
     const { ids } = BulkAssignmentIdsBodySchema.parse(request.body);
 
-    const record = await this.roleService.bulkUnassign(roleId, ids, this.getOrgIds(request));
+    // CORREGIDO: Removido 'this.getTeamIds(request)'
+    const record = await this.roleService.bulkUnassign(roleId, ids);
 
     return reply.send(record);
   }

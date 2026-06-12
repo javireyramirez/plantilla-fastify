@@ -2,7 +2,6 @@ import { z } from 'zod';
 
 import {
   GetListQueryBase,
-  OwnerOrganizationSchema,
   OwnerSchema,
   OwnerTeamSchema,
   ResponseListSchemaBase,
@@ -18,7 +17,6 @@ export const ModuleSchema = z.object({
   isActive: z.boolean().default(true),
   sortOrder: z.number().default(0),
   defaultPermissions: z.any().optional().nullable(),
-  isConfigurableByOrg: z.boolean().default(true),
 
   status: recordStatusSchema,
   createdAt: z.date(),
@@ -32,7 +30,6 @@ export const ModuleSchema = z.object({
 
   owner: OwnerSchema.optional().nullable(),
   ownerTeam: OwnerTeamSchema.optional().nullable(),
-  ownerOrganization: OwnerOrganizationSchema.optional().nullable(),
 });
 
 // PARAMS
@@ -71,7 +68,6 @@ export const CreateModuleBodySchema = ModuleSchema.omit({
 }).extend({
   ownerId: z.string().optional().nullable(),
   ownerTeamId: z.string().optional().nullable(),
-  ownerOrganizationId: z.string().optional().nullable(),
 });
 
 export const UpdateModuleBodySchema = CreateModuleBodySchema.partial();

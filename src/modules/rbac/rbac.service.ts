@@ -1,16 +1,10 @@
 import { withAssignedBy, withGrantedBy, withUpdatedBy } from '@/decorators/audit.decorators.js';
 import { BaseAuditService } from '@/services/base-audit.service.js';
-import { BaseRbacService } from '@/services/base-owned.service.js';
 import { WriteOptions } from '@/types/base.types.js';
 import { HttpError } from '@/utils/http.error.js';
 
 import { Role } from './rbac.schema.js';
-import {
-  CreateAssignmentBody,
-  CreatePermissionBody,
-  PermissionScopeParams,
-  PermissionScopeType,
-} from './rbac.schema.js';
+import { CreateAssignmentBody, CreatePermissionBody, PermissionScopeType } from './rbac.schema.js';
 import { RoleAssignmentRepository } from './role-assignment.repository.js';
 import { RolePermissionRepository } from './role-permission.repository.js';
 import { RoleRepository } from './role.repository.js';
@@ -19,7 +13,6 @@ const ASSIGNMENT_INCLUDE = {
   granter: { select: { id: true, name: true, email: true } },
   assignedUser: { select: { id: true, name: true, email: true } },
   assignedTeam: { select: { id: true, name: true } },
-  organization: { select: { id: true, name: true } },
   role: { select: { id: true, name: true, slug: true } },
 };
 
@@ -35,12 +28,9 @@ export class RoleService extends BaseAuditService<Role> {
   protected override buildWhereFilters(filters: Record<string, any>) {
     return {
       ...this.buildStringFilter('name', filters.name),
-
       ...this.buildDateRangeFilter('createdAt', filters.createdAtFrom, filters.createdAtTo),
     };
   }
-
-  // Define el filtro base para registros activos vs papelera
 
   protected getStatusFilter(isTrash: boolean) {
     return {
@@ -50,7 +40,7 @@ export class RoleService extends BaseAuditService<Role> {
   }
 
   // ==========================================
-  // SCOPE DE ORGANIZACIÓN
+  // LECTURA DE ROLES
   // ==========================================
 
   override async findManyWithCount(params: any) {
@@ -58,12 +48,6 @@ export class RoleService extends BaseAuditService<Role> {
       ...params,
       where: {
         ...params.where,
-        OR: [
-          ...(params.scope?.organizationIds?.length
-            ? [{ organizationId: { in: params.scope.organizationIds } }]
-            : []),
-          { isSystem: true, organizationId: null },
-        ],
       },
     });
   }
@@ -73,12 +57,6 @@ export class RoleService extends BaseAuditService<Role> {
       ...params,
       where: {
         ...params.where,
-        OR: [
-          ...(params.scope?.organizationIds?.length
-            ? [{ organizationId: { in: params.scope.organizationIds } }]
-            : []),
-          { isSystem: true, organizationId: null },
-        ],
       },
     });
   }
@@ -87,7 +65,6 @@ export class RoleService extends BaseAuditService<Role> {
     return super.create(
       {
         ...data,
-        organizationId: data.organizationId ?? options.organizationId,
         isSystem: false,
       },
       options,
@@ -98,31 +75,17 @@ export class RoleService extends BaseAuditService<Role> {
   // HELPERS PRIVADOS
   // ==========================================
 
-  private async ensureRoleExists(roleId: string, organizationIds?: string[]) {
-    const where: any = { id: roleId };
-
-    if (organizationIds?.length) {
-      where.OR = [
-        { organizationId: { in: organizationIds } },
-        { isSystem: true, organizationId: null },
-      ];
-    }
-
-    const exists = await this.roleRepo.exists({ where });
+  private async ensureRoleExists(roleId: string) {
+    const exists = await this.roleRepo.exists({ where: { id: roleId } });
     if (!exists) throw new HttpError(404, 'El rol no existe');
   }
 
-  private async ensureRoleIsEditable(roleId: string, organizationIds?: string[]) {
-    await this.ensureRoleExists(roleId, organizationIds);
-    await this.ensureNotSystem(roleId);
+  private async ensureRoleIsEditable(roleId: string) {
+    await this.ensureRoleExists(roleId);
 
-    if (organizationIds?.length) {
-      const belongsToOrg = await this.roleRepo.exists({
-        where: { id: roleId, organizationId: { in: organizationIds } },
-      });
-      if (!belongsToOrg) {
-        throw new HttpError(403, 'No tienes permisos para modificar este rol');
-      }
+    const role = await this.roleRepo.findUnique({ where: { id: roleId } });
+    if (role?.isSystem) {
+      throw new HttpError(403, 'No se pueden modificar los roles del sistema');
     }
   }
 
@@ -149,17 +112,17 @@ export class RoleService extends BaseAuditService<Role> {
       scope?: string[];
       grantedFrom?: string;
       grantedTo?: string;
-      organizationIds?: string[];
     },
   ) {
-    await this.ensureRoleExists(roleId, params.organizationIds);
+    await this.ensureRoleExists(roleId);
 
     const { skip, take, orderBy, resource, action, scope, grantedFrom, grantedTo } = params;
     const where: any = { roleId };
 
-    if (resource) where.resource = { in: resource };
-    if (action) where.action = { in: action };
-    if (scope) where.scope = { in: scope };
+    // CORREGIDO: Mapeamos el array de recursos entrantes directamente a la columna 'moduleId'
+    if (resource?.length) where.moduleId = { in: resource };
+    if (action?.length) where.action = { in: action };
+    if (scope?.length) where.scope = { in: scope };
 
     if (grantedFrom || grantedTo) {
       where.grantedAt = {
@@ -184,13 +147,8 @@ export class RoleService extends BaseAuditService<Role> {
   // PERMISOS — INDIVIDUALES
   // ==========================================
 
-  async addPermission(
-    roleId: string,
-    data: CreatePermissionBody,
-    grantedBy?: string,
-    organizationIds?: string[],
-  ) {
-    await this.ensureRoleIsEditable(roleId, organizationIds);
+  async addPermission(roleId: string, data: CreatePermissionBody, grantedBy?: string) {
+    await this.ensureRoleIsEditable(roleId);
 
     const isPermission = await this.rolePermissionRepo.exists({
       where: { moduleId: data.moduleId, action: data.action, roleId },
@@ -208,8 +166,8 @@ export class RoleService extends BaseAuditService<Role> {
     });
   }
 
-  async revokePermission(id: string, roleId: string, organizationIds?: string[]) {
-    await this.ensureRoleIsEditable(roleId, organizationIds);
+  async revokePermission(id: string, roleId: string) {
+    await this.ensureRoleIsEditable(roleId);
 
     const permission = await this.rolePermissionRepo.findFirst({ where: { id, roleId } });
     if (!permission) throw new HttpError(404, 'El permiso no se encuentra en el rol');
@@ -220,11 +178,10 @@ export class RoleService extends BaseAuditService<Role> {
   async updatePermissionScope(
     id: string,
     roleId: string,
-    newScope: PermissionScopeParams,
+    newScope: PermissionScopeType,
     updatedBy: string,
-    organizationIds?: string[],
   ) {
-    await this.ensureRoleIsEditable(roleId, organizationIds);
+    await this.ensureRoleIsEditable(roleId);
 
     const permission = await this.rolePermissionRepo.findFirst({ where: { id, roleId } });
     if (!permission) throw new HttpError(404, 'El permiso no se encuentra en el rol');
@@ -239,13 +196,8 @@ export class RoleService extends BaseAuditService<Role> {
   // PERMISOS — BULK
   // ==========================================
 
-  async bulkAddPermissions(
-    roleId: string,
-    data: CreatePermissionBody[],
-    grantedBy?: string,
-    organizationIds?: string[],
-  ) {
-    await this.ensureRoleIsEditable(roleId, organizationIds);
+  async bulkAddPermissions(roleId: string, data: CreatePermissionBody[], grantedBy?: string) {
+    await this.ensureRoleIsEditable(roleId);
 
     const existing = await this.rolePermissionRepo.findMany({
       where: {
@@ -269,8 +221,8 @@ export class RoleService extends BaseAuditService<Role> {
     });
   }
 
-  async bulkRevokePermissions(roleId: string, permissionIds: string[], organizationIds?: string[]) {
-    await this.ensureRoleIsEditable(roleId, organizationIds);
+  async bulkRevokePermissions(roleId: string, permissionIds: string[]) {
+    await this.ensureRoleIsEditable(roleId);
 
     const permissions = await this.rolePermissionRepo.findMany({
       where: { id: { in: permissionIds }, roleId },
@@ -288,9 +240,8 @@ export class RoleService extends BaseAuditService<Role> {
     roleId: string,
     data: { id: string; scope: PermissionScopeType }[],
     updatedBy: string,
-    organizationIds?: string[],
   ) {
-    await this.ensureRoleIsEditable(roleId, organizationIds);
+    await this.ensureRoleIsEditable(roleId);
 
     return this.rolePermissionRepo.transaction(async (tx) => {
       return Promise.all(
@@ -316,21 +267,23 @@ export class RoleService extends BaseAuditService<Role> {
       orderBy?: Record<string, 'asc' | 'desc'>;
       userId?: string;
       teamId?: string;
-      organizationId?: string;
       assignedFrom?: string;
       assignedTo?: string;
-      organizationIds?: string[];
+      teamIds?: string[];
     },
   ) {
-    await this.ensureRoleExists(roleId, params.organizationIds);
+    await this.ensureRoleExists(roleId);
 
-    const { skip, take, orderBy, userId, teamId, organizationId, assignedFrom, assignedTo } =
-      params;
+    const { skip, take, orderBy, userId, teamId, assignedFrom, assignedTo, teamIds } = params;
     const where: any = { roleId };
 
     if (userId) where.userId = userId;
-    if (teamId) where.teamId = teamId;
-    if (organizationId) where.organizationId = organizationId;
+
+    if (teamId) {
+      where.teamId = teamId;
+    } else if (teamIds?.length) {
+      where.teamId = { in: teamIds };
+    }
 
     if (assignedFrom || assignedTo) {
       where.assignedAt = {
@@ -348,8 +301,8 @@ export class RoleService extends BaseAuditService<Role> {
     });
   }
 
-  async getAssignmentById(id: string, roleId: string, organizationIds?: string[]) {
-    await this.ensureRoleExists(roleId, organizationIds);
+  async getAssignmentById(id: string, roleId: string) {
+    await this.ensureRoleExists(roleId);
     await this.ensureAssignmentExists(id, roleId);
 
     return this.roleAssignmentRepo.findFirst({
@@ -362,14 +315,8 @@ export class RoleService extends BaseAuditService<Role> {
   // ASIGNACIONES — INDIVIDUALES
   // ==========================================
 
-  async assign(
-    roleId: string,
-    data: CreateAssignmentBody,
-    assignedBy?: string,
-    organizationIds?: string[],
-  ) {
-    // Para asignar un rol solo necesitas verlo (puede ser un rol de sistema)
-    await this.ensureRoleExists(roleId, organizationIds);
+  async assign(roleId: string, data: CreateAssignmentBody, assignedBy?: string) {
+    await this.ensureRoleExists(roleId);
 
     const where: any = { roleId };
     if (data.userId) where.userId = data.userId;
@@ -383,15 +330,14 @@ export class RoleService extends BaseAuditService<Role> {
         roleId,
         userId: data.userId,
         teamId: data.teamId,
-        organizationId: data.organizationId,
         ...withAssignedBy(assignedBy),
       },
       include: ASSIGNMENT_INCLUDE,
     });
   }
 
-  async unassign(id: string, roleId: string, organizationIds?: string[]) {
-    await this.ensureRoleExists(roleId, organizationIds);
+  async unassign(id: string, roleId: string) {
+    await this.ensureRoleExists(roleId);
     await this.ensureAssignmentExists(id, roleId);
 
     return this.roleAssignmentRepo.delete({ where: { id } });
@@ -401,27 +347,21 @@ export class RoleService extends BaseAuditService<Role> {
   // ASIGNACIONES — BULK
   // ==========================================
 
-  async bulkAssign(
-    roleId: string,
-    data: CreateAssignmentBody[],
-    assignedBy?: string,
-    organizationIds?: string[],
-  ) {
-    await this.ensureRoleExists(roleId, organizationIds);
+  async bulkAssign(roleId: string, data: CreateAssignmentBody[], assignedBy?: string) {
+    await this.ensureRoleExists(roleId);
 
     return this.roleAssignmentRepo.createMany({
       data: data.map((item) => ({
         roleId,
         userId: item.userId,
         teamId: item.teamId,
-        organizationId: item.organizationId,
         ...withAssignedBy(assignedBy),
       })),
     });
   }
 
-  async bulkUnassign(roleId: string, ids: string[], organizationIds?: string[]) {
-    await this.ensureRoleExists(roleId, organizationIds);
+  async bulkUnassign(roleId: string, ids: string[]) {
+    await this.ensureRoleExists(roleId);
 
     const assignments = await this.roleAssignmentRepo.findMany({
       where: { id: { in: ids }, roleId },

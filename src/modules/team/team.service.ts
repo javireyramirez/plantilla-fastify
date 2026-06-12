@@ -3,7 +3,6 @@ import { BaseAuditService } from '@/services/base-audit.service.js';
 import { WriteOptions } from '@/types/base.types.js';
 import { HttpError } from '@/utils/http.error.js';
 
-import { OrganizationMemberRepository } from '../organization/organization-member.repository.js';
 import { TeamMemberRepository } from './team-member.repository.js';
 import { TeamRepository } from './team.repository.js';
 import { Team } from './team.schema.js';
@@ -12,28 +11,23 @@ export class TeamService extends BaseAuditService<Team> {
   constructor(
     private readonly teamRepo: TeamRepository,
     private readonly teamMemberRepo: TeamMemberRepository,
-    private readonly organizationMemberRepo: OrganizationMemberRepository,
   ) {
     super(teamRepo);
   }
 
   protected getDefaultInclude() {
-    return {
-      organization: { select: { id: true, name: true } },
-    };
+    return {};
   }
 
   protected override buildWhereFilters(filters: Record<string, any>) {
     return {
       ...this.buildStringFilter('name', filters.name),
-      ...this.buildMultiSelectFilter('organizationId', filters.organizationId),
       ...this.buildDateRangeFilter('createdAt', filters.createdAtFrom, filters.createdAtTo),
     };
   }
 
   protected getAvailableSorts() {
     return {
-      organization: { organization: { name: '__order__' } },
       createdBy: { createdByUser: { name: '__order__' } },
     };
   }
@@ -46,48 +40,51 @@ export class TeamService extends BaseAuditService<Team> {
   }
 
   /**
-   * Team usa organizationId (FK directa) — NO ownerOrganizationId.
-   * El scope RBAC genérico no aplica aquí: filtramos por la org del usuario.
+   * Extrae los IDs de los equipos válidos a los que tiene acceso el contexto.
    */
-  private extractOrgIds(scope?: any): string[] {
-    // El scope puede traer organizationIds (array) u organizationId (string único)
-    if (scope?.organizationIds?.length) return scope.organizationIds;
-    if (scope?.organizationId) return [scope.organizationId];
+  private extractTeamIds(scope?: any): string[] {
+    if (scope?.teamIds?.length) return scope.teamIds;
+    if (scope?.teamId) return [scope.teamId];
     return [];
   }
 
+  // ==========================================
+  // METODOS DE LECTURA CON CONTROL DE ÁMBITO
+  // ==========================================
+
   override async findManyWithCount(params: any) {
-    const organizationIds = this.extractOrgIds(params.scope);
+    const teamIds = this.extractTeamIds(params.scope);
     return super.findManyWithCount({
       ...params,
-      scope: undefined, // evitar que buildScopeFilter busque ownerOrganizationId
+      scope: undefined,
       where: {
         ...params.where,
-        ...(organizationIds.length ? { organizationId: { in: organizationIds } } : {}),
+        // Un usuario común solo ve los equipos a los que pertenece
+        ...(teamIds.length ? { id: { in: teamIds } } : {}),
       },
     });
   }
 
   override async findList(params: any) {
-    const organizationIds = this.extractOrgIds(params.scope);
+    const teamIds = this.extractTeamIds(params.scope);
     return super.findList({
       ...params,
       scope: undefined,
       where: {
         ...params.where,
-        ...(organizationIds.length ? { organizationId: { in: organizationIds } } : {}),
+        ...(teamIds.length ? { id: { in: teamIds } } : {}),
       },
     });
   }
 
   override async findFirst(params: any): Promise<Team | null> {
-    const organizationIds = this.extractOrgIds(params.scope);
+    const teamIds = this.extractTeamIds(params.scope);
     return super.findFirst({
       ...params,
       scope: undefined,
       where: {
         ...params.where,
-        ...(organizationIds.length ? { organizationId: { in: organizationIds } } : {}),
+        ...(teamIds.length ? { id: { in: teamIds } } : {}),
       },
     });
   }
@@ -96,7 +93,6 @@ export class TeamService extends BaseAuditService<Team> {
     return super.create(
       {
         ...data,
-        organizationId: data.organizationId ?? options.organizationId,
       },
       options,
     );
@@ -111,18 +107,8 @@ export class TeamService extends BaseAuditService<Team> {
     if (!exists) throw new HttpError(404, 'El equipo no existe');
   }
 
-  private async resolveOrgMemberById(memberId: string) {
-    const orgMember = await this.organizationMemberRepo.findUnique({
-      where: { id: memberId },
-    });
-    if (!orgMember) {
-      throw new HttpError(404, 'El miembro de organización no existe');
-    }
-    return orgMember;
-  }
-
   // ==========================================
-  // LECTURA
+  // MIEMBROS — LECTURA
   // ==========================================
 
   async getMembersWithCount(
@@ -142,13 +128,11 @@ export class TeamService extends BaseAuditService<Team> {
     const where: any = { teamId };
 
     if (search) {
-      where.member = {
-        user: {
-          OR: [
-            { name: { contains: search, mode: 'insensitive' } },
-            { email: { contains: search, mode: 'insensitive' } },
-          ],
-        },
+      where.user = {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } },
+        ],
       };
     }
 
@@ -165,13 +149,11 @@ export class TeamService extends BaseAuditService<Team> {
       take: take ?? 10,
       orderBy,
       include: {
-        member: {
+        user: {
           select: {
             id: true,
-            userId: true,
-            isActive: true,
-            joinedAt: true,
-            user: { select: { id: true, name: true, email: true } },
+            name: true,
+            email: true,
           },
         },
       },
@@ -179,29 +161,28 @@ export class TeamService extends BaseAuditService<Team> {
   }
 
   // ==========================================
-  // MIEMBROS INDIVIDUALES
+  // MIEMBROS — ACCIONES INDIVIDUALES
   // ==========================================
 
-  async addMember(teamId: string, memberId: string, invitedBy?: string) {
+  async addMember(teamId: string, userId: string, invitedBy?: string) {
     await this.ensureTeamExists(teamId);
-    await this.resolveOrgMemberById(memberId);
 
     const isTeamMember = await this.teamMemberRepo.exists({
-      where: { teamId, memberId },
+      where: { teamId, userId },
     });
-    if (isTeamMember) throw new HttpError(400, 'El miembro ya pertenece a este equipo');
+    if (isTeamMember) throw new HttpError(400, 'El usuario ya pertenece a este equipo');
 
     return this.teamMemberRepo.create({
-      data: { teamId, memberId, ...withInvitedBy(invitedBy) },
+      data: { teamId, userId, ...withInvitedBy(invitedBy) },
     });
   }
 
-  async removeMember(teamId: string, memberId: string) {
+  async removeMember(teamId: string, userId: string) {
     await this.ensureTeamExists(teamId);
 
     try {
       return await this.teamMemberRepo.delete({
-        where: { teamId_memberId: { teamId, memberId } },
+        where: { teamId_userId: { teamId, userId } },
       });
     } catch {
       throw new HttpError(404, 'El miembro no se encuentra en el equipo');
@@ -209,27 +190,27 @@ export class TeamService extends BaseAuditService<Team> {
   }
 
   // ==========================================
-  // MIEMBROS BULK
+  // MIEMBROS — ACCIONES BULK
   // ==========================================
 
-  async addMembers(teamId: string, memberIds: string[], invitedBy?: string) {
+  async addMembers(teamId: string, userIds: string[], invitedBy?: string) {
     await this.ensureTeamExists(teamId);
 
     return this.teamMemberRepo.createMany({
-      data: memberIds.map((memberId) => ({
+      data: userIds.map((userId) => ({
         teamId,
-        memberId,
+        userId,
         ...withInvitedBy(invitedBy),
       })),
       skipDuplicates: true,
     });
   }
 
-  async removeMembers(teamId: string, memberIds: string[]) {
+  async removeMembers(teamId: string, userIds: string[]) {
     await this.ensureTeamExists(teamId);
 
     return this.teamMemberRepo.deleteMany({
-      where: { teamId, memberId: { in: memberIds } },
+      where: { teamId, userId: { in: userIds } },
     });
   }
 }

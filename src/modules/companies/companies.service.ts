@@ -12,7 +12,6 @@ export class CompaniesService extends BaseRbacService<Company> {
     return {
       owner: { select: { name: true, email: true } },
       ownerTeam: { select: { id: true, name: true } },
-      ownerOrganization: { select: { id: true, name: true, slug: true } },
     };
   }
 

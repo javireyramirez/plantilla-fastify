@@ -4,7 +4,6 @@ export const CreateSchema = z
   .object({
     ownerId: z.uuidv7().optional(),
     ownerTeamId: z.uuidv7().optional(),
-    ownerOrganizationId: z.uuidv7().optional(),
   })
   .loose();
 
@@ -17,17 +16,9 @@ export const OwnerTeamSchema = z.object({
   name: z.string(),
 });
 
-export const OwnerOrganizationSchema = z.object({
-  name: z.string(),
-});
-
 export const UserSchemaBase = z.object({
   name: z.string(),
   email: z.email(),
-});
-
-export const OrganizationSchemaBase = z.object({
-  name: z.string(),
 });
 
 export const TeamSchemaBase = z.object({

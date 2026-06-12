@@ -5,7 +5,6 @@ import authRoutes from '@/modules/auth/auth.routes.js';
 import companiesRoutes from '@/modules/companies/companies.routes.js';
 import healthRoutes from '@/modules/health/health.routes.js';
 import moduleRoutes from '@/modules/module/module.routes.js';
-import organizationRoutes from '@/modules/organization/organization.routes.js';
 import roleRoutes from '@/modules/rbac/rbac.routes.js';
 import storageRoutes from '@/modules/storage/storage.routes.js';
 import teamRoutes from '@/modules/team/team.routes.js';
@@ -29,10 +28,6 @@ export default async function routes(fastify: FastifyInstance) {
 
   fastify.register(companiesRoutes, {
     prefix: `${env.API_PREFIX}/companies`,
-  });
-
-  fastify.register(organizationRoutes, {
-    prefix: `${env.API_PREFIX}/organizations`,
   });
 
   fastify.register(teamRoutes, {

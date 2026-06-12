@@ -12,8 +12,6 @@ export function buildScopeFilter(ctx: ScopeContext): Record<string, any> {
   switch (ctx.scope) {
     case 'GLOBAL':
       return {};
-    case 'ORGANIZATION':
-      return { ownerOrganizationId: { in: ctx.organizationIds } };
     case 'TEAM':
       return { ownerTeamId: { in: ctx.teamIds } };
     case 'OWN':
@@ -119,8 +117,6 @@ export abstract class BaseRepository<T> {
     switch (ctx.scope) {
       case 'GLOBAL':
         return true;
-      case 'ORGANIZATION':
-        return record.ownerOrganizationId === ctx.organizationId;
       case 'TEAM':
         return ctx.teamIds.includes(record.ownerTeamId);
       case 'OWN':

@@ -45,15 +45,6 @@ model User {
   updatedCompanies  Company[] @relation("UpdatedCompanies")
   ownedCompanies    Company[] @relation("UserOwnedCompanies")
 
-  // Auditoría y Propiedad: Organizaciones
-  createdOrganizations  Organization[] @relation("CreatedOrganizations")
-  deletedOrganizations  Organization[] @relation("DeletedOrganizations")
-  restoredOrganizations Organization[] @relation("RestoredOrganizations")
-  updatedOrganizations  Organization[] @relation("UpdatedOrganizations")
-  ownedOrganizations    Organization[] @relation("UserOwnedOrganizations")
-
-  invitedMembers OrganizationMember[] @relation("InvitedMembers")
-
   // Auditoría y Propiedad: Roles
   createdRoles  Role[] @relation("CreatedRoles")
   deletedRoles  Role[] @relation("DeletedRoles")
@@ -70,17 +61,13 @@ model User {
   updatedTeams  Team[] @relation("UpdatedTeams")
 
   invitedTeamMembers TeamMember[] @relation("InvitedTeamMembers")
+  teamMember         TeamMember[] @relation("TeamMember")
 
   // Auth Auxiliar
   accounts  Account[]
   sessions  Session[]
   keys      Key[]
   emailLogs EmailLog[]
-
-  // Acceso y Membresía
-  memberships   OrganizationMember[]
-  grantedAccess EntityAccess[]       @relation("GrantedAccess")
-  revokedAccess EntityAccess[]       @relation("RevokedAccess")
 
   // Asignaciones de roles
   roleAssignments    RoleAssignment[] @relation("UserAssignments")
@@ -333,11 +320,6 @@ model Document {
 // RBAC: MÓDULOS
 // ==========================================
 //
-// Catálogo de módulos disponibles en la aplicación.
-// Es la fuente de verdad para las filas de la matriz de permisos.
-// Se registran en código (seed) y se consultan en la UI.
-//
-// Ejemplos de keys: "crm", "invoices", "users", "reports", "settings"
 
 model Module {
   id                 String       @id @default(uuid(7))
@@ -349,8 +331,6 @@ model Module {
   sortOrder          Int          @default(0)
   defaultPermissions Json?
   status             RecordStatus @default(ACTIVE)
-
-  isConfigurableByOrg Boolean @default(true)
 
   // Auditoría
   createdAt DateTime  @default(now())
@@ -382,15 +362,12 @@ model Module {
 
 model Role {
   id          String  @id @default(uuid(7))
-  name        String
-  slug        String  @unique // ⚠️ ver nota abajo
+  name        String  @unique
+  slug        String  @unique
   description String?
   color       String?
   icon        String?
   isSystem    Boolean @default(false)
-
-  // Scope de organización (null = rol global de sistema)
-  organizationId String?
 
   status RecordStatus @default(ACTIVE)
 
@@ -413,30 +390,16 @@ model Role {
   updater   User?   @relation("UpdatedRoles", fields: [updatedBy], references: [id], onDelete: SetNull)
 
   // Relaciones
-  organization    Organization?    @relation("OrgRoles", fields: [organizationId], references: [id], onDelete: Cascade)
   permissions     RolePermission[]
   roleAssignments RoleAssignment[]
 
-  @@unique([slug, organizationId]) // slug único por org, no global
-  @@index([organizationId])
+  @@index([name])
   @@index([isSystem])
   @@map("rbac_roles")
 }
 
-// Scope de un permiso: define SOBRE QUÉ REGISTROS aplica la acción.
-//
-//   GLOBAL       → todos los registros del sistema (antes ALL)
-//   ORGANIZATION → registros de la propia organización
-//   TEAM         → registros del propio team
-//   OWN          → solo los registros creados/poseídos por el usuario
-//
-// El check de permisos toma el scope MÁS PERMISIVO entre todos
-// los roles asignados al usuario en ese contexto.
-// Orden de precedencia: GLOBAL > ORGANIZATION > TEAM > OWN
-
 enum PermissionScope {
   GLOBAL
-  ORGANIZATION
   TEAM
   OWN
 }
@@ -451,10 +414,6 @@ enum PermissionAction {
   IMPORT
   SETTINGS
 }
-
-// Permisos definidos por rol y módulo.
-// Un rol puede tener un permiso por combinación (moduleId, action).
-// El scope indica hasta dónde llega ese permiso.
 
 model RolePermission {
   id       String           @id @default(uuid(7))
@@ -483,130 +442,41 @@ model RolePermission {
 enum PrincipalType {
   USER
   TEAM
-  ORGANIZATION
 }
-
-// Asignación de roles a cualquier principal (usuario, team u org)
-// con contexto de organización opcional.
-//
-// organizationId = null  → rol global (aplica en cualquier org)
-// organizationId = <id>  → rol restringido a esa organización
-//
-// Un mismo usuario puede tener múltiples roles en la misma org
-// (múltiples filas con el mismo userId y organizationId).
-//
-// Herencia de permisos en runtime:
-//   1. Roles directos del usuario en la org
-//   2. Roles asignados al team del usuario en la org
-//   3. Roles asignados a la org completa
-//   → se toma el scope más permisivo entre todos
 
 model RoleAssignment {
   id     String @id @default(uuid(7))
   roleId String
 
-  userId         String?
-  teamId         String?
-  organizationId String?
+  userId String?
+  teamId String?
 
   assignedAt DateTime @default(now())
   assignedBy String?
 
-  role         Role          @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  organization Organization? @relation("OrganizationRoleContext", fields: [organizationId], references: [id], onDelete: Cascade)
-  granter      User?         @relation("GrantedAssignments", fields: [assignedBy], references: [id], onDelete: SetNull)
+  role    Role  @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  granter User? @relation("GrantedAssignments", fields: [assignedBy], references: [id], onDelete: SetNull)
 
   assignedUser User? @relation("UserAssignments", fields: [userId], references: [id], onDelete: Cascade)
   assignedTeam Team? @relation("TeamAssignments", fields: [teamId], references: [id], onDelete: Cascade)
 
-  @@unique([roleId, userId, organizationId])
-  @@unique([roleId, teamId, organizationId])
+  @@unique([roleId, userId])
+  @@unique([roleId, teamId])
   @@index([userId])
   @@index([teamId])
-  @@index([organizationId])
   @@map("rbac_role_assignments")
 }
 
 // ==========================================
-// ORGANIZATION, TEAMS & MEMBERS
+//  TEAMS & MEMBERS
 // ==========================================
 
-model Organization {
-  id     String       @id @default(uuid(7))
-  name   String
-  slug   String       @unique
-  image  String?
-  status RecordStatus @default(ACTIVE)
-
-  // Auditoría
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-  restoreAt DateTime?
-
-  createdBy String?
-  creator   User?   @relation("CreatedOrganizations", fields: [createdBy], references: [id], onDelete: SetNull)
-
-  deletedBy String?
-  deletor   User?   @relation("DeletedOrganizations", fields: [deletedBy], references: [id], onDelete: SetNull)
-
-  restoreBy String?
-  restorer  User?   @relation("RestoredOrganizations", fields: [restoreBy], references: [id], onDelete: SetNull)
-
-  updatedBy String?
-  updater   User?   @relation("UpdatedOrganizations", fields: [updatedBy], references: [id], onDelete: SetNull)
-
-  // Propiedad (soporte para sub-organizaciones)
-  ownerId             String?
-  ownerTeamId         String?
-  ownerOrganizationId String?
-
-  owner             User?         @relation("UserOwnedOrganizations", fields: [ownerId], references: [id], onDelete: SetNull)
-  ownerTeam         Team?         @relation("TeamOwnedOrganizations", fields: [ownerTeamId], references: [id], onDelete: SetNull)
-  ownerOrganization Organization? @relation("OrgOwnedOrganizations", fields: [ownerOrganizationId], references: [id], onDelete: SetNull)
-
-  // Relaciones estructurales
-  members                 OrganizationMember[]
-  teams                   Team[]
-  roles                   Role[]               @relation("OrgRoles")
-  organizationRoleContext RoleAssignment[]     @relation("OrganizationRoleContext")
-
-  // Elementos que posee esta organización (reverse RBAC)
-  ownedCompanies     Company[]      @relation("OrgOwnedCompanies")
-  ownedOrganizations Organization[] @relation("OrgOwnedOrganizations")
-
-  @@index([slug])
-  @@map("org_organizations")
-}
-
-model OrganizationMember {
-  id             String   @id @default(uuid(7))
-  userId         String
-  organizationId String
-  isActive       Boolean  @default(true)
-  isPrimary      Boolean  @default(false)
-  joinedAt       DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  invitedBy String?
-  inviter   User?   @relation("InvitedMembers", fields: [invitedBy], references: [id], onDelete: SetNull)
-
-  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  teamMembers  TeamMember[]
-
-  @@unique([userId, organizationId])
-  @@index([userId])
-  @@index([organizationId])
-  @@map("org_members")
-}
-
 model Team {
-  id             String       @id @default(uuid(7))
-  organizationId String
-  name           String
-  description    String?
-  status         RecordStatus @default(ACTIVE)
+  id          String       @id @default(uuid(7))
+  name        String       @unique
+  slug        String       @unique
+  description String?
+  status      RecordStatus @default(ACTIVE)
 
   // Auditoría
   createdAt DateTime  @default(now())
@@ -627,73 +497,38 @@ model Team {
   updater   User?   @relation("UpdatedTeams", fields: [updatedBy], references: [id], onDelete: SetNull)
 
   // Relaciones
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  members      TeamMember[]
+  members TeamMember[]
 
   // Elementos que posee este team
-  ownedCompanies     Company[]        @relation("TeamOwnedCompanies")
-  ownedOrganizations Organization[]   @relation("TeamOwnedOrganizations")
-  roleAssignments    RoleAssignment[] @relation("TeamAssignments")
+  ownedCompanies  Company[]        @relation("TeamOwnedCompanies")
+  roleAssignments RoleAssignment[] @relation("TeamAssignments")
 
-  @@unique([organizationId, name])
-  @@index([organizationId])
-  @@map("org_teams")
+  @@map("teams")
 }
 
 model TeamMember {
-  id       String @id @default(uuid(7))
-  teamId   String
-  memberId String // FK a OrganizationMember
+  id     String @id @default(uuid(7))
+  teamId String
+  userId String
 
-  joinedAt DateTime @default(now())
-
+  joinedAt  DateTime @default(now())
   invitedBy String?
-  inviter   User?   @relation("InvitedTeamMembers", fields: [invitedBy], references: [id], onDelete: SetNull)
 
-  team   Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  member OrganizationMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  inviter User? @relation("InvitedTeamMembers", fields: [invitedBy], references: [id], onDelete: SetNull)
+  user    User? @relation("TeamMember", fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([teamId, memberId])
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
   @@index([teamId])
-  @@index([memberId])
-  @@map("org_team_members")
-}
-
-enum EntityAccessLevel {
-  OWNER
-  EDITOR
-  VIEWER
-}
-
-model EntityAccess {
-  id            String            @id @default(uuid(7))
-  principalType PrincipalType
-  principalId   String
-  entityName    String // nombre del modelo: "invoice", "company"
-  entityId      String
-  accessLevel   EntityAccessLevel @default(VIEWER)
-  grantedBy     String?
-  grantedAt     DateTime          @default(now())
-  expiresAt     DateTime?
-  revokedAt     DateTime?
-  revokedBy     String?
-
-  granter User? @relation("GrantedAccess", fields: [grantedBy], references: [id], onDelete: SetNull)
-  revoker User? @relation("RevokedAccess", fields: [revokedBy], references: [id], onDelete: SetNull)
-
-  @@unique([principalType, principalId, entityName, entityId])
-  @@index([expiresAt])
-  @@index([entityName, entityId])
-  @@map("rbac_entity_access")
+  @@index([userId])
+  @@map("team_members")
 }
 
 // ==========================================
 // ENTIDADES DE NEGOCIO
 // ==========================================
 //
-// Patrón base para cualquier entidad del dominio.
-// Incluye auditoría completa + propiedad RBAC.
-// Replica este patrón para leads, invoices, projects, etc.
 
 model Company {
   id          String       @id @default(uuid(7))
@@ -723,18 +558,15 @@ model Company {
   updater   User?   @relation("UpdatedCompanies", fields: [updatedBy], references: [id], onDelete: SetNull)
 
   // Propiedad (RBAC)
-  ownerId             String?
-  ownerTeamId         String?
-  ownerOrganizationId String?
+  ownerId     String?
+  ownerTeamId String?
 
-  owner             User?         @relation("UserOwnedCompanies", fields: [ownerId], references: [id], onDelete: SetNull)
-  ownerTeam         Team?         @relation("TeamOwnedCompanies", fields: [ownerTeamId], references: [id], onDelete: SetNull)
-  ownerOrganization Organization? @relation("OrgOwnedCompanies", fields: [ownerOrganizationId], references: [id], onDelete: SetNull)
+  owner     User? @relation("UserOwnedCompanies", fields: [ownerId], references: [id], onDelete: SetNull)
+  ownerTeam Team? @relation("TeamOwnedCompanies", fields: [ownerTeamId], references: [id], onDelete: SetNull)
 
   @@index([nif])
   @@index([status])
   @@index([ownerId])
   @@index([ownerTeamId])
-  @@index([ownerOrganizationId])
   @@map("test_companies")
 }

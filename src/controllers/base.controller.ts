@@ -84,7 +84,6 @@ export abstract class BaseController<T> {
 
   async create(request: FastifyRequest<{ Body: any }>, reply: FastifyReply) {
     const userId = this.getUserId(request);
-    const { organizationId } = request.memberContext ?? {};
 
     const body = CreateSchema.parse(request.body);
 
@@ -140,12 +139,10 @@ export abstract class BaseController<T> {
 
   async createMany(request: FastifyRequest<{ Body: any[] }>, reply: FastifyReply) {
     const userId = this.getUserId(request);
-    const { organizationId } = request.memberContext ?? {};
 
     const data = request.body.map((item) => ({
       ...item,
       ownerId: item.ownerId ?? userId,
-      ownerOrganizationId: item.ownerOrganizationId ?? organizationId,
     }));
 
     const result = await this.service.createMany(data, { userId });
