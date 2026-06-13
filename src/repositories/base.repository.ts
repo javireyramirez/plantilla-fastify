@@ -3,25 +3,9 @@ import { PrismaClient } from '@prisma/client';
 import { FastifyInstance } from 'fastify';
 
 import { ScopeContext } from '@/types/base.types.js';
+import { buildScopeFilter } from '@/utils/rbac-filter.js';
 
-// ==========================================
-// SCOPE
-// ==========================================
-
-export function buildScopeFilter(ctx: ScopeContext): Record<string, any> {
-  switch (ctx.scope) {
-    case 'GLOBAL':
-      return {};
-    case 'TEAM':
-      return { ownerTeamId: { in: ctx.teamIds } };
-    case 'OWN':
-      return { ownerId: ctx.userId };
-  }
-}
-
-// ==========================================
-// BASE REPOSITORY
-// ==========================================
+// <-- Importado de tus utils
 
 export abstract class BaseRepository<T> {
   constructor(
@@ -33,10 +17,19 @@ export abstract class BaseRepository<T> {
     return this.prisma[this.modelName] as any;
   }
 
-  // Mezcla el where del caller con el filtro de scope
+  /**
+   * Mezcla de forma segura el where original con las restricciones del RBAC
+   */
   protected mergeScope(where: any = {}, scope?: ScopeContext): any {
     if (!scope) return where;
-    return { ...where, ...buildScopeFilter(scope) };
+
+    const rbacFilter = buildScopeFilter(scope);
+    if (Object.keys(rbacFilter).length === 0) return where;
+
+    return {
+      ...where,
+      AND: [...(where.AND ? (Array.isArray(where.AND) ? where.AND : [where.AND]) : []), rbacFilter],
+    };
   }
 
   // ==========================================
@@ -104,24 +97,6 @@ export abstract class BaseRepository<T> {
   async exists(params: { where: any }): Promise<boolean> {
     const count = await this.model.count(params);
     return count > 0;
-  }
-
-  // ==========================================
-  // OWNERSHIP CHECK (para findUnique + mutaciones)
-  // ==========================================
-  //
-  // Verifica que el registro encontrado pertenece al scope del usuario.
-  // Úsalo después de findUnique antes de UPDATE/DELETE.
-
-  checkOwnership(record: any, ctx: ScopeContext): boolean {
-    switch (ctx.scope) {
-      case 'GLOBAL':
-        return true;
-      case 'TEAM':
-        return ctx.teamIds.includes(record.ownerTeamId);
-      case 'OWN':
-        return record.ownerId === ctx.userId;
-    }
   }
 
   // ==========================================

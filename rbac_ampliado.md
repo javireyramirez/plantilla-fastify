@@ -1,30 +1,23 @@
 # Guía del Sistema de Roles y Permisos (RBAC)
 
-Este documento detalla el funcionamiento conceptual y operativo del sistema de **Control de Acceso Basado en Roles (RBAC)** implementado en la aplicación. Su objetivo es servir de referencia tanto para el equipo técnico como para los responsables funcionales de negocio.
+Este documento describe el diseño y operativa del sistema de **Control de Acceso Basado en Roles (RBAC)** Los equipos son la unidad primaria de agrupación de usuarios y asignación de alcances.
 
 ---
 
 ## 1. Conceptos Fundamentales
 
-El sistema de permisos está diseñado bajo un modelo **multi-inquilino (multi-tenant)** flexible, donde los usuarios pueden colaborar en diferentes entornos sin mezclar la información.
-
 ### Principios de Diseño
 
-- **Organización**: Actúa como un contenedor y separador estricto de datos (tenant). Los datos de una organización son invisibles para otra.
-- **Multi-organización**: **Un usuario puede pertenecer a varias organizaciones** simultáneamente. Al crear datos se le asignará la organización principal del usuario.
-- **Team (Equipo)**: Es un agrupador de permisos dentro de una organización concreta. Los roles y capacidades no se asignan directamente a las personas, sino a los equipos.
-- **Usuario**: Pertenece a uno o varios equipos dentro de cada organización. El usuario hereda de forma automática todos los permisos y roles de los equipos a los que pertenece en la organización que tiene activa.
-- **Superadmin**: Es un atributo especial de usuario que otorga un acceso global e irrestricto. Ignora cualquier validación de roles y puede ver o modificar los datos de absolutamente todas las organizaciones del sistema.
+- **Team (Equipo)**: Contenedor principal de permisos y colaboración. Los roles no se vinculan directamente a personas individuales, sino a equipos.
+- **Usuario**: Puede pertenecer a uno o múltiples equipos simultáneamente. Hereda automáticamente la suma de todos los permisos de los equipos a los que pertenece.
+- **Superadmin**: Atributo booleano en la cuenta del usuario que otorga acceso total e irrestricto a toda la infraestructura. Ignora cualquier validación de roles de equipo y tiene capacidades plenas sobre todas las tablas del sistema.
 
 ### Entidades del Modelo
-
-A nivel de estructura de datos, el sistema relaciona a los usuarios con las organizaciones y equipos mediante la siguiente arquitectura:
 
 ```mermaid
 erDiagram
     auth_users ||--o{ rbac_role_assignments : "tiene asignados"
-    org_organizations ||--o{ rbac_role_assignments : "contexto de"
-    org_teams ||--o{ rbac_role_assignments : "tiene asignados"
+    org_teams ||--o{ rbac_role_assignments : "recibe asignación"
     rbac_roles ||--o{ rbac_role_assignments : "asignado en"
     rbac_roles ||--o{ rbac_role_permissions : "contiene"
     rbac_modules ||--o{ rbac_role_permissions : "aplica sobre"
@@ -35,16 +28,11 @@ erDiagram
         boolean isActive
         boolean isSuperAdmin
     }
-    org_organizations {
-        string id PK
-        string name
-        string slug
-        boolean byDefault
-    }
     org_teams {
         string id PK
         string name
-        string organizationId FK
+        string slug
+        string description
     }
     rbac_roles {
         string id PK
@@ -62,257 +50,268 @@ erDiagram
         string roleId FK
         string moduleId FK
         enum action "CREATE | READ | UPDATE | ..."
-        enum scope "GLOBAL | ORGANIZATION | TEAM | OWN"
+        enum scope "GLOBAL | TEAM | OWN"
     }
     rbac_role_assignments {
         string id PK
         string roleId FK
-        string userId FK "rol directo (admin global, casos especiales)"
-        string teamId FK "rol por team (caso normal)"
-        string organizationId FK "contexto: null = global"
+        string userId FK
+        string teamId FK
     }
 ```
 
-### Elementos Clave del Control de Acceso
+---
 
-Para determinar si un usuario puede realizar una acción, el sistema evalúa tres componentes:
+## 2. Elementos Clave del Control de Acceso
 
-**1. Recurso (`Module`)**
-La sección o entidad del sistema sobre la que se quiere actuar (por ejemplo: Empresas, Equipos, Facturas).
+Para autorizar una petición, el backend evalúa tres variables críticas:
 
-**2. Acción (`PermissionAction`)**
-La operación específica que se desea ejecutar sobre el recurso:
+### Recurso (`Module`)
 
-| Acción     | Descripción Funcional                                                             |
-| :--------- | :-------------------------------------------------------------------------------- |
-| `CREATE`   | Crear nuevos registros o elementos.                                               |
-| `READ`     | Visualizar, listar o consultar la información.                                    |
-| `UPDATE`   | Modificar o editar elementos existentes.                                          |
-| `DELETE`   | Eliminar elementos (habitualmente mediante borrado lógico o envío a la papelera). |
-| `RESTORE`  | Recuperar elementos que estaban en la papelera.                                   |
-| `EXPORT`   | Descargar o exportar los datos del módulo.                                        |
-| `IMPORT`   | Subir o cargar masivamente datos al módulo.                                       |
-| `SETTINGS` | Acceder a la configuración específica del módulo.                                 |
+La entidad o módulo de la aplicación sobre la cual se interactúa (ej: `companies`, `teams`, `documents`).
 
-**3. Ámbito (`PermissionScope`)**
-Define a qué registros específicos tiene alcance el usuario según su nivel de confianza o responsabilidad. Ordenados de mayor a menor apertura:
+### Acción (`PermissionAction`)
 
-| Ámbito            | Descripción                     | Criterio de Acceso                                                                         |
-| :---------------- | :------------------------------ | :----------------------------------------------------------------------------------------- |
-| 👑 `GLOBAL`       | Acceso a todo el sistema.       | Sin restricciones (reservado a superadmins o roles del sistema globales).                  |
-| 🏢 `ORGANIZATION` | Acceso a nivel de organización. | Solo ve registros creados dentro de la organización activa del usuario.                    |
-| 👥 `TEAM`         | Acceso a nivel de equipo.       | Solo ve registros compartidos o asignados a los equipos a los que pertenece el usuario.    |
-| 👤 `OWN`          | Acceso estrictamente personal.  | Solo ve los registros que el propio usuario ha creado o de los que es propietario directo. |
+| Acción     | Descripción                                                              |
+| ---------- | ------------------------------------------------------------------------ |
+| `CREATE`   | Crear nuevos registros en la base de datos.                              |
+| `READ`     | Visualizar, listar, buscar o consultar información.                      |
+| `UPDATE`   | Modificar datos de elementos preexistentes.                              |
+| `DELETE`   | Eliminar elementos (borrado lógico o papelera).                          |
+| `RESTORE`  | Recuperar registros desde el estado de papelera.                         |
+| `EXPORT`   | Descargar o exportar datos en formatos externos (CSV/XLSX).              |
+| `IMPORT`   | Ingesta masiva de datos hacia el módulo.                                 |
+| `SETTINGS` | Modificar parámetros internos o configuraciones específicas del recurso. |
+
+### Ámbito (`PermissionScope`)
+
+Determina la barrera de visibilidad que se aplica automáticamente sobre las consultas, ordenados de mayor a menor jerarquía:
+
+| Ámbito      | Descripción        | Criterio de filtro aplicado                                                                                                                            |
+| ----------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 👑 `GLOBAL` | Acceso irrestricto | No inyecta condiciones adicionales en las consultas.                                                                                                   |
+| 👥 `TEAM`   | Acceso de equipo   | El registro debe coincidir en `ownerTeamId` con alguno de los `teamIds` del usuario, **o** su `owner`/`creator` debe pertenecer a uno de esos equipos. |
+| 👤 `OWN`    | Acceso personal    | El registro debe coincidir estrictamente con el `ownerId` o `createdBy` del usuario.                                                                   |
 
 ---
 
-## 2. Jerarquía de Servicios y Datos
+## 3. Implementación: `rbac-filter.ts`
 
-Para simplificar el desarrollo y asegurar que las reglas de negocio se cumplan siempre, las entidades del sistema se dividen en tres categorías según su nivel de control:
+El archivo `src/utils/rbac-filter.ts` expone dos funciones que materializan la lógica de ámbito en capas distintas del pipeline.
 
-1.  **Operaciones Básicas**: Elementos técnicos (como los nombres de los módulos del sistema) que no pertenecen a ninguna organización ni usuario.
-2.  **Operaciones con Auditoría**: Elementos estructurales de la plataforma (Organizaciones, Roles, Equipos). El sistema registra quién los creó y cuándo, pero no se rigen por la propiedad de un usuario individual.
-3.  **Operaciones de Negocio Protegidas**: Son las entidades críticas de la aplicación (Empresas, Facturas, Oportunidades). Todos estos registros guardan obligatoriamente información sobre **qué usuario lo creó, a qué equipo pertenece y a qué organización corresponde**, permitiendo aplicar los filtros de ámbito de forma automática.
+### `buildScopeFilter(ctx: ScopeContext)`
+
+Construye el objeto `where` de Prisma para inyectar directamente en consultas de base de datos. Se ejecuta **antes** de que los datos lleguen a la aplicación.
+
+```ts
+// src/utils/rbac-filter.ts
+import type { ScopeContext } from '@/types/base.types.js';
+
+export function buildScopeFilter(ctx: ScopeContext): Record<string, any> {
+  switch (ctx.scope) {
+    case 'GLOBAL':
+      return {};
+
+    case 'OWN':
+      return {
+        OR: [{ ownerId: ctx.userId }, { createdBy: ctx.userId }],
+      };
+
+    case 'TEAM': {
+      const teamsFilter = ctx.teamIds && ctx.teamIds.length > 0 ? { in: ctx.teamIds } : { in: [] };
+
+      return {
+        OR: [
+          // A. El registro tiene asignado el equipo explícitamente
+          { ownerTeamId: teamsFilter },
+
+          // B. El dueño del registro pertenece a uno de los equipos del usuario
+          {
+            owner: {
+              teamMember: { some: { teamId: teamsFilter } },
+            },
+          },
+
+          // C. El creador del registro pertenece a uno de los equipos del usuario
+          {
+            creator: {
+              teamMember: { some: { teamId: teamsFilter } },
+            },
+          },
+        ],
+      };
+    }
+
+    default:
+      return {};
+  }
+}
+```
+
+**Cuándo usarla:** En cualquier `findMany`, `findFirst` o subquery donde el scope deba filtrarse a nivel de base de datos. El `where` resultante se combina con los filtros propios del servicio.
+
+**Casos de borde importantes para `TEAM`:**
+
+- Si `ctx.teamIds` es un array vacío, el filtro `{ in: [] }` garantiza que no se devuelva ningún registro (comportamiento correcto: el usuario no pertenece a ningún equipo).
+- Las ramas B y C requieren que el modelo de Prisma incluya las relaciones `owner.teamMember` y `creator.teamMember`. Si no están presentes en el schema, esas ramas devuelven vacío sin errores en runtime.
 
 ---
 
-## 3. Asignación y Flujo de Roles
+### `checkRecordOwnership(record, ctx, userTeamIds)`
 
-### Gestión por Equipos (Caso Habitual)
+Valida de forma **síncrona y en memoria** si un registro ya cargado cumple con el scope. Útil para operaciones unitarias post-`findUnique` o para validar mutaciones puntuales sin lanzar una segunda consulta.
 
-Es la práctica recomendada para administrar los accesos en el día a día. Permite agrupar las capacidades por funciones laborales:
+```ts
+export function checkRecordOwnership(
+  record: any,
+  ctx: ScopeContext,
+  userTeamIds: string[],
+): boolean {
+  if (!record) return false;
 
-- **Organización Activa**: "Empresa S.A."
-  - **Equipo "Administradores"** $
-ightarrow$ Asignado el Rol: _Administrador de Org_ (Ámbito `ORGANIZATION` completo).
-  - **Equipo "Ventas"** $
-ightarrow$ Asignado el Rol: _Vendedor_ (Acciones de lectura, creación y edición en Empresas y Clientes).
-  - **Equipo "Soporte"** $
-ightarrow$ Asignado el Rol: \*Técnico de Soporte\* (Solo lectura de datos en ámbito `OWN`).
+  switch (ctx.scope) {
+    case 'GLOBAL':
+      return true;
 
-Si la usuaria **"María"** es miembro del equipo de "Ventas", heredará de inmediato los permisos de ese grupo. Si mañana cambia al equipo de "Administradores", sus capacidades en la aplicación se actualizarán instantáneamente sin necesidad de alterar su ficha de usuario.
+    case 'OWN':
+      return record.ownerId === ctx.userId || record.createdBy === ctx.userId;
 
-### Roles Directos y de Sistema
+    case 'TEAM':
+      if (record.ownerTeamId && userTeamIds.includes(record.ownerTeamId)) {
+        return true;
+      }
+      // Para verificar owner.teamMember o creator.teamMember en memoria,
+      // el registro debe haber sido cargado con esos includes en la consulta previa.
+      // Si no se incluyeron, usa buildScopeFilter directamente en el 'where' de la mutación.
+      return false;
+  }
+}
+```
 
-- **Casos Especiales**: El sistema permite, de forma excepcional, asignar un rol directamente a un usuario (por ejemplo, para auditores externos o consultores invitados de forma temporal).
-- **Roles de Sistema**: Existen roles predefinidos que vienen de fábrica (como _Miembro_ o _Admin de Organización_) que garantizan el funcionamiento inicial de la plataforma y no pueden ser eliminados por los usuarios desde la interfaz de usuario. Al registrar una nueva organización, se crea automáticamente el equipo "Admins" y se vincula a su creador.
+**Cuándo usarla:** Tras un `findUnique` cuando necesitas confirmar pertenencia antes de ejecutar una mutación. Si el `record` no incluye las relaciones `owner.teamMember` o `creator.teamMember`, la cobertura de `TEAM` se limita a `ownerTeamId`; en ese caso es más seguro delegar la validación a `buildScopeFilter` en el `where` de la propia mutación.
 
 ---
 
-## 4. Herencia de Permisos en Runtime
+## 4. Jerarquía de Servicios
 
-Cuando un usuario interactúa con la aplicación en una organización concreta, el sistema recopila en tiempo real todas las fuentes de permisos posibles para construir su **matriz resolutiva**.
+Las operaciones del backend se dividen en tres bloques:
+
+1. **Operaciones del Núcleo**: Carga estática de módulos y acciones del sistema. Globales y transversales.
+2. **Operaciones con Auditoría**: Entidades estructurales (Roles, Equipos). No pertenecen a un usuario en particular; registran `createdBy` y `updatedBy` para trazabilidad.
+3. **Operaciones de Negocio Protegidas**: Modelos de negocio (Empresas, Facturas, Documentos). Almacenan obligatoriamente `ownerId` y `ownerTeamId` en cada inserción para que los filtros de ámbito funcionen correctamente.
+
+---
+
+## 5. Asignación y Flujo de Roles
+
+### Gestión por Equipos
+
+Es el flujo estándar de la plataforma:
+
+- **Equipo "Administradores"** → Rol `Admin` con ámbito `GLOBAL`
+- **Equipo "Ventas"** → Rol `Editor` con ámbito `TEAM` en módulos de negocio
+- **Equipo "Soporte Técnico"** → Rol `Viewer` con ámbito `OWN` de lectura y edición
+
+Cuando un usuario es añadido a un equipo, sus tokens y contextos de sesión heredan de inmediato los privilegios de ese grupo.
+
+---
+
+## 6. Herencia de Permisos en Runtime
+
+Cuando un usuario realiza una petición, el middleware consolida todas sus asignaciones activas en una **Matriz Resolutiva**:
 
 ```mermaid
 graph TD
-    A[Roles globales del usuario<br/>organizationId = null] --> E[Matriz de Permisos Resolutiva]
-    B[Roles directos del usuario en la org] --> E
-    C[Roles de los teams del usuario en la org] --> E
-    D[Roles globales de los teams del usuario<br/>organizationId = null] --> E
-    E --> F{¿Hay permisos para Module + Action?}
+    A[Roles directos asignados al usuario] --> E[Matriz de Permisos Resolutiva]
+    B[Roles de los Equipos del usuario] --> E
+    E --> F{¿Tiene módulo + acción asignados?}
     F -- No --> G[HTTP 403 Forbidden]
-    F -- Sí --> H[Tomar el Scope más permisivo:<br/>GLOBAL > ORGANIZATION > TEAM > OWN]
+    F -- Sí --> H[Scope más permisivo:<br/>GLOBAL > TEAM > OWN]
 ```
 
-Si el usuario cuenta con permisos contradictorios o superpuestos para un mismo módulo a través de diferentes equipos, **el sistema siempre aplicará el criterio más generoso o permisivo** (por ejemplo, si un equipo le permite ver solo lo suyo (`OWN`) y otro equipo le permite ver lo de toda la organización (`ORGANIZATION`), prevalecerá el acceso a toda la organización).
+Si dos equipos distintos otorgan permisos solapados para el mismo recurso, el evaluador **siempre prioriza la política más permisiva**.
 
 ---
 
-## 5. Flujo Funcional y Técnico de una Petición (Pipeline)
-
-Cada vez que cualquier usuario realiza una acción en la aplicación (como ver el detalle de una empresa o modificar una factura), la solicitud atraviesa una serie de aduanas de seguridad antes de consultar o alterar la base de datos:
+## 7. Flujo Funcional de una Petición
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor Cliente
-    participant Router as BaseRoutes
+    participant Router as FastifyRouter
     participant Hook1 as requireAuth
     participant Hook2 as memberContext
     participant Hook3 as requirePermission
-    participant Ctrl as BaseController
-    participant Srv as BaseRbacService
-    participant Repo as BaseRepository
-    participant DB as Base de Datos
+    participant Ctrl as RoleController
+    participant Srv as RoleService
+    participant DB as Base de Datos (Prisma)
 
     Cliente->>Router: Petición HTTP (ej: PATCH /companies/123)
 
-    Router->>Hook1: Ejecuta requireAuth
-    Note over Hook1: Valida sesión activa en Better-Auth.<br/>Inyecta request.session (incluye isSuperAdmin).
-    Hook1-->>Router: ✓ request.session
+    Router->>Hook1: requireAuth
+    Note over Hook1: Resuelve la sesión del JWT/Cookie.<br/>Inyecta userId e isSuperAdmin.
+    Hook1-->>Router: ✓ request.user
 
-    Router->>Hook2: Ejecuta memberContext
-    Note over Hook2: Obtiene organizationId (header x-organization-id o params).<br/>Valida membresía activa y org activa.<br/>Resuelve teamIds del usuario en esa org.
+    Router->>Hook2: memberContext
+    Note over Hook2: Barrido de equipos activos del usuario.<br/>Inyecta teamIds en la request.
     Hook2-->>Router: ✓ request.memberContext
 
-    Router->>Hook3: Ejecuta requirePermission('companies', 'UPDATE')
-    Note over Hook3: Si isSuperAdmin → scope GLOBAL, bypass inmediato.<br/>Si no → query unificada de assignments.<br/>Toma el scope más permisivo.
+    Router->>Hook3: requirePermission('companies', 'UPDATE')
+    Note over Hook3: Superadmin → bypass con scope GLOBAL.<br/>Resto → consolida permisos por teamIds.<br/>Calcula el scope dominante.
     Hook3-->>Router: ✓ request.permissions
 
-    Router->>Ctrl: update(req, reply)
-    Note over Ctrl: requireScope(req) extrae:<br/>{ scope, userId, organizationId, teamIds }
-    Ctrl->>Srv: update(id, body, { userId, scope })
+    Router->>Ctrl: update(request, reply)
+    Note over Ctrl: Extrae el cuerpo mapeado y llama al service<br/>con userId, teamIds y scope del contexto.
+    Ctrl->>Srv: update(id, data, { userId, teamIds, scope })
 
-    Note over Srv: Validación de scope antes de mutar
-    Srv->>Repo: findFirst({ where: { id }, scope })
-    Note over Repo: buildScopeFilter aplica filtro según scope:<br/>GLOBAL → {}<br/>ORGANIZATION → { ownerOrganizationId }<br/>TEAM → { ownerTeamId: { in: teamIds } }<br/>OWN → { ownerId: userId }
-    Repo->>DB: SELECT con filtros aplicados
-    DB-->>Srv: Registro (o null)
+    Srv->>DB: query con buildScopeFilter(ctx) inyectado en where
+    DB-->>Srv: Registro (o null si el ámbito lo bloquea)
 
-    alt Registro no encontrado en el scope del usuario
-        Srv-->>Cliente: HTTP 404 — Registro no encontrado o sin permisos
-    else Registro pertenece a su scope
-        Srv->>Repo: update({ where: { id }, data })
-        Repo->>DB: UPDATE
+    alt Registro fuera del ámbito
+        Srv-->>Cliente: HTTP 404 / 403
+    else Validación exitosa
+        Srv->>DB: Mutación (Update / Delete)
         DB-->>Cliente: HTTP 200 OK
     end
 ```
 
-**Resumen del ciclo:**
-
-1.  **Identificación**: El sistema confirma quién es el usuario y si su sesión es válida.
-2.  **Contexto**: Se identifica en qué organización está operando el usuario en ese instante y a qué equipos pertenece dentro de ella.
-3.  **Autorización**: Se comprueba si sus roles acumulados cubren la acción solicitada.
-4.  **Filtrado Semántico**: Al consultar la base de datos, se le añade un "filtro invisible" a la búsqueda para asegurar que, por ejemplo, si su ámbito es de equipo, la base de datos solo retorne los registros de su equipo. Si un usuario intenta forzar la URL de un registro que no entra en su ámbito, el sistema devolverá un error informando que el elemento no existe o no tiene permisos.
-
 ---
 
-## 6. Superadministración y Seguridad Extrema
+## 8. Matrices de Roles Predeterminadas
 
-La figura del Superadmin está pensada exclusivamente para tareas de mantenimiento técnico, soporte avanzado o auditoría global del sistema.
+### Rol: Administrador (`Admin`)
 
-- **Activación Segura**: No se puede promover a nadie a Superadmin desde la pantalla de la aplicación para evitar accidentes o ataques informáticos. Se realiza únicamente mediante comandos directos en el servidor.
-- **Bypass Defensivo**: Al activarse, el sistema evita realizar consultas de roles redundantes, permitiendo una velocidad de respuesta óptima para perfiles de administración global.
-- **Revocación de Emergencia**: Si las credenciales de un administrador se ven comprometidas, el sistema cuenta con un protocolo de invalidación inmediata que fuerza el cierre de todas sus sesiones activas en cualquier dispositivo de forma fulminante.
-
----
-
-## 7. Flujo de Trabajo para Incorporar Nuevas Funcionalidades
-
-Cuando el equipo de producto decide añadir un nuevo módulo a la aplicación (por ejemplo: _Contratos_), se debe seguir un sencillo procedimiento estándar:
-
-1.  **Estructura de Datos**: Se diseña la nueva tabla asegurando que incluya los campos obligatorios de propiedad (Usuario creador, Equipo propietario y Organización dueña).
-2.  **Registro de Sistema**: Se da de alta el nombre del nuevo módulo en la lista maestra de recursos del sistema para que aparezca disponible en la matriz de permisos.
-3.  **Habilitación en Rutas**: Se conecta la nueva sección a los componentes automáticos de seguridad. A partir de ese momento, cualquier pantalla o acción nueva que se intente realizar sobre el módulo heredará, sin añadir código extra, todas las protecciones de ámbitos (`GLOBAL`, `ORGANIZATION`, `TEAM`, `OWN`) descritas en este documento.
-
-## 8. Matrices inciales y ejemplo de roles
-
-### 1. Matriz de Admins
-
-Los administradores mantienen el control absoluto, teniendo acceso completo de lectura, escritura, auditoría y configuración sobre todos los componentes del sistema y del negocio.
-
-#### Tablas de Sistema (Estructurales)
-
-| Módulo            | READ | CREATE | UPDATE | DELETE | RESTORE | EXPORT | IMPORT | SETTINGS |
-| :---------------- | :--: | :----: | :----: | :----: | :-----: | :----: | :----: | :------: |
-| **users**         |  ✔   |   ✔    |   ✔    |   ✔    |    ✔    |   ✔    |   ✔    |    ✔     |
-| **organizations** |  ✔   |   ✔    |   ✔    |   ✔    |    ✔    |   ✔    |   ✔    |    ✔     |
-| **teams**         |  ✔   |   ✔    |   ✔    |   ✔    |    ✔    |   ✔    |   ✔    |    ✔     |
-| **roles**         |  ✔   |   ✔    |   ✔    |   ✔    |    ✔    |   ✔    |   ✔    |    ✔     |
-| **settings**      |  ✔   |   ✔    |   ✔    |   ✔    |    ✔    |   ✔    |   ✔    |    ✔     |
-| **audit**         |  ✔   |   ✔    |   ✔    |   ✔    |    ✔    |   ✔    |   ✔    |    ✔     |
-
-#### Tablas de Negocio (Operativas)
+Gobernanza completa sobre todas las configuraciones del sistema y el negocio. Scope `GLOBAL` en todos los módulos.
 
 | Módulo        | READ | CREATE | UPDATE | DELETE | RESTORE | EXPORT | IMPORT | SETTINGS |
-| :------------ | :--: | :----: | :----: | :----: | :-----: | :----: | :----: | :------: |
+| ------------- | :--: | :----: | :----: | :----: | :-----: | :----: | :----: | :------: |
+| **users**     |  ✔   |   ✔    |   ✔    |   ✔    |    ✔    |   ✔    |   ✔    |    ✔     |
+| **teams**     |  ✔   |   ✔    |   ✔    |   ✔    |    ✔    |   ✔    |   ✔    |    ✔     |
+| **roles**     |  ✔   |   ✔    |   ✔    |   ✔    |    ✔    |   ✔    |   ✔    |    ✔     |
 | **companies** |  ✔   |   ✔    |   ✔    |   ✔    |    ✔    |   ✔    |   ✔    |    ✔     |
 | **documents** |  ✔   |   ✔    |   ✔    |   ✔    |    ✔    |   ✔    |   ✔    |    ✔     |
-| **storage**   |  ✔   |   ✔    |   ✔    |   ✔    |    ✔    |   ✔    |   ✔    |    ✔     |
-| **reports**   |  ✔   |   ✔    |   ✔    |   ✔    |    ✔    |   ✔    |   ✔    |    ✔     |
 
----
+### Rol: Editor (`Editor`)
 
-### 2. Matriz de Editors
-
-Los editores operan sobre el día a día del negocio. Tienen permisos de lectura en la estructura básica del sistema para entender el contexto organizativo, pero **no pueden crear, alterar ni eliminar ninguna configuración estructural del sistema**.
-
-#### Tablas de Sistema (Estructurales)
-
-_Restricción aplicada: No pueden realizar acciones de escritura o modificación estructural._
-
-| Módulo            | READ | CREATE | UPDATE | DELETE | RESTORE | EXPORT | IMPORT | SETTINGS |
-| :---------------- | :--: | :----: | :----: | :----: | :-----: | :----: | :----: | :------: |
-| **users**         |  ✔   |   –    |   –    |   –    |    –    |   –    |   –    |    –     |
-| **organizations** |  ✔   |   –    |   –    |   –    |    –    |   –    |   –    |    –     |
-| **teams**         |  ✔   |   –    |   –    |   –    |    –    |   –    |   –    |    –     |
-| **roles**         |  ✔   |   –    |   –    |   –    |    –    |   –    |   –    |    –     |
-| **settings**      |  ✔   |   –    |   –    |   –    |    –    |   –    |   –    |    –     |
-| **audit**         |  ✔   |   –    |   –    |   –    |    –    |   –    |   –    |    –     |
-
-#### Tablas de Negocio (Operativas)
+Operativa diaria de negocio a nivel de equipo. Sin acceso a configuración de roles o sistema. Scope `TEAM` en módulos de negocio.
 
 | Módulo        | READ | CREATE | UPDATE | DELETE | RESTORE | EXPORT | IMPORT | SETTINGS |
-| :------------ | :--: | :----: | :----: | :----: | :-----: | :----: | :----: | :------: |
+| ------------- | :--: | :----: | :----: | :----: | :-----: | :----: | :----: | :------: |
+| **users**     |  ✔   |   –    |   –    |   –    |    –    |   –    |   –    |    –     |
+| **teams**     |  ✔   |   –    |   –    |   –    |    –    |   –    |   –    |    –     |
+| **roles**     |  ✔   |   –    |   –    |   –    |    –    |   –    |   –    |    –     |
 | **companies** |  ✔   |   ✔    |   ✔    |   ✔    |    –    |   –    |   –    |    –     |
 | **documents** |  ✔   |   ✔    |   ✔    |   ✔    |    –    |   –    |   –    |    –     |
-| **storage**   |  ✔   |   ✔    |   ✔    |   ✔    |    –    |   –    |   –    |    –     |
-| **reports**   |  ✔   |   ✔    |   ✔    |   ✔    |    –    |   –    |   –    |    –     |
 
----
+### Rol: Lector (`Viewer`)
 
-### 3. Matriz de Viewers
-
-Los usuarios con rol de visualizador únicamente pueden consultar información del negocio. **Tienen el acceso completamente denegado a cualquier tabla de configuración técnica o de control del sistema** para proteger la privacidad y seguridad global de la plataforma.
-
-#### Tablas de Sistema (Estructurales)
-
-_Restricción aplicada: Acceso de lectura completamente revocado de acuerdo al principio de mínimo privilegio._
-
-| Módulo            | READ | CREATE | UPDATE | DELETE | RESTORE | EXPORT | IMPORT | SETTINGS |
-| :---------------- | :--: | :----: | :----: | :----: | :-----: | :----: | :----: | :------: |
-| **users**         |  –   |   –    |   –    |   –    |    –    |   –    |   –    |    –     |
-| **organizations** |  –   |   –    |   –    |   –    |    –    |   –    |   –    |    –     |
-| **teams**         |  –   |   –    |   –    |   –    |    –    |   –    |   –    |    –     |
-| **roles**         |  –   |   –    |   –    |   –    |    –    |   –    |   –    |    –     |
-| **settings**      |  –   |   –    |   –    |   –    |    –    |   –    |   –    |    –     |
-| **audit**         |  –   |   –    |   –    |   –    |    –    |   –    |   –    |    –     |
-
-#### Tablas de Negocio (Operativas)
+Consumo de información de negocio dentro de sus equipos. Sin acceso a módulos críticos del sistema. Scope `OWN` o `TEAM` en módulos de negocio según configuración.
 
 | Módulo        | READ | CREATE | UPDATE | DELETE | RESTORE | EXPORT | IMPORT | SETTINGS |
-| :------------ | :--: | :----: | :----: | :----: | :-----: | :----: | :----: | :------: |
+| ------------- | :--: | :----: | :----: | :----: | :-----: | :----: | :----: | :------: |
+| **users**     |  –   |   –    |   –    |   –    |    –    |   –    |   –    |    –     |
+| **teams**     |  –   |   –    |   –    |   –    |    –    |   –    |   –    |    –     |
+| **roles**     |  –   |   –    |   –    |   –    |    –    |   –    |   –    |    –     |
 | **companies** |  ✔   |   –    |   –    |   –    |    –    |   –    |   –    |    –     |
 | **documents** |  ✔   |   –    |   –    |   –    |    –    |   –    |   –    |    –     |
-| **storage**   |  ✔   |   –    |   –    |   –    |    –    |   –    |   –    |    –     |
-| **reports**   |  ✔   |   –    |   –    |   –    |    –    |   –    |   –    |    –     |
