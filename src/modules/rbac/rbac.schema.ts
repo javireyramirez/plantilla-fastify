@@ -267,3 +267,25 @@ export const AssignmentListResponseSchema = z.object({
 export const BulkAssignmentResponseSchema = z.object({
   count: z.number(),
 });
+
+// ==========================================
+// TYPES
+// ==========================================
+
+export type Role = z.infer<typeof RoleSchema>;
+export type CreateRole = z.infer<typeof CreateRoleBodySchema>;
+export type UpdateRole = z.infer<typeof UpdateRoleBodySchema>;
+
+export type GetPermissionsQuery = z.infer<typeof GetPermissionsQuerySchema>;
+export type CreatePermissionBody = z.infer<typeof CreatePermissionBodySchema>;
+export type BulkCreatePermissionBody = z.infer<typeof BulkCreatePermissionBodySchema>;
+export type BulkUpdatePermissionBody = z.infer<typeof BulkUpdatePermissionBodySchema>;
+export type RolePermission = z.infer<typeof RolePermissionResponseSchema>;
+export type PermissionScopeParams = z.infer<typeof PermissionScopeParamsSchema>;
+export type PermissionScopeType = z.infer<typeof permissionScopeSchema>;
+
+export type RoleAssignment = z.infer<typeof RoleAssignmentSchema>;
+export type RoleAssignmentResponse = z.infer<typeof RoleAssignmentResponseSchema>;
+export type CreateAssignmentBody = z.infer<typeof CreateAssignmentBodySchema>;
+export type BulkCreateAssignmentBody = z.infer<typeof BulkCreateAssignmentBodySchema>;
+export type GetAssignmentsQuery = z.infer<typeof GetAssignmentsQuerySchema>;
