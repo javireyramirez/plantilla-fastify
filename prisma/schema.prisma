@@ -32,6 +32,15 @@ model User {
   isSystem      Boolean  @default(false)
   isSuperAdmin  Boolean  @default(false)
 
+  // Auditoría
+  status    RecordStatus @default(ACTIVE)
+  deletedAt DateTime?
+  restoreAt DateTime?
+  createdBy String?
+  deletedBy String?
+  restoreBy String?
+  updatedBy String?
+
   // Auditoría y Propiedad: Documentos
   createdDocuments  Document[] @relation("CreatedDocuments")
   deletedDocuments  Document[] @relation("DeletedDocuments")

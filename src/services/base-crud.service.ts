@@ -23,6 +23,19 @@ export abstract class BaseCrudService<T> {
     return value ? { [field]: { contains: value, mode: 'insensitive' } } : {};
   }
 
+  // Filtros booleanos
+  protected buildBooleanFilter(field: string, value?: boolean | string) {
+    if (value === undefined || value === null) return {};
+
+    if (typeof value === 'string') {
+      if (value === 'true') return { [field]: true };
+      if (value === 'false') return { [field]: false };
+      return {};
+    }
+
+    return { [field]: value };
+  }
+
   // Filtros seleccion
   protected buildExactMatchFilters(filters: Record<string, any>, fields: string[]) {
     const where: any = {};

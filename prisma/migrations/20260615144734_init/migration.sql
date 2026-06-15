@@ -29,6 +29,13 @@ CREATE TABLE "auth_users" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "isSystem" BOOLEAN NOT NULL DEFAULT false,
     "isSuperAdmin" BOOLEAN NOT NULL DEFAULT false,
+    "status" "RecordStatus" NOT NULL DEFAULT 'ACTIVE',
+    "deletedAt" TIMESTAMP(3),
+    "restoreAt" TIMESTAMP(3),
+    "createdBy" TEXT,
+    "deletedBy" TEXT,
+    "restoreBy" TEXT,
+    "updatedBy" TEXT,
 
     CONSTRAINT "auth_users_pkey" PRIMARY KEY ("id")
 );

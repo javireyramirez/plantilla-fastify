@@ -99,6 +99,21 @@ export const GetRoleQuerySchema = z.object({
   limit: z.coerce.number().optional().default(10),
   isTrash: z.preprocess((val) => val === 'true' || val === true, z.boolean()).default(false),
   name: z.string().optional(),
+  createdAtFrom: z
+    .preprocess((val) => {
+      if (!val) return undefined;
+      const num = Number(val);
+      return isNaN(num) ? val : new Date(num);
+    }, z.date())
+    .optional(),
+
+  createdAtTo: z
+    .preprocess((val) => {
+      if (!val) return undefined;
+      const num = Number(val);
+      return isNaN(num) ? val : new Date(num);
+    }, z.date())
+    .optional(),
   isSystem: z.preprocess((val) => val === 'true' || val === true, z.boolean()).optional(),
   sortBy: z.string().optional().default('createdAt'),
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),

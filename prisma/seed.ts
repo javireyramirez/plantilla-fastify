@@ -144,14 +144,6 @@ async function main() {
 
   const TEST_USERS = [
     {
-      email: process.env.SEED_USER_ADMIN_EMAIL,
-      name: 'Admin User',
-      password: process.env.SEED_USER_ADMIN_PASSWORD,
-      roleSlug: 'admin',
-      teamName: 'Admins',
-      teamSlug: 'admins',
-    },
-    {
       email: process.env.SEED_USER_EDITOR_EMAIL,
       name: 'Editor User',
       password: process.env.SEED_USER_EDITOR_PASSWORD,
