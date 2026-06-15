@@ -21,67 +21,60 @@ const SYSTEM_MODULES = [
     sortOrder: 0,
   },
   {
-    key: 'organizations',
-    label: 'Organizaciones',
-    description: 'Gestión de organizaciones',
-    icon: 'building',
-    sortOrder: 1,
-  },
-  {
     key: 'teams',
     label: 'Equipos',
     description: 'Gestión de equipos',
     icon: 'users-round',
-    sortOrder: 2,
+    sortOrder: 1,
   },
   {
     key: 'roles',
     label: 'Roles',
     description: 'Gestión de roles y permisos',
     icon: 'shield',
-    sortOrder: 3,
+    sortOrder: 2,
   },
   {
     key: 'companies',
     label: 'Empresas',
     description: 'Gestión de empresas / clientes',
     icon: 'briefcase',
-    sortOrder: 4,
+    sortOrder: 3,
   },
   {
     key: 'documents',
     label: 'Documentos',
     description: 'Gestión de documentos',
     icon: 'file',
-    sortOrder: 5,
+    sortOrder: 4,
   },
   {
     key: 'storage',
     label: 'Almacenamiento',
     description: 'Gestión de archivos',
     icon: 'hard-drive',
-    sortOrder: 6,
+    sortOrder: 5,
   },
   {
     key: 'settings',
     label: 'Configuración',
     description: 'Configuración del sistema',
     icon: 'settings',
-    sortOrder: 7,
+    sortOrder: 6,
   },
   {
     key: 'reports',
     label: 'Reportes',
     description: 'Generación de reportes',
     icon: 'bar-chart',
-    sortOrder: 8,
+    sortOrder: 7,
   },
   {
     key: 'audit',
     label: 'Auditoría',
     description: 'Logs y auditoría',
     icon: 'activity',
-    sortOrder: 9,
+    sortOrder: 8,
   },
 ] as const;
 
@@ -96,23 +89,24 @@ const ALL_ACTIONS: PermissionAction[] = [
   PermissionAction.SETTINGS,
 ];
 
+// CORREGIDO: Los Scopes ahora apuntan a GLOBAL / TEAM según tu nuevo Enum
 const ROLES = [
   {
     name: 'Admin',
     slug: 'admin',
-    description: 'Acceso completo dentro de su organización.',
+    description: 'Acceso completo del sistema global o de equipo.',
     color: '#f97316',
     icon: 'shield-check',
     isSystem: true,
     permissions: {
       actions: ALL_ACTIONS,
-      scope: PermissionScope.ORGANIZATION,
+      scope: PermissionScope.GLOBAL,
     },
   },
   {
     name: 'Editor',
     slug: 'editor',
-    description: 'Puede crear y editar recursos de su organización.',
+    description: 'Puede crear y editar recursos de sus equipos.',
     color: '#3b82f6',
     icon: 'pencil',
     isSystem: true,
@@ -123,19 +117,19 @@ const ROLES = [
         PermissionAction.UPDATE,
         PermissionAction.DELETE,
       ],
-      scope: PermissionScope.ORGANIZATION,
+      scope: PermissionScope.TEAM,
     },
   },
   {
     name: 'Viewer',
     slug: 'viewer',
-    description: 'Solo lectura sobre recursos de su organización.',
+    description: 'Solo lectura sobre recursos asignados a sus equipos.',
     color: '#6b7280',
     icon: 'eye',
     isSystem: true,
     permissions: {
       actions: [PermissionAction.READ],
-      scope: PermissionScope.ORGANIZATION,
+      scope: PermissionScope.TEAM,
     },
   },
 ] as const;
@@ -147,23 +141,15 @@ const ROLES = [
 async function main() {
   const adminEmail = process.env.SEED_ADMIN_EMAIL;
   const adminPassword = process.env.SEED_ADMIN_PASSWORD;
-  const orgName = process.env.SEED_ORG_NAME;
-  const orgSlug = process.env.SEED_ORG_SLUG;
 
   const TEST_USERS = [
-    {
-      email: process.env.SEED_USER_ADMIN_EMAIL,
-      name: 'Admin User',
-      password: process.env.SEED_USER_ADMIN_PASSWORD,
-      roleSlug: 'admin',
-      teamName: 'Admins',
-    },
     {
       email: process.env.SEED_USER_EDITOR_EMAIL,
       name: 'Editor User',
       password: process.env.SEED_USER_EDITOR_PASSWORD,
       roleSlug: 'editor',
       teamName: 'Editors',
+      teamSlug: 'editors',
     },
     {
       email: process.env.SEED_USER_VIEWER_EMAIL,
@@ -171,11 +157,12 @@ async function main() {
       password: process.env.SEED_USER_VIEWER_PASSWORD,
       roleSlug: 'viewer',
       teamName: 'Viewers',
+      teamSlug: 'viewers',
     },
   ] as const;
 
-  if (!adminEmail || !adminPassword || !orgName || !orgSlug) {
-    throw new Error('Faltan variables de entorno para el seed base (admin/org).');
+  if (!adminEmail || !adminPassword) {
+    throw new Error('Faltan variables de entorno para el seed base (SEED_ADMIN_EMAIL/PASSWORD).');
   }
 
   for (const u of TEST_USERS) {
@@ -186,10 +173,10 @@ async function main() {
     }
   }
 
-  console.log('\n🌱  Iniciando seed...\n');
+  console.log('\n🌱   Iniciando seed...\n');
 
   // ── 1. Módulos ──────────────────────────────────────────────────────────
-  console.log('📦  Creando módulos del sistema...');
+  console.log('📦   Creando módulos del sistema...');
 
   const moduleMap: Record<string, string> = {};
 
@@ -210,7 +197,6 @@ async function main() {
         icon: mod.icon,
         sortOrder: mod.sortOrder,
         isActive: true,
-        isConfigurableByOrg: true,
         status: RecordStatus.ACTIVE,
       },
     });
@@ -220,7 +206,7 @@ async function main() {
   console.log(`   ✔ módulos creados/actualizados: ${SYSTEM_MODULES.length}`);
 
   // ── 2. Roles y permisos ──────────────────────────────────────────────────
-  console.log('\n🛡️   Creando roles del sistema...');
+  console.log('\n🛡️    Creando roles del sistema...');
 
   const roleMap: Record<string, string> = {};
   let totalPerms = 0;
@@ -265,7 +251,7 @@ async function main() {
   console.log(`   ✔ roles creados/actualizados: ${ROLES.length} (permisos totales: ${totalPerms})`);
 
   // ── 3. Superadmin ────────────────────────────────────────────────────────
-  console.log('\n👑  Creando superadmin...');
+  console.log('\n👑   Creando superadmin...');
 
   const hashedAdminPassword = await hashPassword(adminPassword);
 
@@ -295,41 +281,24 @@ async function main() {
 
   console.log('   ✔ superadmin creado/actualizado');
 
-  // ── 4. Organización por defecto ──────────────────────────────────────────
-  console.log('\n🏢  Creando organización por defecto...');
-
-  const organization = await prisma.organization.upsert({
-    where: { slug: orgSlug },
-    update: { name: orgName },
-    create: {
-      name: orgName,
-      slug: orgSlug,
-      status: RecordStatus.ACTIVE,
-      createdBy: superAdmin.id,
-      updatedBy: superAdmin.id,
-    },
-  });
-
-  console.log('   ✔ organización por defecto creada/actualizada');
-
-  // ── 5. Teams por rol ─────────────────────────────────────────────────────
-  console.log('\n👥  Creando teams...');
+  // ── 4. Teams y Asignación de Roles ─────────────────────────────────────────
+  console.log('\n👥   Creando teams globales del sistema...');
 
   const teamMap: Record<string, string> = {};
 
   const teamsToCreate = [
-    { name: 'Admins', roleSlug: 'admin' },
-    { name: 'Editors', roleSlug: 'editor' },
-    { name: 'Viewers', roleSlug: 'viewer' },
+    { name: 'Admins', slug: 'admins', roleSlug: 'admin' },
+    { name: 'Editors', slug: 'editors', roleSlug: 'editor' },
+    { name: 'Viewers', slug: 'viewers', roleSlug: 'viewer' },
   ];
 
   for (const teamDef of teamsToCreate) {
     const team = await prisma.team.upsert({
-      where: { organizationId_name: { organizationId: organization.id, name: teamDef.name } },
-      update: {},
+      where: { slug: teamDef.slug },
+      update: { name: teamDef.name },
       create: {
-        organizationId: organization.id,
         name: teamDef.name,
+        slug: teamDef.slug,
         status: RecordStatus.ACTIVE,
         createdBy: superAdmin.id,
         updatedBy: superAdmin.id,
@@ -338,19 +307,18 @@ async function main() {
     teamMap[teamDef.name] = team.id;
 
     const roleId = roleMap[teamDef.roleSlug];
+
     await prisma.roleAssignment.upsert({
       where: {
-        roleId_teamId_organizationId: {
+        roleId_teamId: {
           roleId,
           teamId: team.id,
-          organizationId: organization.id,
         },
       },
       update: {},
       create: {
         roleId,
         teamId: team.id,
-        organizationId: organization.id,
         assignedBy: superAdmin.id,
       },
     });
@@ -358,8 +326,8 @@ async function main() {
 
   console.log(`   ✔ teams creados/actualizados: ${teamsToCreate.length}`);
 
-  // ── 6. Usuarios de prueba ────────────────────────────────────────────────
-  console.log('\n👤  Creando usuarios de prueba...');
+  // ── 5. Usuarios de prueba y Membresías directas ────────────────────────────
+  console.log('\n👤   Creando usuarios de prueba...');
 
   let createdUsers = 0;
 
@@ -389,25 +357,14 @@ async function main() {
       },
     });
 
-    const membership = await prisma.organizationMember.upsert({
-      where: { userId_organizationId: { userId: user.id, organizationId: organization.id } },
-      update: { isActive: true },
-      create: {
-        userId: user.id,
-        organizationId: organization.id,
-        isActive: true,
-        isPrimary: true,
-        invitedBy: superAdmin.id,
-      },
-    });
-
     const teamId = teamMap[userDef.teamName];
+
     await prisma.teamMember.upsert({
-      where: { teamId_memberId: { teamId, memberId: membership.id } },
+      where: { teamId_userId: { teamId, userId: user.id } },
       update: {},
       create: {
         teamId,
-        memberId: membership.id,
+        userId: user.id,
         invitedBy: superAdmin.id,
       },
     });
@@ -417,16 +374,13 @@ async function main() {
 
   console.log(`   ✔ usuarios de prueba creados/actualizados: ${createdUsers}`);
 
-  // ── 7. Resumen ───────────────────────────────────────────────────────────
-  console.log('\n✅  Seed completado.\n');
-  console.log(
-    '⚠️  Recuerda cambiar las contraseñas tras el primer login y no usar este seed en producción con datos reales.\n',
-  );
+  // ── 6. Resumen ───────────────────────────────────────────────────────────
+  console.log('\n✅   Seed completado exitosamente.\n');
 }
 
 main()
   .catch((e) => {
-    console.error('❌  Error en seed:', e);
+    console.error('❌   Error en el proceso de seed:', e);
     process.exit(1);
   })
   .finally(async () => {

@@ -2,7 +2,6 @@ import { z } from 'zod';
 
 import {
   GetListQueryBase,
-  OwnerOrganizationSchema,
   OwnerSchema,
   OwnerTeamSchema,
   ResponseListSchemaBase,
@@ -27,7 +26,6 @@ export const CompanySchema = z.object({
 
   owner: OwnerSchema.optional().nullable(),
   ownerTeam: OwnerTeamSchema.optional().nullable(),
-  ownerOrganization: OwnerOrganizationSchema.optional().nullable(),
 });
 
 // PARAMS
@@ -86,7 +84,6 @@ export const CreateCompanyBodySchema = CompanySchema.omit({
 }).extend({
   ownerId: z.string().optional().nullable(),
   ownerTeamId: z.string().optional().nullable(),
-  ownerOrganizationId: z.string().optional().nullable(),
 });
 
 export const UpdateCompanyBodySchema = CreateCompanyBodySchema.partial();

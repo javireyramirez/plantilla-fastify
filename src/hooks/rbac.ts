@@ -4,8 +4,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { HttpError } from '@/utils/http.error.js';
 
 const SCOPE_PRIORITY: Record<PermissionScope, number> = {
-  GLOBAL: 4,
-  ORGANIZATION: 3,
+  GLOBAL: 3,
   TEAM: 2,
   OWN: 1,
 };
@@ -21,10 +20,6 @@ export function requirePermission(resource: string, action: PermissionAction) {
     const session = request.session;
     const ctx = request.memberContext;
 
-    if (!session?.user) {
-      return reply.status(401).send({ error: 'Unauthorized' });
-    }
-
     if (session.user.isSuperAdmin) {
       request.permissions = {
         module: resource,
@@ -35,20 +30,15 @@ export function requirePermission(resource: string, action: PermissionAction) {
     }
 
     if (!ctx) {
-      return reply.status(400).send({ error: 'Organization context required' });
+      return reply.status(400).send({ error: 'Team context required' });
     }
 
-    const { organizationId, teamIds } = ctx;
+    const { teamIds } = ctx;
     const userId = session.user.id;
 
     const assignments = await request.server.prisma.roleAssignment.findMany({
       where: {
-        OR: [
-          { userId, organizationId },
-          { userId, organizationId: null },
-          ...(teamIds.length > 0 ? [{ teamId: { in: teamIds }, organizationId }] : []),
-          ...(teamIds.length > 0 ? [{ teamId: { in: teamIds }, organizationId: null }] : []),
-        ],
+        OR: [{ userId }, ...(teamIds.length > 0 ? [{ teamId: { in: teamIds } }] : [])],
       },
       include: {
         role: {

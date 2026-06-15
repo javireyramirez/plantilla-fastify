@@ -17,14 +17,6 @@ export type RoleWithPermissions = {
 // Solo datos estructurales: quién es y dónde está
 // modules/rbac/rbac.interfaces.ts
 export interface MemberContext {
-  organizationIds: string[];
-  organizationId: string;
-  organization: {
-    id: string;
-    slug: string;
-    name: string;
-    status: string;
-  };
   memberId: string;
   teamIds: string[];
 }
@@ -32,8 +24,6 @@ export interface MemberContext {
 // Se calcula aparte, no se mezcla con la membresía
 export type ResolvedPermissions = {
   userId: string;
-  organizationId: string;
-  // "crm:READ:ORGANIZATION", "invoices:CREATE:OWN"
   grants: Set<string>;
 };
 
@@ -53,8 +43,7 @@ export function hasPermission(
   minScope: PermissionScope,
 ): boolean {
   const scopePrecedence: Record<PermissionScope, number> = {
-    GLOBAL: 4,
-    ORGANIZATION: 3,
+    GLOBAL: 3,
     TEAM: 2,
     OWN: 1,
   };

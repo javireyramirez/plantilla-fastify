@@ -8,16 +8,13 @@ CREATE TYPE "EmailType" AS ENUM ('PASSWORD_RESET', 'EMAIL_VERIFICATION', 'WELCOM
 CREATE TYPE "EmailStatus" AS ENUM ('PENDING', 'SENT', 'DELIVERED', 'FAILED', 'BOUNCED');
 
 -- CreateEnum
-CREATE TYPE "PermissionScope" AS ENUM ('GLOBAL', 'ORGANIZATION', 'TEAM', 'OWN');
+CREATE TYPE "PermissionScope" AS ENUM ('GLOBAL', 'TEAM', 'OWN');
 
 -- CreateEnum
 CREATE TYPE "PermissionAction" AS ENUM ('READ', 'CREATE', 'UPDATE', 'DELETE', 'RESTORE', 'EXPORT', 'IMPORT', 'SETTINGS');
 
 -- CreateEnum
-CREATE TYPE "PrincipalType" AS ENUM ('USER', 'TEAM', 'ORGANIZATION');
-
--- CreateEnum
-CREATE TYPE "EntityAccessLevel" AS ENUM ('OWNER', 'EDITOR', 'VIEWER');
+CREATE TYPE "PrincipalType" AS ENUM ('USER', 'TEAM');
 
 -- CreateTable
 CREATE TABLE "auth_users" (
@@ -32,6 +29,13 @@ CREATE TABLE "auth_users" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "isSystem" BOOLEAN NOT NULL DEFAULT false,
     "isSuperAdmin" BOOLEAN NOT NULL DEFAULT false,
+    "status" "RecordStatus" NOT NULL DEFAULT 'ACTIVE',
+    "deletedAt" TIMESTAMP(3),
+    "restoreAt" TIMESTAMP(3),
+    "createdBy" TEXT,
+    "deletedBy" TEXT,
+    "restoreBy" TEXT,
+    "updatedBy" TEXT,
 
     CONSTRAINT "auth_users_pkey" PRIMARY KEY ("id")
 );
@@ -206,7 +210,6 @@ CREATE TABLE "rbac_modules" (
     "sortOrder" INTEGER NOT NULL DEFAULT 0,
     "defaultPermissions" JSONB,
     "status" "RecordStatus" NOT NULL DEFAULT 'ACTIVE',
-    "isConfigurableByOrg" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "deletedAt" TIMESTAMP(3),
@@ -228,7 +231,6 @@ CREATE TABLE "rbac_roles" (
     "color" TEXT,
     "icon" TEXT,
     "isSystem" BOOLEAN NOT NULL DEFAULT false,
-    "organizationId" TEXT,
     "status" "RecordStatus" NOT NULL DEFAULT 'ACTIVE',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -263,7 +265,6 @@ CREATE TABLE "rbac_role_assignments" (
     "roleId" TEXT NOT NULL,
     "userId" TEXT,
     "teamId" TEXT,
-    "organizationId" TEXT,
     "assignedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "assignedBy" TEXT,
 
@@ -271,46 +272,10 @@ CREATE TABLE "rbac_role_assignments" (
 );
 
 -- CreateTable
-CREATE TABLE "org_organizations" (
+CREATE TABLE "teams" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "slug" TEXT NOT NULL,
-    "image" TEXT,
-    "status" "RecordStatus" NOT NULL DEFAULT 'ACTIVE',
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-    "deletedAt" TIMESTAMP(3),
-    "restoreAt" TIMESTAMP(3),
-    "createdBy" TEXT,
-    "deletedBy" TEXT,
-    "restoreBy" TEXT,
-    "updatedBy" TEXT,
-    "ownerId" TEXT,
-    "ownerTeamId" TEXT,
-    "ownerOrganizationId" TEXT,
-
-    CONSTRAINT "org_organizations_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "org_members" (
-    "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-    "organizationId" TEXT NOT NULL,
-    "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "isPrimary" BOOLEAN NOT NULL DEFAULT false,
-    "joinedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-    "invitedBy" TEXT,
-
-    CONSTRAINT "org_members_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "org_teams" (
-    "id" TEXT NOT NULL,
-    "organizationId" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
     "description" TEXT,
     "status" "RecordStatus" NOT NULL DEFAULT 'ACTIVE',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -322,35 +287,18 @@ CREATE TABLE "org_teams" (
     "restoreBy" TEXT,
     "updatedBy" TEXT,
 
-    CONSTRAINT "org_teams_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "teams_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "org_team_members" (
+CREATE TABLE "team_members" (
     "id" TEXT NOT NULL,
     "teamId" TEXT NOT NULL,
-    "memberId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
     "joinedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "invitedBy" TEXT,
 
-    CONSTRAINT "org_team_members_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "rbac_entity_access" (
-    "id" TEXT NOT NULL,
-    "principalType" "PrincipalType" NOT NULL,
-    "principalId" TEXT NOT NULL,
-    "entityName" TEXT NOT NULL,
-    "entityId" TEXT NOT NULL,
-    "accessLevel" "EntityAccessLevel" NOT NULL DEFAULT 'VIEWER',
-    "grantedBy" TEXT,
-    "grantedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "expiresAt" TIMESTAMP(3),
-    "revokedAt" TIMESTAMP(3),
-    "revokedBy" TEXT,
-
-    CONSTRAINT "rbac_entity_access_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "team_members_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -372,7 +320,6 @@ CREATE TABLE "test_companies" (
     "updatedBy" TEXT,
     "ownerId" TEXT,
     "ownerTeamId" TEXT,
-    "ownerOrganizationId" TEXT,
 
     CONSTRAINT "test_companies_pkey" PRIMARY KEY ("id")
 );
@@ -492,16 +439,16 @@ CREATE INDEX "document_createdAt_idx" ON "document"("createdAt");
 CREATE UNIQUE INDEX "rbac_modules_key_key" ON "rbac_modules"("key");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "rbac_roles_name_key" ON "rbac_roles"("name");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "rbac_roles_slug_key" ON "rbac_roles"("slug");
 
 -- CreateIndex
-CREATE INDEX "rbac_roles_organizationId_idx" ON "rbac_roles"("organizationId");
+CREATE INDEX "rbac_roles_name_idx" ON "rbac_roles"("name");
 
 -- CreateIndex
 CREATE INDEX "rbac_roles_isSystem_idx" ON "rbac_roles"("isSystem");
-
--- CreateIndex
-CREATE UNIQUE INDEX "rbac_roles_slug_organizationId_key" ON "rbac_roles"("slug", "organizationId");
 
 -- CreateIndex
 CREATE INDEX "rbac_role_permissions_roleId_idx" ON "rbac_role_permissions"("roleId");
@@ -519,52 +466,25 @@ CREATE INDEX "rbac_role_assignments_userId_idx" ON "rbac_role_assignments"("user
 CREATE INDEX "rbac_role_assignments_teamId_idx" ON "rbac_role_assignments"("teamId");
 
 -- CreateIndex
-CREATE INDEX "rbac_role_assignments_organizationId_idx" ON "rbac_role_assignments"("organizationId");
+CREATE UNIQUE INDEX "rbac_role_assignments_roleId_userId_key" ON "rbac_role_assignments"("roleId", "userId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "rbac_role_assignments_roleId_userId_organizationId_key" ON "rbac_role_assignments"("roleId", "userId", "organizationId");
+CREATE UNIQUE INDEX "rbac_role_assignments_roleId_teamId_key" ON "rbac_role_assignments"("roleId", "teamId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "rbac_role_assignments_roleId_teamId_organizationId_key" ON "rbac_role_assignments"("roleId", "teamId", "organizationId");
+CREATE UNIQUE INDEX "teams_name_key" ON "teams"("name");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "org_organizations_slug_key" ON "org_organizations"("slug");
+CREATE UNIQUE INDEX "teams_slug_key" ON "teams"("slug");
 
 -- CreateIndex
-CREATE INDEX "org_organizations_slug_idx" ON "org_organizations"("slug");
+CREATE INDEX "team_members_teamId_idx" ON "team_members"("teamId");
 
 -- CreateIndex
-CREATE INDEX "org_members_userId_idx" ON "org_members"("userId");
+CREATE INDEX "team_members_userId_idx" ON "team_members"("userId");
 
 -- CreateIndex
-CREATE INDEX "org_members_organizationId_idx" ON "org_members"("organizationId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "org_members_userId_organizationId_key" ON "org_members"("userId", "organizationId");
-
--- CreateIndex
-CREATE INDEX "org_teams_organizationId_idx" ON "org_teams"("organizationId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "org_teams_organizationId_name_key" ON "org_teams"("organizationId", "name");
-
--- CreateIndex
-CREATE INDEX "org_team_members_teamId_idx" ON "org_team_members"("teamId");
-
--- CreateIndex
-CREATE INDEX "org_team_members_memberId_idx" ON "org_team_members"("memberId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "org_team_members_teamId_memberId_key" ON "org_team_members"("teamId", "memberId");
-
--- CreateIndex
-CREATE INDEX "rbac_entity_access_expiresAt_idx" ON "rbac_entity_access"("expiresAt");
-
--- CreateIndex
-CREATE INDEX "rbac_entity_access_entityName_entityId_idx" ON "rbac_entity_access"("entityName", "entityId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "rbac_entity_access_principalType_principalId_entityName_ent_key" ON "rbac_entity_access"("principalType", "principalId", "entityName", "entityId");
+CREATE UNIQUE INDEX "team_members_teamId_userId_key" ON "team_members"("teamId", "userId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "test_companies_nif_key" ON "test_companies"("nif");
@@ -580,9 +500,6 @@ CREATE INDEX "test_companies_ownerId_idx" ON "test_companies"("ownerId");
 
 -- CreateIndex
 CREATE INDEX "test_companies_ownerTeamId_idx" ON "test_companies"("ownerTeamId");
-
--- CreateIndex
-CREATE INDEX "test_companies_ownerOrganizationId_idx" ON "test_companies"("ownerOrganizationId");
 
 -- AddForeignKey
 ALTER TABLE "auth_accounts" ADD CONSTRAINT "auth_accounts_userId_fkey" FOREIGN KEY ("userId") REFERENCES "auth_users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -633,9 +550,6 @@ ALTER TABLE "rbac_roles" ADD CONSTRAINT "rbac_roles_restoreBy_fkey" FOREIGN KEY 
 ALTER TABLE "rbac_roles" ADD CONSTRAINT "rbac_roles_updatedBy_fkey" FOREIGN KEY ("updatedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "rbac_roles" ADD CONSTRAINT "rbac_roles_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "org_organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "rbac_role_permissions" ADD CONSTRAINT "rbac_role_permissions_grantedBy_fkey" FOREIGN KEY ("grantedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -651,76 +565,34 @@ ALTER TABLE "rbac_role_permissions" ADD CONSTRAINT "rbac_role_permissions_module
 ALTER TABLE "rbac_role_assignments" ADD CONSTRAINT "rbac_role_assignments_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "rbac_roles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "rbac_role_assignments" ADD CONSTRAINT "rbac_role_assignments_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "org_organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "rbac_role_assignments" ADD CONSTRAINT "rbac_role_assignments_assignedBy_fkey" FOREIGN KEY ("assignedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "rbac_role_assignments" ADD CONSTRAINT "rbac_role_assignments_userId_fkey" FOREIGN KEY ("userId") REFERENCES "auth_users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "rbac_role_assignments" ADD CONSTRAINT "rbac_role_assignments_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "org_teams"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "rbac_role_assignments" ADD CONSTRAINT "rbac_role_assignments_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "teams"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "org_organizations" ADD CONSTRAINT "org_organizations_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "teams" ADD CONSTRAINT "teams_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "org_organizations" ADD CONSTRAINT "org_organizations_deletedBy_fkey" FOREIGN KEY ("deletedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "teams" ADD CONSTRAINT "teams_deletedBy_fkey" FOREIGN KEY ("deletedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "org_organizations" ADD CONSTRAINT "org_organizations_restoreBy_fkey" FOREIGN KEY ("restoreBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "teams" ADD CONSTRAINT "teams_restoreBy_fkey" FOREIGN KEY ("restoreBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "org_organizations" ADD CONSTRAINT "org_organizations_updatedBy_fkey" FOREIGN KEY ("updatedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "teams" ADD CONSTRAINT "teams_updatedBy_fkey" FOREIGN KEY ("updatedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "org_organizations" ADD CONSTRAINT "org_organizations_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "team_members" ADD CONSTRAINT "team_members_invitedBy_fkey" FOREIGN KEY ("invitedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "org_organizations" ADD CONSTRAINT "org_organizations_ownerTeamId_fkey" FOREIGN KEY ("ownerTeamId") REFERENCES "org_teams"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "team_members" ADD CONSTRAINT "team_members_userId_fkey" FOREIGN KEY ("userId") REFERENCES "auth_users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "org_organizations" ADD CONSTRAINT "org_organizations_ownerOrganizationId_fkey" FOREIGN KEY ("ownerOrganizationId") REFERENCES "org_organizations"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "org_members" ADD CONSTRAINT "org_members_invitedBy_fkey" FOREIGN KEY ("invitedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "org_members" ADD CONSTRAINT "org_members_userId_fkey" FOREIGN KEY ("userId") REFERENCES "auth_users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "org_members" ADD CONSTRAINT "org_members_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "org_organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "org_teams" ADD CONSTRAINT "org_teams_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "org_teams" ADD CONSTRAINT "org_teams_deletedBy_fkey" FOREIGN KEY ("deletedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "org_teams" ADD CONSTRAINT "org_teams_restoreBy_fkey" FOREIGN KEY ("restoreBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "org_teams" ADD CONSTRAINT "org_teams_updatedBy_fkey" FOREIGN KEY ("updatedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "org_teams" ADD CONSTRAINT "org_teams_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "org_organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "org_team_members" ADD CONSTRAINT "org_team_members_invitedBy_fkey" FOREIGN KEY ("invitedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "org_team_members" ADD CONSTRAINT "org_team_members_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "org_teams"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "org_team_members" ADD CONSTRAINT "org_team_members_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "org_members"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "rbac_entity_access" ADD CONSTRAINT "rbac_entity_access_grantedBy_fkey" FOREIGN KEY ("grantedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "rbac_entity_access" ADD CONSTRAINT "rbac_entity_access_revokedBy_fkey" FOREIGN KEY ("revokedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "team_members" ADD CONSTRAINT "team_members_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "teams"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "test_companies" ADD CONSTRAINT "test_companies_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -738,7 +610,4 @@ ALTER TABLE "test_companies" ADD CONSTRAINT "test_companies_updatedBy_fkey" FORE
 ALTER TABLE "test_companies" ADD CONSTRAINT "test_companies_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "test_companies" ADD CONSTRAINT "test_companies_ownerTeamId_fkey" FOREIGN KEY ("ownerTeamId") REFERENCES "org_teams"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "test_companies" ADD CONSTRAINT "test_companies_ownerOrganizationId_fkey" FOREIGN KEY ("ownerOrganizationId") REFERENCES "org_organizations"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "test_companies" ADD CONSTRAINT "test_companies_ownerTeamId_fkey" FOREIGN KEY ("ownerTeamId") REFERENCES "teams"("id") ON DELETE SET NULL ON UPDATE CASCADE;

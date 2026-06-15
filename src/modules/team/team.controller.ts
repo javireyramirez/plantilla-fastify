@@ -38,16 +38,16 @@ export class TeamController extends BaseController<any> {
   async addMember(request: FastifyRequest, reply: FastifyReply) {
     const invitedBy = (request as any).session?.user?.id;
     const { id } = request.params as any;
-    const { memberId } = CreateTeamMemberSchema.parse(request.body);
+    const { userId } = CreateTeamMemberSchema.parse(request.body);
 
-    const record = await this.teamService.addMember(id, memberId, invitedBy);
+    const record = await this.teamService.addMember(id, userId, invitedBy);
     return reply.code(201).send(record);
   }
 
   async removeMember(request: FastifyRequest, reply: FastifyReply) {
-    const { id, memberId } = request.params as any;
+    const { id, userId } = request.params as any;
 
-    const record = await this.teamService.removeMember(id, memberId);
+    const record = await this.teamService.removeMember(id, userId);
     return reply.send(record);
   }
 
@@ -58,17 +58,17 @@ export class TeamController extends BaseController<any> {
   async addMembers(request: FastifyRequest, reply: FastifyReply) {
     const invitedBy = (request as any).session?.user?.id;
     const { id } = request.params as any;
-    const { memberIds } = BulkMemberIdsBodySchema.parse(request.body);
+    const { userIds } = BulkMemberIdsBodySchema.parse(request.body);
 
-    const record = await this.teamService.addMembers(id, memberIds, invitedBy);
+    const record = await this.teamService.addMembers(id, userIds, invitedBy);
     return reply.code(201).send(record);
   }
 
   async removeMembers(request: FastifyRequest, reply: FastifyReply) {
     const { id } = request.params as any;
-    const { memberIds } = BulkMemberIdsBodySchema.parse(request.body);
+    const { userIds } = BulkMemberIdsBodySchema.parse(request.body);
 
-    const record = await this.teamService.removeMembers(id, memberIds);
+    const record = await this.teamService.removeMembers(id, userIds);
     return reply.send(record);
   }
 }

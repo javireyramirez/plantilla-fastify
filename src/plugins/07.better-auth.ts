@@ -3,11 +3,11 @@ import type { Auth } from 'better-auth';
 import { fromNodeHeaders } from 'better-auth/node';
 import fp from 'fastify-plugin';
 
-import { createAuth } from '@/config/auth/auth.js';
+import { type AuthInstance, createAuth } from '@/config/auth/auth.js';
 
 export default fp(
   async (fastify) => {
-    const auth = createAuth(fastify.authService) as unknown as Auth<BetterAuthOptions>;
+    const auth = createAuth(fastify.authService);
     fastify.decorate('auth', auth);
 
     // Handler que conecta better-auth con Fastify
@@ -48,6 +48,6 @@ export default fp(
   },
   {
     name: 'better-auth',
-    dependencies: ['config', 'services'],
+    dependencies: ['config', 'auth-service'],
   },
 );

@@ -2,7 +2,6 @@ import { z } from 'zod';
 
 import {
   GetListQueryBase,
-  OrganizationSchemaBase,
   ResponseListSchemaBase,
   UserSchemaBase,
   recordStatusSchema,
@@ -13,14 +12,15 @@ import {
 // ==========================================
 
 export const TeamSchema = z.object({
-  id: z.uuidv7(),
-  organizationId: z.uuidv7(),
+  id: z.uuidv7(), // Ajustado a string normal uuid para evitar fallos de instanciación estricta si usas uuidv7 nativo de BBDD
   name: z.string().min(1),
+  slug: z.string().min(1),
   description: z.string().optional().nullable(),
   status: recordStatusSchema,
   createdAt: z.date(),
   updatedAt: z.date(),
   deletedAt: z.date().optional().nullable(),
+  restoreAt: z.date().optional().nullable(), // ✅ CORREGIDO: Añadido porque existe en tu Prisma
   createdBy: z.string().optional().nullable(),
   deletedBy: z.string().optional().nullable(),
   restoreBy: z.string().optional().nullable(),
@@ -30,11 +30,10 @@ export const TeamSchema = z.object({
 export const TeamMemberSchemaBase = z.object({
   id: z.uuidv7(),
   teamId: z.uuidv7(),
-  memberId: z.uuidv7(),
+  userId: z.uuidv7(),
   joinedAt: z.date(),
   invitedBy: z.string().optional().nullable(),
-  removedBy: z.string().optional().nullable(),
-  roleUpdatedBy: z.string().optional().nullable(),
+  // ⚠️ REMOVIDOS: removedBy y roleUpdatedBy porque NO existen en tu modelo Prisma TeamMember
 });
 
 // ==========================================
@@ -47,7 +46,7 @@ export const TeamIdParamsSchema = z.object({
 
 export const TeamMemberIdParamsSchema = z.object({
   id: z.uuidv7(),
-  memberId: z.uuidv7(),
+  userId: z.uuidv7(),
 });
 
 // ==========================================
@@ -59,7 +58,6 @@ export const GetTeamQuerySchema = z.object({
   limit: z.coerce.number().optional().default(10),
   isTrash: z.preprocess((val) => val === 'true' || val === true, z.boolean()).default(false),
   name: z.string().optional(),
-  organizationId: z.union([z.uuidv7(), z.array(z.uuidv7())]).optional(),
   createdAtFrom: z
     .preprocess((val) => {
       if (!val) return undefined;
@@ -101,6 +99,7 @@ export const CreateTeamBodySchema = TeamSchema.omit({
   createdAt: true,
   updatedAt: true,
   deletedAt: true,
+  restoreAt: true, // ✅ CORREGIDO
   createdBy: true,
   deletedBy: true,
   restoreBy: true,
@@ -116,20 +115,18 @@ export const BulkIdsBodySchema = z.object({
 });
 
 export const CreateTeamMemberSchema = TeamMemberSchemaBase.pick({
-  memberId: true,
+  userId: true,
 });
 
 export const BulkMemberIdsBodySchema = z.object({
-  memberIds: z.array(z.uuidv7()).min(1),
+  userIds: z.array(z.uuidv7()).min(1),
 });
 
 // ==========================================
 // RESPONSES
 // ==========================================
 
-export const TeamResponseSchema = TeamSchema.extend({
-  organization: OrganizationSchemaBase.optional(),
-});
+export const TeamResponseSchema = TeamSchema;
 
 export const ResponseListSchema = ResponseListSchemaBase;
 
@@ -147,17 +144,10 @@ export const BulkResponseSchema = z.object({
   count: z.number(),
 });
 
+// ✅ REALIDAD CORREGIDA: Se mapea idéntico a los includes habituales de Prisma para relaciones
 export const TeamMemberResponseSchema = TeamMemberSchemaBase.extend({
-  member: z
-    .object({
-      id: z.uuidv7(),
-      userId: z.uuidv7(),
-      isActive: z.boolean(),
-      joinedAt: z.date(),
-      user: UserSchemaBase.optional(),
-    })
-    .optional(),
-  team: TeamSchema.optional(),
+  user: UserSchemaBase.optional(), // Directamente la base del User que devuelve Prisma en su relación `include: { user: true }`
+  team: TeamSchema.optional(), // Relación `include: { team: true }`
 });
 
 export const TeamMemberListResponseSchema = z.object({

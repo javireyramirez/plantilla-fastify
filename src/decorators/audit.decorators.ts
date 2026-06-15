@@ -11,7 +11,6 @@ export const withOwnedCreate = (userId?: string, ownerId?: string) => ({
   ...(userId && {
     ownerId: ownerId ?? userId,
     ownerTeamId: null,
-    ownerOrganizationId: null,
   }),
 });
 

@@ -2,38 +2,40 @@ import fp from 'fastify-plugin';
 
 import { CompaniesRepository } from '@/modules/companies/companies.repository.js';
 import { ModuleRepository } from '@/modules/module/module.repository.js';
-import { OrganizationMemberRepository } from '@/modules/organization/organization-member.repository.js';
-import { OrganizationRepository } from '@/modules/organization/organization.repository.js';
 import { RoleAssignmentRepository } from '@/modules/rbac/role-assignment.repository.js';
 import { RolePermissionRepository } from '@/modules/rbac/role-permission.repository.js';
 import { RoleRepository } from '@/modules/rbac/role.repository.js';
 import { StorageRepository } from '@/modules/storage/storage.repository.js';
 import { TeamMemberRepository } from '@/modules/team/team-member.repository.js';
 import { TeamRepository } from '@/modules/team/team.repository.js';
+import { SessionRepository } from '@/modules/users/session.repository.js';
+import { UsersRepository } from '@/modules/users/users.repository.js';
 
 export default fp(
   async (fastify) => {
     const storageRepository = new StorageRepository(fastify.prisma);
     const companiesRepository = new CompaniesRepository(fastify.prisma);
-    const organizationRepository = new OrganizationRepository(fastify.prisma);
-    const organizationMemberRepository = new OrganizationMemberRepository(fastify.prisma);
+
     const roleRepository = new RoleRepository(fastify.prisma);
     const rolePermissionRepository = new RolePermissionRepository(fastify.prisma);
     const teamRepository = new TeamRepository(fastify.prisma);
     const teamMemberRepository = new TeamMemberRepository(fastify.prisma);
     const roleAssignmentRepository = new RoleAssignmentRepository(fastify.prisma);
     const moduleRepository = new ModuleRepository(fastify.prisma);
+    const usersRepository = new UsersRepository(fastify.prisma);
+    const sessionRepository = new SessionRepository(fastify.prisma);
 
     fastify.decorate('storageRepository', storageRepository);
     fastify.decorate('companiesRepository', companiesRepository);
-    fastify.decorate('organizationRepository', organizationRepository);
-    fastify.decorate('organizationMemberRepository', organizationMemberRepository);
+
     fastify.decorate('roleRepository', roleRepository);
     fastify.decorate('rolePermissionRepository', rolePermissionRepository);
     fastify.decorate('roleAssignmentRepository', roleAssignmentRepository);
     fastify.decorate('teamRepository', teamRepository);
     fastify.decorate('teamMemberRepository', teamMemberRepository);
     fastify.decorate('moduleRepository', moduleRepository);
+    fastify.decorate('usersRepository', usersRepository);
+    fastify.decorate('sessionRepository', sessionRepository);
 
     fastify.log.info('Repositories ready');
   },
@@ -45,13 +47,13 @@ declare module 'fastify' {
   interface FastifyInstance {
     storageRepository: StorageRepository;
     companiesRepository: CompaniesRepository;
-    organizationRepository: OrganizationRepository;
-    organizationMemberRepository: OrganizationMemberRepository;
     roleRepository: RoleRepository;
     rolePermissionRepository: RolePermissionRepository;
     teamRepository: TeamRepository;
     teamMemberRepository: TeamMemberRepository;
     roleAssignmentRepository: RoleAssignmentRepository;
     moduleRepository: ModuleRepository;
+    usersRepository: UsersRepository;
+    sessionRepository: SessionRepository;
   }
 }

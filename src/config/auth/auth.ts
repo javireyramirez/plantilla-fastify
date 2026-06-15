@@ -101,3 +101,5 @@ export const createAuth = (authService: AuthService) =>
       },
     },
   });
+
+export type AuthInstance = ReturnType<typeof createAuth>;
