@@ -182,17 +182,17 @@ async function main() {
 
   for (const mod of SYSTEM_MODULES) {
     const record = await prisma.module.upsert({
-      where: { key: mod.key },
+      where: { slug: mod.key },
       update: {
-        label: mod.label,
+        name: mod.label,
         description: mod.description,
         icon: mod.icon,
         sortOrder: mod.sortOrder,
         isActive: true,
       },
       create: {
-        key: mod.key,
-        label: mod.label,
+        slug: mod.key,
+        name: mod.label,
         description: mod.description,
         icon: mod.icon,
         sortOrder: mod.sortOrder,

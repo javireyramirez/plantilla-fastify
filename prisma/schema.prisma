@@ -328,12 +328,11 @@ model Document {
 // ==========================================
 // RBAC: MÓDULOS
 // ==========================================
-//
 
 model Module {
   id                 String       @id @default(uuid(7))
-  key                String       @unique
-  label              String
+  name               String
+  slug               String       @unique
   description        String?
   icon               String?
   isActive           Boolean      @default(true)
@@ -341,7 +340,7 @@ model Module {
   defaultPermissions Json?
   status             RecordStatus @default(ACTIVE)
 
-  // Auditoría
+  // Auditoría Unificada
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -360,7 +359,6 @@ model Module {
   updater   User?   @relation("UpdatedModule", fields: [updatedBy], references: [id], onDelete: SetNull)
 
   permissions RolePermission[]
-  // rolePermissionAuditLogs RolePermissionAuditLog[]
 
   @@map("rbac_modules")
 }

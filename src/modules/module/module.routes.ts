@@ -7,7 +7,7 @@ import {
   CreateModuleBodySchema,
   GetListQuery,
   GetModulesQuerySchema,
-  ModuleKeyParamsSchema,
+  ModuleParamsSchema,
   ModuleResponseSchema,
   ModulesListResponseSchema,
   ResponseListSchema,
@@ -28,7 +28,7 @@ export default async function moduleRoutes(fastify: FastifyInstance) {
 
     schemas: {
       // Parámetros
-      idParams: ModuleKeyParamsSchema,
+      idParams: ModuleParamsSchema,
 
       // Query
       getManyQuery: GetModulesQuerySchema,

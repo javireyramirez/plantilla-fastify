@@ -44,7 +44,6 @@ export const RolePermissionSchema = z.object({
   moduleId: z.uuidv7(),
   action: permissionActionSchema,
   scope: permissionScopeSchema.default('OWN'),
-  // ✅ CORREGIDO: Eliminados 'scopeId' y 'revokedBy'. Añadidos los campos reales de auditoría.
   grantedAt: z.date(),
   grantedBy: z.string().optional().nullable(),
   updatedAt: z.date(),
@@ -127,7 +126,6 @@ export const GetPermissionsQuerySchema = z.object({
   sortBy: z.string().optional().default('grantedAt'),
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
 
-  // Filtros de RBAC (se mapea a moduleId en el service)
   resource: z.preprocess(
     (val) => (typeof val === 'string' ? val.split(',') : val),
     z.array(z.string()).optional(),
@@ -141,8 +139,20 @@ export const GetPermissionsQuerySchema = z.object({
     z.array(z.string()).optional(),
   ),
 
-  grantedFrom: z.string().datetime().optional(),
-  grantedTo: z.string().datetime().optional(),
+  grantedFrom: z
+    .preprocess((val) => {
+      if (!val) return undefined;
+      const num = Number(val);
+      return isNaN(num) ? val : new Date(num);
+    }, z.date())
+    .optional(),
+  grantedTo: z
+    .preprocess((val) => {
+      if (!val) return undefined;
+      const num = Number(val);
+      return isNaN(num) ? val : new Date(num);
+    }, z.date())
+    .optional(),
 });
 
 export const GetAssignmentsQuerySchema = z.object({
@@ -154,8 +164,20 @@ export const GetAssignmentsQuerySchema = z.object({
   userId: z.string().optional(),
   teamId: z.string().optional(),
 
-  assignedFrom: z.string().datetime().optional(),
-  assignedTo: z.string().datetime().optional(),
+  assignedFrom: z
+    .preprocess((val) => {
+      if (!val) return undefined;
+      const num = Number(val);
+      return isNaN(num) ? val : new Date(num);
+    }, z.date())
+    .optional(),
+  assignedTo: z
+    .preprocess((val) => {
+      if (!val) return undefined;
+      const num = Number(val);
+      return isNaN(num) ? val : new Date(num);
+    }, z.date())
+    .optional(),
 });
 
 // ==========================================
@@ -241,7 +263,6 @@ export const BulkResponseSchema = z.object({
   count: z.number(),
 });
 
-// ✅ CORREGIDO: Ajustado al include real de tu RoleService (granter y updater)
 export const RolePermissionResponseSchema = RolePermissionSchema.extend({
   granter: z.object({ id: z.string(), name: z.string(), email: z.string() }).optional().nullable(),
   updater: z.object({ id: z.string(), name: z.string(), email: z.string() }).optional().nullable(),
@@ -256,17 +277,13 @@ export const RolePermissionsListResponseSchema = z.object({
   }),
 });
 
-// ✅ CORREGIDO: Sincronizado exactamente con el select del ASSIGNMENT_INCLUDE de tu servicio
 export const RoleAssignmentResponseSchema = RoleAssignmentSchema.extend({
   granter: z.object({ id: z.string(), name: z.string(), email: z.string() }).optional().nullable(),
   assignedUser: z
     .object({ id: z.string(), name: z.string(), email: z.string() })
     .optional()
     .nullable(),
-  assignedTeam: z
-    .object({ id: z.string(), name: z.string() }) // ❌ Removido slug porque tu service no lo pide en el select
-    .optional()
-    .nullable(),
+  assignedTeam: z.object({ id: z.string(), name: z.string() }).optional().nullable(),
   role: z.object({ id: z.string(), name: z.string(), slug: z.string() }).optional().nullable(),
 });
 
