@@ -116,8 +116,18 @@ export abstract class BaseRepository<T> {
     return this.model.create(params);
   }
 
-  async update(params: { where: any; data: any; include?: any; select?: any }): Promise<T> {
-    return this.model.update(params);
+  async update(params: {
+    where: any;
+    data: any;
+    include?: any;
+    select?: any;
+    scope?: ScopeContext;
+  }): Promise<T> {
+    const { scope, ...rest } = params;
+    return this.model.update({
+      ...rest,
+      where: this.mergeScope(rest.where, scope),
+    });
   }
 
   async upsert(params: {
@@ -130,8 +140,17 @@ export abstract class BaseRepository<T> {
     return this.model.upsert(params);
   }
 
-  async delete(params: { where: any; include?: any; select?: any }): Promise<T> {
-    return this.model.delete(params);
+  async delete(params: {
+    where: any;
+    include?: any;
+    select?: any;
+    scope?: ScopeContext;
+  }): Promise<T> {
+    const { scope, ...rest } = params;
+    return this.model.delete({
+      ...rest,
+      where: this.mergeScope(rest.where, scope),
+    });
   }
 
   // ==========================================

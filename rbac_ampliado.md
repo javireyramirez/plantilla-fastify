@@ -87,122 +87,25 @@ La entidad o módulo de la aplicación sobre la cual se interactúa (ej: `compan
 
 Determina la barrera de visibilidad que se aplica automáticamente sobre las consultas, ordenados de mayor a menor jerarquía:
 
-| Ámbito      | Descripción        | Criterio de filtro aplicado                                                                                                                            |
-| ----------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 👑 `GLOBAL` | Acceso irrestricto | No inyecta condiciones adicionales en las consultas.                                                                                                   |
-| 👥 `TEAM`   | Acceso de equipo   | El registro debe coincidir en `ownerTeamId` con alguno de los `teamIds` del usuario, **o** su `owner`/`creator` debe pertenecer a uno de esos equipos. |
-| 👤 `OWN`    | Acceso personal    | El registro debe coincidir estrictamente con el `ownerId` o `createdBy` del usuario.                                                                   |
+| Ámbito      | Descripción        | Criterio de filtro aplicado                                                          |
+| ----------- | ------------------ | ------------------------------------------------------------------------------------ |
+| 👑 `GLOBAL` | Acceso irrestricto | No inyecta condiciones adicionales en las consultas.                                 |
+| 👥 `TEAM`   | Acceso de equipo   | El `owner`/`creator` debe pertenecer a uno de esos equipos.                          |
+| 👤 `OWN`    | Acceso personal    | El registro debe coincidir estrictamente con el `ownerId` o `createdBy` del usuario. |
 
 ---
 
-## 3. Implementación: `rbac-filter.ts`
-
-El archivo `src/utils/rbac-filter.ts` expone dos funciones que materializan la lógica de ámbito en capas distintas del pipeline.
-
-### `buildScopeFilter(ctx: ScopeContext)`
-
-Construye el objeto `where` de Prisma para inyectar directamente en consultas de base de datos. Se ejecuta **antes** de que los datos lleguen a la aplicación.
-
-```ts
-// src/utils/rbac-filter.ts
-import type { ScopeContext } from '@/types/base.types.js';
-
-export function buildScopeFilter(ctx: ScopeContext): Record<string, any> {
-  switch (ctx.scope) {
-    case 'GLOBAL':
-      return {};
-
-    case 'OWN':
-      return {
-        OR: [{ ownerId: ctx.userId }, { createdBy: ctx.userId }],
-      };
-
-    case 'TEAM': {
-      const teamsFilter = ctx.teamIds && ctx.teamIds.length > 0 ? { in: ctx.teamIds } : { in: [] };
-
-      return {
-        OR: [
-          // A. El registro tiene asignado el equipo explícitamente
-          { ownerTeamId: teamsFilter },
-
-          // B. El dueño del registro pertenece a uno de los equipos del usuario
-          {
-            owner: {
-              teamMember: { some: { teamId: teamsFilter } },
-            },
-          },
-
-          // C. El creador del registro pertenece a uno de los equipos del usuario
-          {
-            creator: {
-              teamMember: { some: { teamId: teamsFilter } },
-            },
-          },
-        ],
-      };
-    }
-
-    default:
-      return {};
-  }
-}
-```
-
-**Cuándo usarla:** En cualquier `findMany`, `findFirst` o subquery donde el scope deba filtrarse a nivel de base de datos. El `where` resultante se combina con los filtros propios del servicio.
-
-**Casos de borde importantes para `TEAM`:**
-
-- Si `ctx.teamIds` es un array vacío, el filtro `{ in: [] }` garantiza que no se devuelva ningún registro (comportamiento correcto: el usuario no pertenece a ningún equipo).
-- Las ramas B y C requieren que el modelo de Prisma incluya las relaciones `owner.teamMember` y `creator.teamMember`. Si no están presentes en el schema, esas ramas devuelven vacío sin errores en runtime.
-
----
-
-### `checkRecordOwnership(record, ctx, userTeamIds)`
-
-Valida de forma **síncrona y en memoria** si un registro ya cargado cumple con el scope. Útil para operaciones unitarias post-`findUnique` o para validar mutaciones puntuales sin lanzar una segunda consulta.
-
-```ts
-export function checkRecordOwnership(
-  record: any,
-  ctx: ScopeContext,
-  userTeamIds: string[],
-): boolean {
-  if (!record) return false;
-
-  switch (ctx.scope) {
-    case 'GLOBAL':
-      return true;
-
-    case 'OWN':
-      return record.ownerId === ctx.userId || record.createdBy === ctx.userId;
-
-    case 'TEAM':
-      if (record.ownerTeamId && userTeamIds.includes(record.ownerTeamId)) {
-        return true;
-      }
-      // Para verificar owner.teamMember o creator.teamMember en memoria,
-      // el registro debe haber sido cargado con esos includes en la consulta previa.
-      // Si no se incluyeron, usa buildScopeFilter directamente en el 'where' de la mutación.
-      return false;
-  }
-}
-```
-
-**Cuándo usarla:** Tras un `findUnique` cuando necesitas confirmar pertenencia antes de ejecutar una mutación. Si el `record` no incluye las relaciones `owner.teamMember` o `creator.teamMember`, la cobertura de `TEAM` se limita a `ownerTeamId`; en ese caso es más seguro delegar la validación a `buildScopeFilter` en el `where` de la propia mutación.
-
----
-
-## 4. Jerarquía de Servicios
+## 3. Jerarquía de Servicios
 
 Las operaciones del backend se dividen en tres bloques:
 
 1. **Operaciones del Núcleo**: Carga estática de módulos y acciones del sistema. Globales y transversales.
-2. **Operaciones con Auditoría**: Entidades estructurales (Roles, Equipos). No pertenecen a un usuario en particular; registran `createdBy` y `updatedBy` para trazabilidad.
-3. **Operaciones de Negocio Protegidas**: Modelos de negocio (Empresas, Facturas, Documentos). Almacenan obligatoriamente `ownerId` y `ownerTeamId` en cada inserción para que los filtros de ámbito funcionen correctamente.
+2. **Operaciones con Auditoría**: Entidades estructurales (Roles). No pertenecen a un usuario en particular; registran `createdBy` y `updatedBy` para trazabilidad.
+3. **Operaciones de Negocio Protegidas**: Modelos de negocio (Empresas, Facturas, Documentos). Almacenan obligatoriamente `ownerId` en cada inserción para que los filtros de ámbito funcionen correctamente.
 
 ---
 
-## 5. Asignación y Flujo de Roles
+## 4. Asignación y Flujo de Roles
 
 ### Gestión por Equipos
 
@@ -216,7 +119,7 @@ Cuando un usuario es añadido a un equipo, sus tokens y contextos de sesión her
 
 ---
 
-## 6. Herencia de Permisos en Runtime
+## 5. Herencia de Permisos en Runtime
 
 Cuando un usuario realiza una petición, el middleware consolida todas sus asignaciones activas en una **Matriz Resolutiva**:
 
@@ -233,7 +136,7 @@ Si dos equipos distintos otorgan permisos solapados para el mismo recurso, el ev
 
 ---
 
-## 7. Flujo Funcional de una Petición
+## 6. Flujo Funcional de una Petición
 
 ```mermaid
 sequenceDiagram
@@ -278,7 +181,7 @@ sequenceDiagram
 
 ---
 
-## 8. Matrices de Roles Predeterminadas
+## 7. Matrices de Roles Predeterminadas
 
 ### Rol: Administrador (`Admin`)
 
