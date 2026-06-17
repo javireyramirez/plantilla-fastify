@@ -4,7 +4,13 @@ export async function memberContext(request: FastifyRequest, reply: FastifyReply
   const user = request.session?.user;
   if (!user) return reply.status(401).send({ error: 'Unauthorized' });
 
-  if (user.isSuperAdmin) return;
+  if (user.isSuperAdmin) {
+    request.memberContext = {
+      teamIds: [],
+      memberId: '',
+    };
+    return;
+  }
 
   const teamMemberships = await request.server.prisma.teamMember.findMany({
     where: {
@@ -16,12 +22,8 @@ export async function memberContext(request: FastifyRequest, reply: FastifyReply
     },
   });
 
-  if (teamMemberships.length === 0) {
-    return reply.status(403).send({ error: 'Not a member of any team' });
-  }
-
   request.memberContext = {
     teamIds: teamMemberships.map((tm) => tm.teamId),
-    memberId: teamMemberships[0].id,
+    memberId: teamMemberships[0]?.id ?? '',
   };
 }

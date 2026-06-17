@@ -23,7 +23,7 @@ export abstract class BaseRepository<T> {
   protected mergeScope(where: any = {}, scope?: ScopeContext): any {
     if (!scope) return where;
 
-    const rbacFilter = buildScopeFilter(scope);
+    const rbacFilter = buildScopeFilter(scope, this.modelName as string);
     if (Object.keys(rbacFilter).length === 0) return where;
 
     return {

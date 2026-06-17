@@ -1,31 +1,27 @@
 import { z } from 'zod';
 
 import {
+  AuditFieldsSchema,
   GetListQueryBase,
+  GetPaginatedQueryBaseSchema,
   ResponseListSchemaBase,
   UserSchemaBase,
-  recordStatusSchema,
+  createPaginatedResponseSchema,
+  dateQueryBase,
 } from '@/schemas/base.schema.js';
 
 // ==========================================
 // BASE SCHEMAS
 // ==========================================
 
-export const TeamSchema = z.object({
-  id: z.uuidv7(), // Ajustado a string normal uuid para evitar fallos de instanciación estricta si usas uuidv7 nativo de BBDD
-  name: z.string().min(1),
-  slug: z.string().min(1),
-  description: z.string().optional().nullable(),
-  status: recordStatusSchema,
-  createdAt: z.date(),
-  updatedAt: z.date(),
-  deletedAt: z.date().optional().nullable(),
-  restoreAt: z.date().optional().nullable(), // ✅ CORREGIDO: Añadido porque existe en tu Prisma
-  createdBy: z.string().optional().nullable(),
-  deletedBy: z.string().optional().nullable(),
-  restoreBy: z.string().optional().nullable(),
-  updatedBy: z.string().optional().nullable(),
-});
+export const TeamSchema = z
+  .object({
+    id: z.uuidv7(),
+    name: z.string().min(1),
+    slug: z.string().min(1),
+    description: z.string().optional().nullable(),
+  })
+  .extend(AuditFieldsSchema.shape);
 
 export const TeamMemberSchemaBase = z.object({
   id: z.uuidv7(),
@@ -33,7 +29,6 @@ export const TeamMemberSchemaBase = z.object({
   userId: z.uuidv7(),
   joinedAt: z.date(),
   invitedBy: z.string().optional().nullable(),
-  // ⚠️ REMOVIDOS: removedBy y roleUpdatedBy porque NO existen en tu modelo Prisma TeamMember
 });
 
 // ==========================================
@@ -53,28 +48,8 @@ export const TeamMemberIdParamsSchema = z.object({
 // QUERIES
 // ==========================================
 
-export const GetTeamQuerySchema = z.object({
-  page: z.coerce.number().optional().default(1),
-  limit: z.coerce.number().optional().default(10),
-  isTrash: z.preprocess((val) => val === 'true' || val === true, z.boolean()).default(false),
-  name: z.string().optional(),
-  createdAtFrom: z
-    .preprocess((val) => {
-      if (!val) return undefined;
-      const num = Number(val);
-      return isNaN(num) ? val : new Date(num);
-    }, z.date())
-    .optional(),
-
-  createdAtTo: z
-    .preprocess((val) => {
-      if (!val) return undefined;
-      const num = Number(val);
-      return isNaN(num) ? val : new Date(num);
-    }, z.date())
-    .optional(),
+export const GetTeamQuerySchema = GetPaginatedQueryBaseSchema.extend({
   sortBy: z.string().optional().default('createdAt'),
-  sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
 });
 
 export const GetTeamMembersQuerySchema = z.object({
@@ -83,8 +58,8 @@ export const GetTeamMembersQuerySchema = z.object({
   sortBy: z.string().optional().default('joinedAt'),
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
   search: z.string().optional(),
-  joinedFrom: z.string().datetime().optional(),
-  joinedTo: z.string().datetime().optional(),
+  joinedFrom: dateQueryBase.optional(),
+  joinedTo: dateQueryBase.optional(),
 });
 
 export const GetListQuery = GetListQueryBase;
@@ -99,7 +74,7 @@ export const CreateTeamBodySchema = TeamSchema.omit({
   createdAt: true,
   updatedAt: true,
   deletedAt: true,
-  restoreAt: true, // ✅ CORREGIDO
+  restoreAt: true,
   createdBy: true,
   deletedBy: true,
   restoreBy: true,
@@ -130,35 +105,19 @@ export const TeamResponseSchema = TeamSchema;
 
 export const ResponseListSchema = ResponseListSchemaBase;
 
-export const TeamListResponseSchema = z.object({
-  data: z.array(TeamResponseSchema),
-  meta: z.object({
-    page: z.number(),
-    limit: z.number(),
-    total: z.number(),
-    totalPages: z.number(),
-  }),
-});
+export const TeamListResponseSchema = createPaginatedResponseSchema(TeamResponseSchema);
 
 export const BulkResponseSchema = z.object({
   count: z.number(),
 });
 
-// ✅ REALIDAD CORREGIDA: Se mapea idéntico a los includes habituales de Prisma para relaciones
+// Se mapea idéntico a los includes habituales de Prisma para relaciones
 export const TeamMemberResponseSchema = TeamMemberSchemaBase.extend({
-  user: UserSchemaBase.optional(), // Directamente la base del User que devuelve Prisma en su relación `include: { user: true }`
-  team: TeamSchema.optional(), // Relación `include: { team: true }`
+  user: UserSchemaBase.optional(), // include: { user: true }
+  team: TeamSchema.optional(), // include: { team: true }
 });
 
-export const TeamMemberListResponseSchema = z.object({
-  data: z.array(TeamMemberResponseSchema),
-  meta: z.object({
-    page: z.number(),
-    limit: z.number(),
-    total: z.number(),
-    totalPages: z.number(),
-  }),
-});
+export const TeamMemberListResponseSchema = createPaginatedResponseSchema(TeamMemberResponseSchema);
 
 // ==========================================
 // TYPES

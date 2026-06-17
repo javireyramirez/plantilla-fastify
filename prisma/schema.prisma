@@ -507,7 +507,6 @@ model Team {
   members TeamMember[]
 
   // Elementos que posee este team
-  ownedCompanies  Company[]        @relation("TeamOwnedCompanies")
   roleAssignments RoleAssignment[] @relation("TeamAssignments")
 
   @@map("teams")
@@ -566,14 +565,11 @@ model Company {
 
   // Propiedad (RBAC)
   ownerId     String?
-  ownerTeamId String?
 
   owner     User? @relation("UserOwnedCompanies", fields: [ownerId], references: [id], onDelete: SetNull)
-  ownerTeam Team? @relation("TeamOwnedCompanies", fields: [ownerTeamId], references: [id], onDelete: SetNull)
 
   @@index([nif])
   @@index([status])
   @@index([ownerId])
-  @@index([ownerTeamId])
   @@map("test_companies")
 }
