@@ -1,10 +1,6 @@
 import type { ScopeContext } from '@/types/base.types.js';
 
-export function buildScopeFilter(ctx: ScopeContext, modelName?: string): Record<string, any> {
-  const ownershipModels = ['company', 'document'];
-  if (modelName && !ownershipModels.includes(modelName.toLowerCase())) {
-    return {};
-  }
+export function buildScopeFilter(ctx: ScopeContext): Record<string, any> {
 
   switch (ctx.scope) {
     case 'GLOBAL':

@@ -5,6 +5,6 @@ import { BaseRepository } from '@/repositories/base.repository.js';
 
 export class StorageRepository extends BaseRepository<Document> {
   constructor(prisma: FastifyInstance['prisma']) {
-    super(prisma, 'document');
+    super(prisma, 'document', { hasOwnership: true });
   }
 }

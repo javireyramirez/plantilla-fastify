@@ -7,7 +7,6 @@ export async function memberContext(request: FastifyRequest, reply: FastifyReply
   if (user.isSuperAdmin) {
     request.memberContext = {
       teamIds: [],
-      memberId: '',
     };
     return;
   }
@@ -24,6 +23,5 @@ export async function memberContext(request: FastifyRequest, reply: FastifyReply
 
   request.memberContext = {
     teamIds: teamMemberships.map((tm) => tm.teamId),
-    memberId: teamMemberships[0]?.id ?? '',
   };
 }

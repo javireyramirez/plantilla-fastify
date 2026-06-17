@@ -4,6 +4,6 @@ import { Company } from './companies.schema.js';
 
 export class CompaniesRepository extends BaseRepository<Company> {
   constructor(prisma: FastifyInstance['prisma']) {
-    super(prisma, 'company');
+    super(prisma, 'company', { hasOwnership: true });
   }
 }

@@ -7,11 +7,20 @@ import { buildScopeFilter } from '@/utils/rbac-filter.js';
 
 // <-- Importado de tus utils
 
+export interface BaseRepositoryOptions {
+  hasOwnership?: boolean;
+}
+
 export abstract class BaseRepository<T> {
+  protected readonly hasOwnership: boolean;
+
   constructor(
     protected readonly prisma: PrismaClient,
     protected readonly modelName: keyof PrismaClient,
-  ) {}
+    options?: BaseRepositoryOptions,
+  ) {
+    this.hasOwnership = options?.hasOwnership ?? false;
+  }
 
   protected get model() {
     return this.prisma[this.modelName] as any;
@@ -21,9 +30,9 @@ export abstract class BaseRepository<T> {
    * Mezcla de forma segura el where original con las restricciones del RBAC
    */
   protected mergeScope(where: any = {}, scope?: ScopeContext): any {
-    if (!scope) return where;
+    if (!scope || !this.hasOwnership) return where;
 
-    const rbacFilter = buildScopeFilter(scope, this.modelName as string);
+    const rbacFilter = buildScopeFilter(scope);
     if (Object.keys(rbacFilter).length === 0) return where;
 
     return {
