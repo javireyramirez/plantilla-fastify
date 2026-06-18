@@ -22,7 +22,7 @@ export class UsersService extends BaseAuditService<Users> {
 
   protected getStatusFilter(isTrash: boolean) {
     return {
-      status: isTrash ? 'TRASHED' : 'ACTIVE',
+      status: isTrash ? 'TRASHED' : { not: 'TRASHED' },
       deletedAt: isTrash ? { not: null } : null,
     };
   }
