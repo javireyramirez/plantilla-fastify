@@ -18,7 +18,7 @@ export const CompanySchema = z
     website: z.url().optional().nullable(),
     owner: OwnerSchema.optional().nullable(),
   })
-  .extend(AuditFieldsSchema.omit({ restoreAt: true }).shape);
+  .extend(AuditFieldsSchema.omit({ restoredAt: true }).shape);
 
 // PARAMS
 export const CompanyIdParamsSchema = z.object({
@@ -49,7 +49,7 @@ export const CreateCompanyBodySchema = CompanySchema.omit({
   deletedAt: true,
   createdBy: true,
   deletedBy: true,
-  restoreBy: true,
+  restoredBy: true,
   updatedBy: true,
 }).extend({
   ownerId: z.string().optional().nullable(),

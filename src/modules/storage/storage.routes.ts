@@ -2,9 +2,9 @@ import { PermissionAction } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import { ZodTypeProvider } from 'fastify-type-provider-zod';
 
-import { memberContext } from '@/hooks/member.context.js';
 import { requireEntityPermission } from '@/hooks/rbac-storage.js';
 import { requireAuth } from '@/hooks/require.auth.js';
+import { userContext } from '@/hooks/user.context.js';
 
 import { StorageController } from './storage.controller.js';
 import {
@@ -43,7 +43,7 @@ export default async function storageRoutes(fastify: FastifyInstance) {
           200: ResponseDocuments,
         },
       },
-      preHandler: [requireAuth, memberContext, requireEntityPermission(PermissionAction.READ)],
+      preHandler: [requireAuth, userContext, requireEntityPermission(PermissionAction.READ)],
     },
     (req, reply) => controller.getDocumentsByEntity(req as any, reply),
   );
@@ -57,7 +57,7 @@ export default async function storageRoutes(fastify: FastifyInstance) {
         params: ConfirmParamsSchema,
         response: { 200: ResponseStatusChangeSchema },
       },
-      preHandler: [requireAuth, memberContext, requireEntityPermission(PermissionAction.READ)],
+      preHandler: [requireAuth, userContext, requireEntityPermission(PermissionAction.READ)],
     },
     (req, reply) => controller.getDocument(req as any, reply),
   );
@@ -73,7 +73,7 @@ export default async function storageRoutes(fastify: FastifyInstance) {
           200: ResponseDownloadSchema,
         },
       },
-      preHandler: [requireAuth, memberContext, requireEntityPermission(PermissionAction.READ)],
+      preHandler: [requireAuth, userContext, requireEntityPermission(PermissionAction.READ)],
     },
     (req, reply) => controller.getPreSignedDownloadUrl(req as any, reply),
   );
@@ -94,7 +94,7 @@ export default async function storageRoutes(fastify: FastifyInstance) {
           201: ResponseUploadSchema,
         },
       },
-      preHandler: [requireAuth, memberContext, requireEntityPermission(PermissionAction.UPDATE)],
+      preHandler: [requireAuth, userContext, requireEntityPermission(PermissionAction.UPDATE)],
     },
     (req, reply) => controller.requestUploadUrl(req as any, reply),
   );
@@ -110,7 +110,7 @@ export default async function storageRoutes(fastify: FastifyInstance) {
           200: ResponseStatusChangeSchema,
         },
       },
-      preHandler: [requireAuth, memberContext, requireEntityPermission(PermissionAction.UPDATE)],
+      preHandler: [requireAuth, userContext, requireEntityPermission(PermissionAction.UPDATE)],
     },
     (req, reply) => controller.confirmUpload(req as any, reply),
   );
@@ -129,7 +129,7 @@ export default async function storageRoutes(fastify: FastifyInstance) {
         body: UpdateMetadataSchema,
         response: { 200: ResponseStatusChangeSchema },
       },
-      preHandler: [requireAuth, memberContext, requireEntityPermission(PermissionAction.UPDATE)],
+      preHandler: [requireAuth, userContext, requireEntityPermission(PermissionAction.UPDATE)],
     },
     (req, reply) => controller.updateMetadata(req as any, reply),
   );
@@ -145,7 +145,7 @@ export default async function storageRoutes(fastify: FastifyInstance) {
           200: ResponseStatusChangeSchema,
         },
       },
-      preHandler: [requireAuth, memberContext, requireEntityPermission(PermissionAction.UPDATE)],
+      preHandler: [requireAuth, userContext, requireEntityPermission(PermissionAction.UPDATE)],
     },
     (req, reply) => controller.deleteSoft(req as any, reply),
   );
@@ -161,7 +161,7 @@ export default async function storageRoutes(fastify: FastifyInstance) {
           200: ResponseStatusChangeSchema,
         },
       },
-      preHandler: [requireAuth, memberContext, requireEntityPermission(PermissionAction.UPDATE)],
+      preHandler: [requireAuth, userContext, requireEntityPermission(PermissionAction.UPDATE)],
     },
     (req, reply) => controller.restore(req as any, reply),
   );
@@ -180,7 +180,7 @@ export default async function storageRoutes(fastify: FastifyInstance) {
         body: BulkActionSchema,
         response: { 200: BulkUpdateResponseSchema },
       },
-      preHandler: [requireAuth, memberContext, requireEntityPermission(PermissionAction.UPDATE)],
+      preHandler: [requireAuth, userContext, requireEntityPermission(PermissionAction.UPDATE)],
     },
     (req, reply) => controller.bulkDeleteSoft(req as any, reply),
   );
@@ -195,7 +195,7 @@ export default async function storageRoutes(fastify: FastifyInstance) {
         body: BulkActionSchema,
         response: { 200: BulkUpdateResponseSchema },
       },
-      preHandler: [requireAuth, memberContext, requireEntityPermission(PermissionAction.UPDATE)],
+      preHandler: [requireAuth, userContext, requireEntityPermission(PermissionAction.UPDATE)],
     },
     (req, reply) => controller.bulkRestore(req as any, reply),
   );
@@ -210,7 +210,7 @@ export default async function storageRoutes(fastify: FastifyInstance) {
         body: BulkActionSchema,
         response: { 200: ResponseDownloadBulkSchema },
       },
-      preHandler: [requireAuth, memberContext, requireEntityPermission(PermissionAction.READ)],
+      preHandler: [requireAuth, userContext, requireEntityPermission(PermissionAction.READ)],
     },
     (req, reply) => controller.bulkDownload(req as any, reply),
   );
@@ -224,7 +224,7 @@ export default async function storageRoutes(fastify: FastifyInstance) {
         params: EntityParamsSchema,
         body: BulkActionSchema,
       },
-      preHandler: [requireAuth, memberContext, requireEntityPermission(PermissionAction.READ)],
+      preHandler: [requireAuth, userContext, requireEntityPermission(PermissionAction.READ)],
     },
     (req, reply) => controller.bulkDownloadZip(req as any, reply),
   );
@@ -242,7 +242,7 @@ export default async function storageRoutes(fastify: FastifyInstance) {
         params: EntityParamsSchema,
         response: { 200: ResponseDeleteSchema },
       },
-      preHandler: [requireAuth, memberContext, requireEntityPermission(PermissionAction.DELETE)],
+      preHandler: [requireAuth, userContext, requireEntityPermission(PermissionAction.DELETE)],
     },
     (req, reply) => controller.emptyTrash(req as any, reply),
   );
@@ -258,7 +258,7 @@ export default async function storageRoutes(fastify: FastifyInstance) {
           200: ResponseDeleteSchema,
         },
       },
-      preHandler: [requireAuth, memberContext, requireEntityPermission(PermissionAction.DELETE)],
+      preHandler: [requireAuth, userContext, requireEntityPermission(PermissionAction.DELETE)],
     },
     (req, reply) => controller.deletePermanent(req as any, reply),
   );

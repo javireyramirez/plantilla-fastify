@@ -80,14 +80,11 @@ export const GetListQuery = GetListQueryBase;
 export const CreateUsersBodySchema = z.object({
   email: z.email(),
   name: z.string().min(1).max(255).optional(),
-  isSuperAdmin: z.boolean().optional().default(false),
 });
 
 export const UpdateUsersBodySchema = z.object({
   name: z.string().min(1).max(255).optional(),
-  image: z.string().url().nullable().optional(),
-  isActive: z.boolean().optional(),
-  isSuperAdmin: z.boolean().optional(),
+  image: z.url().nullable().optional(),
 });
 
 export const BulkCreateUsersBodySchema = z.array(CreateUsersBodySchema);

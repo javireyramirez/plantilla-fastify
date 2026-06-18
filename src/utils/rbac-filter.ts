@@ -1,7 +1,6 @@
 import type { ScopeContext } from '@/types/base.types.js';
 
 export function buildScopeFilter(ctx: ScopeContext): Record<string, any> {
-
   switch (ctx.scope) {
     case 'GLOBAL':
       return {};
@@ -17,7 +16,7 @@ export function buildScopeFilter(ctx: ScopeContext): Record<string, any> {
         OR: [
           {
             owner: {
-              teamMember: {
+              teamUser: {
                 some: { teamId: teamsFilter },
               },
             },
@@ -25,7 +24,7 @@ export function buildScopeFilter(ctx: ScopeContext): Record<string, any> {
 
           {
             creator: {
-              teamMember: {
+              teamUser: {
                 some: { teamId: teamsFilter },
               },
             },

@@ -52,10 +52,10 @@ export const AuditFieldsSchema = z.object({
   createdAt: z.date(),
   updatedAt: z.date(),
   deletedAt: z.date().optional().nullable(),
-  restoreAt: z.date().optional().nullable(),
+  restoredAt: z.date().optional().nullable(),
   createdBy: z.string().optional().nullable(),
   deletedBy: z.string().optional().nullable(),
-  restoreBy: z.string().optional().nullable(),
+  restoredBy: z.string().optional().nullable(),
   updatedBy: z.string().optional().nullable(),
 });
 

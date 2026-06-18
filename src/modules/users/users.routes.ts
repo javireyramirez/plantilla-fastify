@@ -2,9 +2,9 @@ import { PermissionAction } from '@prisma/client';
 import { FastifyInstance } from 'fastify';
 import { ZodTypeProvider } from 'fastify-type-provider-zod';
 
-import { memberContext } from '@/hooks/member.context.js';
 import { requirePermission } from '@/hooks/rbac.js';
 import { requireAuth } from '@/hooks/require.auth.js';
+import { userContext } from '@/hooks/user.context.js';
 import {
   BulkIdsBodySchema,
   BulkResponseSchema,
@@ -23,11 +23,7 @@ import { registerBaseRoutes } from '@/routes/base.routes.js';
 export default async function usersRoutes(fastify: FastifyInstance) {
   const app = fastify.withTypeProvider<ZodTypeProvider>();
   const ctrl = fastify.usersController;
-  const preHandler = [
-    requireAuth,
-    memberContext,
-    requirePermission('users', PermissionAction.READ),
-  ];
+  const preHandler = [requireAuth, userContext, requirePermission('users', PermissionAction.READ)];
 
   registerBaseRoutes(fastify, ctrl, {
     resource: 'users',
@@ -60,7 +56,7 @@ export default async function usersRoutes(fastify: FastifyInstance) {
       params: UsersIdParamsSchema,
       response: { 200: ResponseMessageSchema },
     },
-    preHandler: [requireAuth, memberContext, requirePermission('users', PermissionAction.CREATE)],
+    preHandler: [requireAuth, userContext, requirePermission('users', PermissionAction.CREATE)],
     handler: ctrl.resendInvitation.bind(ctrl),
   });
 
@@ -74,7 +70,7 @@ export default async function usersRoutes(fastify: FastifyInstance) {
       params: UsersIdParamsSchema,
       response: { 200: UsersResponseSchema },
     },
-    preHandler: [requireAuth, memberContext, requirePermission('users', PermissionAction.UPDATE)],
+    preHandler: [requireAuth, userContext, requirePermission('users', PermissionAction.UPDATE)],
     handler: ctrl.suspend.bind(ctrl),
   });
 
@@ -88,7 +84,7 @@ export default async function usersRoutes(fastify: FastifyInstance) {
       params: UsersIdParamsSchema,
       response: { 200: UsersResponseSchema },
     },
-    preHandler: [requireAuth, memberContext, requirePermission('users', PermissionAction.UPDATE)],
+    preHandler: [requireAuth, userContext, requirePermission('users', PermissionAction.UPDATE)],
     handler: ctrl.unsuspend.bind(ctrl),
   });
 
@@ -102,7 +98,7 @@ export default async function usersRoutes(fastify: FastifyInstance) {
       body: BulkIdsBodySchema,
       response: { 200: BulkResponseSchema },
     },
-    preHandler: [requireAuth, memberContext, requirePermission('users', PermissionAction.UPDATE)],
+    preHandler: [requireAuth, userContext, requirePermission('users', PermissionAction.UPDATE)],
     handler: ctrl.bulkSuspend.bind(ctrl),
   });
 
@@ -116,7 +112,7 @@ export default async function usersRoutes(fastify: FastifyInstance) {
       body: BulkIdsBodySchema,
       response: { 200: BulkResponseSchema },
     },
-    preHandler: [requireAuth, memberContext, requirePermission('users', PermissionAction.UPDATE)],
+    preHandler: [requireAuth, userContext, requirePermission('users', PermissionAction.UPDATE)],
     handler: ctrl.bulkUnsuspend.bind(ctrl),
   });
 }

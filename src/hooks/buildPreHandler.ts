@@ -1,6 +1,6 @@
 import { PermissionAction } from '@prisma/client';
 
-import { memberContext } from '@/hooks/member.context.js';
+import { userContext } from '@/hooks/user.context.js';
 import { BaseRoutesOptions } from '@/types/base-routes.types.js';
 
 import { requirePermission } from './rbac.js';
@@ -19,8 +19,8 @@ export function buildPreHandler(
     return handlers;
   }
 
-  if (!options.auth?.skipMemberContext) {
-    handlers.push(memberContext);
+  if (!options.auth?.skipUserContext) {
+    handlers.push(userContext);
   }
 
   if (!options.auth?.skipPermissions) {

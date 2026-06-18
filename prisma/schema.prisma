@@ -33,13 +33,13 @@ model User {
   isSuperAdmin  Boolean  @default(false)
 
   // Auditoría
-  status    RecordStatus @default(ACTIVE)
-  deletedAt DateTime?
-  restoreAt DateTime?
-  createdBy String?
-  deletedBy String?
-  restoreBy String?
-  updatedBy String?
+  status     RecordStatus @default(ACTIVE)
+  deletedAt  DateTime?
+  restoredAt DateTime?
+  createdBy  String?
+  deletedBy  String?
+  restoredBy String?
+  updatedBy  String?
 
   // Auditoría y Propiedad: Documentos
   createdDocuments  Document[] @relation("CreatedDocuments")
@@ -69,8 +69,8 @@ model User {
   restoredTeams Team[] @relation("RestoredTeams")
   updatedTeams  Team[] @relation("UpdatedTeams")
 
-  invitedTeamMembers TeamMember[] @relation("InvitedTeamMembers")
-  teamMember         TeamMember[] @relation("TeamMember")
+  invitedTeamUsers TeamUser[] @relation("InvitedTeamUsers")
+  teamUser         TeamUser[] @relation("TeamUser")
 
   // Auth Auxiliar
   accounts  Account[]
@@ -299,10 +299,10 @@ model Document {
   entityId   String
 
   // Auditoría
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-  restoreAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+  restoredAt DateTime?
 
   createdBy String?
   creator   User?   @relation("CreatedDocuments", fields: [createdBy], references: [id], onDelete: SetNull)
@@ -310,8 +310,8 @@ model Document {
   deletedBy String?
   deletor   User?   @relation("DeletedDocuments", fields: [deletedBy], references: [id], onDelete: SetNull)
 
-  restoreBy String?
-  restorer  User?   @relation("RestoredDocuments", fields: [restoreBy], references: [id], onDelete: SetNull)
+  restoredBy String?
+  restorer   User?   @relation("RestoredDocuments", fields: [restoredBy], references: [id], onDelete: SetNull)
 
   updatedBy String?
   updater   User?   @relation("UpdatedDocuments", fields: [updatedBy], references: [id], onDelete: SetNull)
@@ -341,10 +341,10 @@ model Module {
   status             RecordStatus @default(ACTIVE)
 
   // Auditoría Unificada
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-  restoreAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+  restoredAt DateTime?
 
   createdBy String?
   creator   User?   @relation("CreatedModule", fields: [createdBy], references: [id], onDelete: SetNull)
@@ -352,8 +352,8 @@ model Module {
   deletedBy String?
   deletor   User?   @relation("DeletedModule", fields: [deletedBy], references: [id], onDelete: SetNull)
 
-  restoreBy String?
-  restorer  User?   @relation("RestoredModule", fields: [restoreBy], references: [id], onDelete: SetNull)
+  restoredBy String?
+  restorer   User?   @relation("RestoredModule", fields: [restoredBy], references: [id], onDelete: SetNull)
 
   updatedBy String?
   updater   User?   @relation("UpdatedModule", fields: [updatedBy], references: [id], onDelete: SetNull)
@@ -379,10 +379,10 @@ model Role {
   status RecordStatus @default(ACTIVE)
 
   // Auditoría
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-  restoreAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+  restoredAt DateTime?
 
   createdBy String?
   creator   User?   @relation("CreatedRoles", fields: [createdBy], references: [id], onDelete: SetNull)
@@ -390,8 +390,8 @@ model Role {
   deletedBy String?
   deletor   User?   @relation("DeletedRoles", fields: [deletedBy], references: [id], onDelete: SetNull)
 
-  restoreBy String?
-  restorer  User?   @relation("RestoredRoles", fields: [restoreBy], references: [id], onDelete: SetNull)
+  restoredBy String?
+  restorer   User?   @relation("RestoredRoles", fields: [restoredBy], references: [id], onDelete: SetNull)
 
   updatedBy String?
   updater   User?   @relation("UpdatedRoles", fields: [updatedBy], references: [id], onDelete: SetNull)
@@ -486,10 +486,10 @@ model Team {
   status      RecordStatus @default(ACTIVE)
 
   // Auditoría
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-  restoreAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+  restoredAt DateTime?
 
   createdBy String?
   creator   User?   @relation("CreatedTeams", fields: [createdBy], references: [id], onDelete: SetNull)
@@ -497,14 +497,14 @@ model Team {
   deletedBy String?
   deletor   User?   @relation("DeletedTeams", fields: [deletedBy], references: [id], onDelete: SetNull)
 
-  restoreBy String?
-  restorer  User?   @relation("RestoredTeams", fields: [restoreBy], references: [id], onDelete: SetNull)
+  restoredBy String?
+  restorer   User?   @relation("RestoredTeams", fields: [restoredBy], references: [id], onDelete: SetNull)
 
   updatedBy String?
   updater   User?   @relation("UpdatedTeams", fields: [updatedBy], references: [id], onDelete: SetNull)
 
   // Relaciones
-  members TeamMember[]
+  users TeamUser[]
 
   // Elementos que posee este team
   roleAssignments RoleAssignment[] @relation("TeamAssignments")
@@ -512,7 +512,7 @@ model Team {
   @@map("teams")
 }
 
-model TeamMember {
+model TeamUser {
   id     String @id @default(uuid(7))
   teamId String
   userId String
@@ -520,15 +520,15 @@ model TeamMember {
   joinedAt  DateTime @default(now())
   invitedBy String?
 
-  inviter User? @relation("InvitedTeamMembers", fields: [invitedBy], references: [id], onDelete: SetNull)
-  user    User? @relation("TeamMember", fields: [userId], references: [id], onDelete: Cascade)
+  inviter User? @relation("InvitedTeamUsers", fields: [invitedBy], references: [id], onDelete: SetNull)
+  user    User  @relation("TeamUser", fields: [userId], references: [id], onDelete: Cascade)
 
   team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@unique([teamId, userId])
   @@index([teamId])
   @@index([userId])
-  @@map("team_members")
+  @@map("team_users")
 }
 
 // ==========================================
@@ -546,10 +546,10 @@ model Company {
   status      RecordStatus @default(ACTIVE)
 
   // Auditoría
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-  restoreAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+  restoredAt DateTime?
 
   createdBy String?
   creator   User?   @relation("CreatedCompanies", fields: [createdBy], references: [id], onDelete: SetNull)
@@ -557,16 +557,16 @@ model Company {
   deletedBy String?
   deletor   User?   @relation("DeletedCompanies", fields: [deletedBy], references: [id], onDelete: SetNull)
 
-  restoreBy String?
-  restorer  User?   @relation("RestoredCompanies", fields: [restoreBy], references: [id], onDelete: SetNull)
+  restoredBy String?
+  restorer   User?   @relation("RestoredCompanies", fields: [restoredBy], references: [id], onDelete: SetNull)
 
   updatedBy String?
   updater   User?   @relation("UpdatedCompanies", fields: [updatedBy], references: [id], onDelete: SetNull)
 
   // Propiedad (RBAC)
-  ownerId     String?
+  ownerId String?
 
-  owner     User? @relation("UserOwnedCompanies", fields: [ownerId], references: [id], onDelete: SetNull)
+  owner User? @relation("UserOwnedCompanies", fields: [ownerId], references: [id], onDelete: SetNull)
 
   @@index([nif])
   @@index([status])

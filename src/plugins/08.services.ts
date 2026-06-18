@@ -13,7 +13,7 @@ export default fp(
     const emailService = new EmailService(fastify.prisma, fastify.log);
     const storageService = new StorageService(fastify.storageRepository, fastify.storageProvider);
     const comparyService = new CompaniesService(fastify.companiesRepository);
-    const teamService = new TeamService(fastify.teamRepository, fastify.teamMemberRepository);
+    const teamService = new TeamService(fastify.teamRepository, fastify.teamUserRepository);
     const roleService = new RoleService(
       fastify.roleRepository,
       fastify.rolePermissionRepository,

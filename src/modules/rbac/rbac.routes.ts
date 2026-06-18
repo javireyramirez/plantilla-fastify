@@ -2,9 +2,9 @@ import { PermissionAction } from '@prisma/client';
 import { FastifyInstance } from 'fastify';
 import { ZodTypeProvider } from 'fastify-type-provider-zod';
 
-import { memberContext } from '@/hooks/member.context.js';
 import { requirePermission } from '@/hooks/rbac.js';
 import { requireAuth } from '@/hooks/require.auth.js';
+import { userContext } from '@/hooks/user.context.js';
 import {
   AssignmentIdParamsSchema,
   AssignmentListResponseSchema,
@@ -77,7 +77,7 @@ export default async function roleRoutes(fastify: FastifyInstance) {
       querystring: GetPermissionsQuerySchema,
       response: { 200: RolePermissionsListResponseSchema },
     },
-    preHandler: [requireAuth, memberContext, requirePermission('roles', PermissionAction.READ)],
+    preHandler: [requireAuth, userContext, requirePermission('roles', PermissionAction.READ)],
     handler: fastify.roleController.getAllPermissions.bind(fastify.roleController),
   });
 
@@ -92,7 +92,7 @@ export default async function roleRoutes(fastify: FastifyInstance) {
       body: CreatePermissionBodySchema,
       response: { 201: RolePermissionResponseSchema },
     },
-    preHandler: [requireAuth, memberContext, requirePermission('roles', PermissionAction.SETTINGS)],
+    preHandler: [requireAuth, userContext, requirePermission('roles', PermissionAction.SETTINGS)],
     handler: fastify.roleController.addPermission.bind(fastify.roleController),
   });
 
@@ -102,7 +102,7 @@ export default async function roleRoutes(fastify: FastifyInstance) {
       params: RolePermissionIdParamsSchema,
       response: { 200: RolePermissionResponseSchema },
     },
-    preHandler: [requireAuth, memberContext, requirePermission('roles', PermissionAction.SETTINGS)],
+    preHandler: [requireAuth, userContext, requirePermission('roles', PermissionAction.SETTINGS)],
     handler: fastify.roleController.revokePermission.bind(fastify.roleController),
   });
 
@@ -114,7 +114,7 @@ export default async function roleRoutes(fastify: FastifyInstance) {
       body: CreatePermissionBodySchema,
       response: { 200: RolePermissionResponseSchema },
     },
-    preHandler: [requireAuth, memberContext, requirePermission('roles', PermissionAction.SETTINGS)],
+    preHandler: [requireAuth, userContext, requirePermission('roles', PermissionAction.SETTINGS)],
     handler: fastify.roleController.updatePermissionScope.bind(fastify.roleController),
   });
 
@@ -129,7 +129,7 @@ export default async function roleRoutes(fastify: FastifyInstance) {
       body: BulkCreatePermissionBodySchema,
       response: { 201: BulkResponseSchema },
     },
-    preHandler: [requireAuth, memberContext, requirePermission('roles', PermissionAction.SETTINGS)],
+    preHandler: [requireAuth, userContext, requirePermission('roles', PermissionAction.SETTINGS)],
     handler: fastify.roleController.bulkAddPermissions.bind(fastify.roleController),
   });
 
@@ -140,7 +140,7 @@ export default async function roleRoutes(fastify: FastifyInstance) {
       body: BulkIdsBodySchema,
       response: { 200: BulkResponseSchema },
     },
-    preHandler: [requireAuth, memberContext, requirePermission('roles', PermissionAction.SETTINGS)],
+    preHandler: [requireAuth, userContext, requirePermission('roles', PermissionAction.SETTINGS)],
     handler: fastify.roleController.bulkRevokePermissions.bind(fastify.roleController),
   });
 
@@ -151,7 +151,7 @@ export default async function roleRoutes(fastify: FastifyInstance) {
       body: BulkUpdatePermissionBodySchema,
       response: { 200: BulkResponseSchema },
     },
-    preHandler: [requireAuth, memberContext, requirePermission('roles', PermissionAction.SETTINGS)],
+    preHandler: [requireAuth, userContext, requirePermission('roles', PermissionAction.SETTINGS)],
     handler: fastify.roleController.bulkUpdatePermissions.bind(fastify.roleController),
   });
 
@@ -170,7 +170,7 @@ export default async function roleRoutes(fastify: FastifyInstance) {
       querystring: GetAssignmentsQuerySchema,
       response: { 200: AssignmentListResponseSchema },
     },
-    preHandler: [requireAuth, memberContext, requirePermission('roles', PermissionAction.READ)],
+    preHandler: [requireAuth, userContext, requirePermission('roles', PermissionAction.READ)],
     handler: fastify.roleController.getAllAssignments.bind(fastify.roleController),
   });
 
@@ -180,7 +180,7 @@ export default async function roleRoutes(fastify: FastifyInstance) {
       params: RoleAssignmentParamsSchema,
       response: { 200: RoleAssignmentResponseSchema },
     },
-    preHandler: [requireAuth, memberContext, requirePermission('roles', PermissionAction.READ)],
+    preHandler: [requireAuth, userContext, requirePermission('roles', PermissionAction.READ)],
     handler: fastify.roleController.getAssignmentById.bind(fastify.roleController),
   });
 
@@ -195,7 +195,7 @@ export default async function roleRoutes(fastify: FastifyInstance) {
       body: CreateAssignmentBodySchema,
       response: { 201: RoleAssignmentResponseSchema },
     },
-    preHandler: [requireAuth, memberContext, requirePermission('roles', PermissionAction.SETTINGS)],
+    preHandler: [requireAuth, userContext, requirePermission('roles', PermissionAction.SETTINGS)],
     handler: fastify.roleController.assign.bind(fastify.roleController),
   });
 
@@ -205,7 +205,7 @@ export default async function roleRoutes(fastify: FastifyInstance) {
       params: RoleAssignmentParamsSchema,
       response: { 200: RoleAssignmentResponseSchema },
     },
-    preHandler: [requireAuth, memberContext, requirePermission('roles', PermissionAction.SETTINGS)],
+    preHandler: [requireAuth, userContext, requirePermission('roles', PermissionAction.SETTINGS)],
     handler: fastify.roleController.unassign.bind(fastify.roleController),
   });
 
@@ -220,7 +220,7 @@ export default async function roleRoutes(fastify: FastifyInstance) {
       body: BulkCreateAssignmentBodySchema,
       response: { 201: BulkAssignmentResponseSchema },
     },
-    preHandler: [requireAuth, memberContext, requirePermission('roles', PermissionAction.SETTINGS)],
+    preHandler: [requireAuth, userContext, requirePermission('roles', PermissionAction.SETTINGS)],
     handler: fastify.roleController.bulkAssign.bind(fastify.roleController),
   });
 
@@ -231,7 +231,7 @@ export default async function roleRoutes(fastify: FastifyInstance) {
       body: BulkAssignmentIdsBodySchema,
       response: { 200: BulkAssignmentResponseSchema },
     },
-    preHandler: [requireAuth, memberContext, requirePermission('roles', PermissionAction.SETTINGS)],
+    preHandler: [requireAuth, userContext, requirePermission('roles', PermissionAction.SETTINGS)],
     handler: fastify.roleController.bulkUnassign.bind(fastify.roleController),
   });
 }

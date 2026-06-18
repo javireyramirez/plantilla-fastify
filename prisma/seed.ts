@@ -359,7 +359,7 @@ async function main() {
 
     const teamId = teamMap[userDef.teamName];
 
-    await prisma.teamMember.upsert({
+    await prisma.teamUser.upsert({
       where: { teamId_userId: { teamId, userId: user.id } },
       update: {},
       create: {

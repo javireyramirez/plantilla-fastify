@@ -21,7 +21,7 @@ export default async function moduleRoutes(fastify: FastifyInstance) {
     tags: ['Modules'],
 
     auth: {
-      skipMemberContext: true,
+      skipUserContext: true,
       skipPermissions: true,
       requireSuperAdmin: true,
     },

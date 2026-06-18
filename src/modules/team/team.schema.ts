@@ -23,7 +23,7 @@ export const TeamSchema = z
   })
   .extend(AuditFieldsSchema.shape);
 
-export const TeamMemberSchemaBase = z.object({
+export const TeamUserSchemaBase = z.object({
   id: z.uuidv7(),
   teamId: z.uuidv7(),
   userId: z.uuidv7(),
@@ -39,7 +39,7 @@ export const TeamIdParamsSchema = z.object({
   id: z.uuidv7(),
 });
 
-export const TeamMemberIdParamsSchema = z.object({
+export const TeamuserIdParamsSchema = z.object({
   id: z.uuidv7(),
   userId: z.uuidv7(),
 });
@@ -52,7 +52,7 @@ export const GetTeamQuerySchema = GetPaginatedQueryBaseSchema.extend({
   sortBy: z.string().optional().default('createdAt'),
 });
 
-export const GetTeamMembersQuerySchema = z.object({
+export const GetTeamUsersQuerySchema = z.object({
   page: z.coerce.number().optional().default(1),
   limit: z.coerce.number().optional().default(10),
   sortBy: z.string().optional().default('joinedAt'),
@@ -74,10 +74,10 @@ export const CreateTeamBodySchema = TeamSchema.omit({
   createdAt: true,
   updatedAt: true,
   deletedAt: true,
-  restoreAt: true,
+  restoredAt: true,
   createdBy: true,
   deletedBy: true,
-  restoreBy: true,
+  restoredBy: true,
   updatedBy: true,
 });
 
@@ -89,11 +89,11 @@ export const BulkIdsBodySchema = z.object({
   ids: z.array(z.uuidv7()),
 });
 
-export const CreateTeamMemberSchema = TeamMemberSchemaBase.pick({
+export const CreateTeamUserSchema = TeamUserSchemaBase.pick({
   userId: true,
 });
 
-export const BulkMemberIdsBodySchema = z.object({
+export const BulkuserIdsBodySchema = z.object({
   userIds: z.array(z.uuidv7()).min(1),
 });
 
@@ -112,12 +112,12 @@ export const BulkResponseSchema = z.object({
 });
 
 // Se mapea idéntico a los includes habituales de Prisma para relaciones
-export const TeamMemberResponseSchema = TeamMemberSchemaBase.extend({
+export const TeamUserResponseSchema = TeamUserSchemaBase.extend({
   user: UserSchemaBase.optional(), // include: { user: true }
   team: TeamSchema.optional(), // include: { team: true }
 });
 
-export const TeamMemberListResponseSchema = createPaginatedResponseSchema(TeamMemberResponseSchema);
+export const TeamUserListResponseSchema = createPaginatedResponseSchema(TeamUserResponseSchema);
 
 // ==========================================
 // TYPES
@@ -126,6 +126,6 @@ export const TeamMemberListResponseSchema = createPaginatedResponseSchema(TeamMe
 export type Team = z.infer<typeof TeamSchema>;
 export type CreateTeam = z.infer<typeof CreateTeamBodySchema>;
 export type UpdateTeam = z.infer<typeof UpdateTeamBodySchema>;
-export type TeamMember = z.infer<typeof TeamMemberSchemaBase>;
-export type CreateTeamMember = z.infer<typeof CreateTeamMemberSchema>;
-export type GetTeamMembersQuery = z.infer<typeof GetTeamMembersQuerySchema>;
+export type TeamUser = z.infer<typeof TeamUserSchemaBase>;
+export type CreateTeamUser = z.infer<typeof CreateTeamUserSchema>;
+export type GetTeamUsersQuery = z.infer<typeof GetTeamUsersQuerySchema>;

@@ -55,10 +55,10 @@ export const CreateModuleBodySchema = ModuleSchema.omit({
   createdAt: true,
   updatedAt: true,
   deletedAt: true,
-  restoreAt: true,
+  restoredAt: true,
   createdBy: true,
   deletedBy: true,
-  restoreBy: true,
+  restoredBy: true,
   updatedBy: true,
 });
 

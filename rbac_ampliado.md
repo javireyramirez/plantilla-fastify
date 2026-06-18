@@ -144,7 +144,7 @@ sequenceDiagram
     actor Cliente
     participant Router as FastifyRouter
     participant Hook1 as requireAuth
-    participant Hook2 as memberContext
+    participant Hook2 as userContext
     participant Hook3 as requirePermission
     participant Ctrl as RoleController
     participant Srv as RoleService
@@ -156,9 +156,9 @@ sequenceDiagram
     Note over Hook1: Resuelve la sesión del JWT/Cookie.<br/>Inyecta userId e isSuperAdmin.
     Hook1-->>Router: ✓ request.user
 
-    Router->>Hook2: memberContext
+    Router->>Hook2: userContext
     Note over Hook2: Barrido de equipos activos del usuario.<br/>Inyecta teamIds en la request.
-    Hook2-->>Router: ✓ request.memberContext
+    Hook2-->>Router: ✓ request.userContext
 
     Router->>Hook3: requirePermission('companies', 'UPDATE')
     Note over Hook3: Superadmin → bypass con scope GLOBAL.<br/>Resto → consolida permisos por teamIds.<br/>Calcula el scope dominante.

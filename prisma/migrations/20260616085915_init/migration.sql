@@ -31,10 +31,10 @@ CREATE TABLE "auth_users" (
     "isSuperAdmin" BOOLEAN NOT NULL DEFAULT false,
     "status" "RecordStatus" NOT NULL DEFAULT 'ACTIVE',
     "deletedAt" TIMESTAMP(3),
-    "restoreAt" TIMESTAMP(3),
+    "restoredAt" TIMESTAMP(3),
     "createdBy" TEXT,
     "deletedBy" TEXT,
-    "restoreBy" TEXT,
+    "restoredBy " TEXT,
     "updatedBy" TEXT,
 
     CONSTRAINT "auth_users_pkey" PRIMARY KEY ("id")
@@ -189,10 +189,10 @@ CREATE TABLE "document" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "deletedAt" TIMESTAMP(3),
-    "restoreAt" TIMESTAMP(3),
+    "restoredAt" TIMESTAMP(3),
     "createdBy" TEXT,
     "deletedBy" TEXT,
-    "restoreBy" TEXT,
+    "restoredBy " TEXT,
     "updatedBy" TEXT,
     "isPublic" BOOLEAN NOT NULL DEFAULT false,
 
@@ -213,10 +213,10 @@ CREATE TABLE "rbac_modules" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "deletedAt" TIMESTAMP(3),
-    "restoreAt" TIMESTAMP(3),
+    "restoredAt" TIMESTAMP(3),
     "createdBy" TEXT,
     "deletedBy" TEXT,
-    "restoreBy" TEXT,
+    "restoredBy " TEXT,
     "updatedBy" TEXT,
 
     CONSTRAINT "rbac_modules_pkey" PRIMARY KEY ("id")
@@ -235,10 +235,10 @@ CREATE TABLE "rbac_roles" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "deletedAt" TIMESTAMP(3),
-    "restoreAt" TIMESTAMP(3),
+    "restoredAt" TIMESTAMP(3),
     "createdBy" TEXT,
     "deletedBy" TEXT,
-    "restoreBy" TEXT,
+    "restoredBy " TEXT,
     "updatedBy" TEXT,
 
     CONSTRAINT "rbac_roles_pkey" PRIMARY KEY ("id")
@@ -281,24 +281,24 @@ CREATE TABLE "teams" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "deletedAt" TIMESTAMP(3),
-    "restoreAt" TIMESTAMP(3),
+    "restoredAt" TIMESTAMP(3),
     "createdBy" TEXT,
     "deletedBy" TEXT,
-    "restoreBy" TEXT,
+    "restoredBy " TEXT,
     "updatedBy" TEXT,
 
     CONSTRAINT "teams_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "team_members" (
+CREATE TABLE "team_users" (
     "id" TEXT NOT NULL,
     "teamId" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "joinedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "invitedBy" TEXT,
 
-    CONSTRAINT "team_members_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "team_users_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -313,10 +313,10 @@ CREATE TABLE "test_companies" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "deletedAt" TIMESTAMP(3),
-    "restoreAt" TIMESTAMP(3),
+    "restoredAt" TIMESTAMP(3),
     "createdBy" TEXT,
     "deletedBy" TEXT,
-    "restoreBy" TEXT,
+    "restoredBy " TEXT,
     "updatedBy" TEXT,
     "ownerId" TEXT,
     "ownerTeamId" TEXT,
@@ -478,13 +478,13 @@ CREATE UNIQUE INDEX "teams_name_key" ON "teams"("name");
 CREATE UNIQUE INDEX "teams_slug_key" ON "teams"("slug");
 
 -- CreateIndex
-CREATE INDEX "team_members_teamId_idx" ON "team_members"("teamId");
+CREATE INDEX "team_users_teamId_idx" ON "team_users"("teamId");
 
 -- CreateIndex
-CREATE INDEX "team_members_userId_idx" ON "team_members"("userId");
+CREATE INDEX "team_users_userId_idx" ON "team_users"("userId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "team_members_teamId_userId_key" ON "team_members"("teamId", "userId");
+CREATE UNIQUE INDEX "team_users_teamId_userId_key" ON "team_users"("teamId", "userId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "test_companies_nif_key" ON "test_companies"("nif");
@@ -520,7 +520,7 @@ ALTER TABLE "document" ADD CONSTRAINT "document_createdBy_fkey" FOREIGN KEY ("cr
 ALTER TABLE "document" ADD CONSTRAINT "document_deletedBy_fkey" FOREIGN KEY ("deletedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "document" ADD CONSTRAINT "document_restoreBy_fkey" FOREIGN KEY ("restoreBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "document" ADD CONSTRAINT "document_restoredBy _fkey" FOREIGN KEY ("restoredBy ") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "document" ADD CONSTRAINT "document_updatedBy_fkey" FOREIGN KEY ("updatedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -532,7 +532,7 @@ ALTER TABLE "rbac_modules" ADD CONSTRAINT "rbac_modules_createdBy_fkey" FOREIGN 
 ALTER TABLE "rbac_modules" ADD CONSTRAINT "rbac_modules_deletedBy_fkey" FOREIGN KEY ("deletedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "rbac_modules" ADD CONSTRAINT "rbac_modules_restoreBy_fkey" FOREIGN KEY ("restoreBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "rbac_modules" ADD CONSTRAINT "rbac_modules_restoredBy _fkey" FOREIGN KEY ("restoredBy ") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "rbac_modules" ADD CONSTRAINT "rbac_modules_updatedBy_fkey" FOREIGN KEY ("updatedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -544,7 +544,7 @@ ALTER TABLE "rbac_roles" ADD CONSTRAINT "rbac_roles_createdBy_fkey" FOREIGN KEY 
 ALTER TABLE "rbac_roles" ADD CONSTRAINT "rbac_roles_deletedBy_fkey" FOREIGN KEY ("deletedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "rbac_roles" ADD CONSTRAINT "rbac_roles_restoreBy_fkey" FOREIGN KEY ("restoreBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "rbac_roles" ADD CONSTRAINT "rbac_roles_restoredBy _fkey" FOREIGN KEY ("restoredBy ") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "rbac_roles" ADD CONSTRAINT "rbac_roles_updatedBy_fkey" FOREIGN KEY ("updatedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -580,19 +580,19 @@ ALTER TABLE "teams" ADD CONSTRAINT "teams_createdBy_fkey" FOREIGN KEY ("createdB
 ALTER TABLE "teams" ADD CONSTRAINT "teams_deletedBy_fkey" FOREIGN KEY ("deletedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "teams" ADD CONSTRAINT "teams_restoreBy_fkey" FOREIGN KEY ("restoreBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "teams" ADD CONSTRAINT "teams_restoredBy _fkey" FOREIGN KEY ("restoredBy ") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "teams" ADD CONSTRAINT "teams_updatedBy_fkey" FOREIGN KEY ("updatedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "team_members" ADD CONSTRAINT "team_members_invitedBy_fkey" FOREIGN KEY ("invitedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "team_users" ADD CONSTRAINT "team_users_invitedBy_fkey" FOREIGN KEY ("invitedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "team_members" ADD CONSTRAINT "team_members_userId_fkey" FOREIGN KEY ("userId") REFERENCES "auth_users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "team_users" ADD CONSTRAINT "team_users_userId_fkey" FOREIGN KEY ("userId") REFERENCES "auth_users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "team_members" ADD CONSTRAINT "team_members_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "teams"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "team_users" ADD CONSTRAINT "team_users_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "teams"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "test_companies" ADD CONSTRAINT "test_companies_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -601,7 +601,7 @@ ALTER TABLE "test_companies" ADD CONSTRAINT "test_companies_createdBy_fkey" FORE
 ALTER TABLE "test_companies" ADD CONSTRAINT "test_companies_deletedBy_fkey" FOREIGN KEY ("deletedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "test_companies" ADD CONSTRAINT "test_companies_restoreBy_fkey" FOREIGN KEY ("restoreBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "test_companies" ADD CONSTRAINT "test_companies_restoredBy _fkey" FOREIGN KEY ("restoredBy ") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "test_companies" ADD CONSTRAINT "test_companies_updatedBy_fkey" FOREIGN KEY ("updatedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;

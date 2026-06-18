@@ -4,13 +4,13 @@ import type { ScopeContext } from '@/types/base.types.js';
 import { HttpError } from '@/utils/http.error.js';
 
 export function scopeFromRequest(request: FastifyRequest): ScopeContext | undefined {
-  const { permissions, memberContext, session } = request;
-  if (!permissions || !memberContext || !session?.user) return undefined;
+  const { permissions, userContext, session } = request;
+  if (!permissions || !userContext || !session?.user) return undefined;
 
   return {
     scope: permissions.scope,
     userId: session.user.id,
-    teamIds: memberContext.teamIds,
+    teamIds: userContext.teamIds,
   };
 }
 
@@ -20,6 +20,6 @@ export function requireScope(request: FastifyRequest): ScopeContext | undefined 
   return {
     scope: request.permissions.scope,
     userId: request.session?.user?.id,
-    teamIds: request.memberContext?.teamIds ?? [],
+    teamIds: request.userContext?.teamIds ?? [],
   };
 }

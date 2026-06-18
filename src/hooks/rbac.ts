@@ -18,7 +18,7 @@ function mostPermissive(scopes: PermissionScope[]): PermissionScope {
 export function requirePermission(resource: string, action: PermissionAction) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     const session = request.session;
-    const ctx = request.memberContext;
+    const ctx = request.userContext;
 
     if (session.user.isSuperAdmin) {
       request.permissions = {
