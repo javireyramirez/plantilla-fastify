@@ -3,14 +3,14 @@ import { BaseAuditService } from '@/services/base-audit.service.js';
 import { WriteOptions } from '@/types/base.types.js';
 import { HttpError } from '@/utils/http.error.js';
 
-import { TeamMemberRepository } from './team-member.repository.js';
+import { TeamUserRepository } from './team-user.repository.js';
 import { TeamRepository } from './team.repository.js';
 import { Team } from './team.schema.js';
 
 export class TeamService extends BaseAuditService<Team> {
   constructor(
     private readonly teamRepo: TeamRepository,
-    private readonly teamMemberRepo: TeamMemberRepository,
+    private readonly teamUserRepo: TeamUserRepository,
   ) {
     super(teamRepo);
   }
@@ -111,7 +111,7 @@ export class TeamService extends BaseAuditService<Team> {
   // MIEMBROS — LECTURA
   // ==========================================
 
-  async getMembersWithCount(
+  async getUsersWithCount(
     teamId: string,
     params: {
       skip?: number;
@@ -143,7 +143,7 @@ export class TeamService extends BaseAuditService<Team> {
       };
     }
 
-    return this.teamMemberRepo.findManyWithCount({
+    return this.teamUserRepo.findManyWithCount({
       where,
       skip,
       take: take ?? 10,
@@ -164,24 +164,24 @@ export class TeamService extends BaseAuditService<Team> {
   // MIEMBROS — ACCIONES INDIVIDUALES
   // ==========================================
 
-  async addMember(teamId: string, userId: string, invitedBy?: string) {
+  async addUser(teamId: string, userId: string, invitedBy?: string) {
     await this.ensureTeamExists(teamId);
 
-    const isTeamMember = await this.teamMemberRepo.exists({
+    const isTeamUser = await this.teamUserRepo.exists({
       where: { teamId, userId },
     });
-    if (isTeamMember) throw new HttpError(400, 'El usuario ya pertenece a este equipo');
+    if (isTeamUser) throw new HttpError(400, 'El usuario ya pertenece a este equipo');
 
-    return this.teamMemberRepo.create({
+    return this.teamUserRepo.create({
       data: { teamId, userId, ...withInvitedBy(invitedBy) },
     });
   }
 
-  async removeMember(teamId: string, userId: string) {
+  async removeUser(teamId: string, userId: string) {
     await this.ensureTeamExists(teamId);
 
     try {
-      return await this.teamMemberRepo.delete({
+      return await this.teamUserRepo.delete({
         where: { teamId_userId: { teamId, userId } },
       });
     } catch {
@@ -193,10 +193,10 @@ export class TeamService extends BaseAuditService<Team> {
   // MIEMBROS — ACCIONES BULK
   // ==========================================
 
-  async addMembers(teamId: string, userIds: string[], invitedBy?: string) {
+  async addUsers(teamId: string, userIds: string[], invitedBy?: string) {
     await this.ensureTeamExists(teamId);
 
-    return this.teamMemberRepo.createMany({
+    return this.teamUserRepo.createMany({
       data: userIds.map((userId) => ({
         teamId,
         userId,
@@ -206,10 +206,10 @@ export class TeamService extends BaseAuditService<Team> {
     });
   }
 
-  async removeMembers(teamId: string, userIds: string[]) {
+  async removeUsers(teamId: string, userIds: string[]) {
     await this.ensureTeamExists(teamId);
 
-    return this.teamMemberRepo.deleteMany({
+    return this.teamUserRepo.deleteMany({
       where: { teamId, userId: { in: userIds } },
     });
   }

@@ -18,7 +18,7 @@ function mostPermissive(scopes: PermissionScope[]): PermissionScope {
 export function requirePermission(resource: string, action: PermissionAction) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     const session = request.session;
-    const ctx = request.memberContext;
+    const ctx = request.userContext;
 
     if (session.user.isSuperAdmin) {
       request.permissions = {
@@ -29,11 +29,7 @@ export function requirePermission(resource: string, action: PermissionAction) {
       return;
     }
 
-    if (!ctx) {
-      return reply.status(400).send({ error: 'Team context required' });
-    }
-
-    const { teamIds } = ctx;
+    const { teamIds = [] } = ctx || {};
     const userId = session.user.id;
 
     const assignments = await request.server.prisma.roleAssignment.findMany({
@@ -45,7 +41,7 @@ export function requirePermission(resource: string, action: PermissionAction) {
           include: {
             permissions: {
               where: {
-                module: { key: resource },
+                module: { slug: resource },
                 action,
               },
             },

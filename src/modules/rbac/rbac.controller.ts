@@ -21,7 +21,7 @@ export class RoleController extends BaseController<any> {
 
   // Extrae los equipos del contexto si los necesitas para filtrar asignaciones
   private getTeamIds(request: any): string[] | undefined {
-    return request.memberContext?.teamIds;
+    return request.userContext?.teamIds;
   }
 
   // ==========================================

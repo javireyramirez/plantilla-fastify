@@ -20,23 +20,37 @@ export abstract class BaseRbacService<T> extends BaseAuditService<T> {
   // ==========================================
 
   override async update(id: string, data: any, options: WriteOptions = {}): Promise<T> {
-    const where = { id, ...this.getStatusFilter(false) };
-    const record = await this.repository.findFirst({ where, scope: options.scope });
-    if (!record) throw new HttpError(404, 'Registro no encontrado o sin permisos');
-
-    return super.update(id, data, options);
+    try {
+      return await this.repository.update({
+        where: { id, ...this.getStatusFilter(false) },
+        data: { ...data },
+        include: { ...(options.include ?? {}) },
+        select: options.select,
+        scope: options.scope,
+      });
+    } catch (error: any) {
+      if (error.code === 'P2025') {
+        throw new HttpError(404, 'Registro no encontrado o sin permisos');
+      }
+      if (error instanceof HttpError) throw error;
+      throw new HttpError(500, `Error al actualizar el registro: ${error.message}`);
+    }
   }
 
   override async softDelete(id: string, options: WriteOptions = {}): Promise<T> {
-    const record = await this.repository.findFirst({
-      where: { id, ...this.getStatusFilter(false) },
-      scope: options.scope,
-    });
-    if (!record) {
-      throw new HttpError(404, 'Registro no encontrado o sin permisos');
+    try {
+      return await this.repository.update({
+        where: { id, ...this.getStatusFilter(false) },
+        data: withDeletedBy(options.userId),
+        scope: options.scope,
+      });
+    } catch (error: any) {
+      if (error.code === 'P2025') {
+        throw new HttpError(404, 'Registro no encontrado o sin permisos');
+      }
+      if (error instanceof HttpError) throw error;
+      throw new HttpError(500, `Error al mover a la papelera: ${error.message}`);
     }
-
-    return super.softDelete(id, options) as Promise<T>;
   }
 
   override async restore(id: string, options: WriteOptions = {}): Promise<T> {
@@ -53,15 +67,16 @@ export abstract class BaseRbacService<T> extends BaseAuditService<T> {
 
   override async hardDelete(id: string, options: WriteOptions = {}): Promise<T> {
     try {
-      const record = await this.repository.findFirst({ where: { id }, scope: options.scope });
-      if (!record) {
+      return await this.repository.delete({
+        where: { id },
+        scope: options.scope,
+      });
+    } catch (error: any) {
+      if (error.code === 'P2025') {
         throw new HttpError(404, 'Registro no encontrado o sin permisos');
       }
-
-      return await this.repository.delete({ where: { id } });
-    } catch (error) {
       if (error instanceof HttpError) throw error;
-      throw new HttpError(404, 'Registro no encontrado para eliminar permanentemente');
+      throw new HttpError(500, `Error al eliminar el registro: ${error.message}`);
     }
   }
 

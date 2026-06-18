@@ -3,7 +3,7 @@ export interface BaseRoutesOptions {
   tags: string[];
 
   auth?: {
-    skipMemberContext?: boolean;
+    skipUserContext?: boolean;
     skipPermissions?: boolean;
     requireSuperAdmin?: boolean;
   };

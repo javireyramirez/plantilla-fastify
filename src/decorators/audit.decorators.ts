@@ -10,7 +10,6 @@ export const withOwnedCreate = (userId?: string, ownerId?: string) => ({
   ...withCreatedBy(userId),
   ...(userId && {
     ownerId: ownerId ?? userId,
-    ownerTeamId: null,
   }),
 });
 
@@ -26,10 +25,10 @@ export const withDeletedBy = (userId?: string) => ({
 });
 
 export const withRestoredBy = (userId?: string) => ({
-  restoreAt: new Date(),
+  restoredAt: new Date(),
   deletedAt: null,
   status: 'ACTIVE',
-  ...(userId && { restoreBy: userId }),
+  ...(userId && { restoredBy: userId }),
 });
 
 export const active = () => ({

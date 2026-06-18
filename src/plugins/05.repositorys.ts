@@ -6,7 +6,7 @@ import { RoleAssignmentRepository } from '@/modules/rbac/role-assignment.reposit
 import { RolePermissionRepository } from '@/modules/rbac/role-permission.repository.js';
 import { RoleRepository } from '@/modules/rbac/role.repository.js';
 import { StorageRepository } from '@/modules/storage/storage.repository.js';
-import { TeamMemberRepository } from '@/modules/team/team-member.repository.js';
+import { TeamUserRepository } from '@/modules/team/team-user.repository.js';
 import { TeamRepository } from '@/modules/team/team.repository.js';
 import { SessionRepository } from '@/modules/users/session.repository.js';
 import { UsersRepository } from '@/modules/users/users.repository.js';
@@ -19,7 +19,7 @@ export default fp(
     const roleRepository = new RoleRepository(fastify.prisma);
     const rolePermissionRepository = new RolePermissionRepository(fastify.prisma);
     const teamRepository = new TeamRepository(fastify.prisma);
-    const teamMemberRepository = new TeamMemberRepository(fastify.prisma);
+    const teamUserRepository = new TeamUserRepository(fastify.prisma);
     const roleAssignmentRepository = new RoleAssignmentRepository(fastify.prisma);
     const moduleRepository = new ModuleRepository(fastify.prisma);
     const usersRepository = new UsersRepository(fastify.prisma);
@@ -32,7 +32,7 @@ export default fp(
     fastify.decorate('rolePermissionRepository', rolePermissionRepository);
     fastify.decorate('roleAssignmentRepository', roleAssignmentRepository);
     fastify.decorate('teamRepository', teamRepository);
-    fastify.decorate('teamMemberRepository', teamMemberRepository);
+    fastify.decorate('teamUserRepository', teamUserRepository);
     fastify.decorate('moduleRepository', moduleRepository);
     fastify.decorate('usersRepository', usersRepository);
     fastify.decorate('sessionRepository', sessionRepository);
@@ -50,7 +50,7 @@ declare module 'fastify' {
     roleRepository: RoleRepository;
     rolePermissionRepository: RolePermissionRepository;
     teamRepository: TeamRepository;
-    teamMemberRepository: TeamMemberRepository;
+    teamUserRepository: TeamUserRepository;
     roleAssignmentRepository: RoleAssignmentRepository;
     moduleRepository: ModuleRepository;
     usersRepository: UsersRepository;

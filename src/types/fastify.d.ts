@@ -5,7 +5,7 @@ import type { PermissionAction, PermissionScope } from '@prisma/client';
 import type { Auth } from 'better-auth';
 
 import type { AuthInstance } from '@/config/auth/auth.js';
-import type { MemberContext } from '@/modules/rbac/rbac.interfaces.js';
+import type { UserContext } from '@/modules/rbac/rbac.interfaces.js';
 import type { RateLimitTiers } from '@/plugins/02.security.js';
 import type { AppSession } from '@/types/auth.types.js';
 
@@ -47,7 +47,7 @@ declare module 'fastify' {
 
   interface FastifyRequest {
     session: AppSession | null;
-    memberContext: MemberContext | null;
+    userContext: UserContext | null;
     permissions?: {
       module: string;
       action: PermissionAction;

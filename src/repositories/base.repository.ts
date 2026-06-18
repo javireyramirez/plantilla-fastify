@@ -7,11 +7,20 @@ import { buildScopeFilter } from '@/utils/rbac-filter.js';
 
 // <-- Importado de tus utils
 
+export interface BaseRepositoryOptions {
+  hasOwnership?: boolean;
+}
+
 export abstract class BaseRepository<T> {
+  protected readonly hasOwnership: boolean;
+
   constructor(
     protected readonly prisma: PrismaClient,
     protected readonly modelName: keyof PrismaClient,
-  ) {}
+    options?: BaseRepositoryOptions,
+  ) {
+    this.hasOwnership = options?.hasOwnership ?? false;
+  }
 
   protected get model() {
     return this.prisma[this.modelName] as any;
@@ -21,7 +30,7 @@ export abstract class BaseRepository<T> {
    * Mezcla de forma segura el where original con las restricciones del RBAC
    */
   protected mergeScope(where: any = {}, scope?: ScopeContext): any {
-    if (!scope) return where;
+    if (!scope || !this.hasOwnership) return where;
 
     const rbacFilter = buildScopeFilter(scope);
     if (Object.keys(rbacFilter).length === 0) return where;
@@ -107,8 +116,18 @@ export abstract class BaseRepository<T> {
     return this.model.create(params);
   }
 
-  async update(params: { where: any; data: any; include?: any; select?: any }): Promise<T> {
-    return this.model.update(params);
+  async update(params: {
+    where: any;
+    data: any;
+    include?: any;
+    select?: any;
+    scope?: ScopeContext;
+  }): Promise<T> {
+    const { scope, ...rest } = params;
+    return this.model.update({
+      ...rest,
+      where: this.mergeScope(rest.where, scope),
+    });
   }
 
   async upsert(params: {
@@ -121,8 +140,17 @@ export abstract class BaseRepository<T> {
     return this.model.upsert(params);
   }
 
-  async delete(params: { where: any; include?: any; select?: any }): Promise<T> {
-    return this.model.delete(params);
+  async delete(params: {
+    where: any;
+    include?: any;
+    select?: any;
+    scope?: ScopeContext;
+  }): Promise<T> {
+    const { scope, ...rest } = params;
+    return this.model.delete({
+      ...rest,
+      where: this.mergeScope(rest.where, scope),
+    });
   }
 
   // ==========================================

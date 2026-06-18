@@ -11,7 +11,6 @@ export class CompaniesService extends BaseRbacService<Company> {
   protected override getDefaultInclude() {
     return {
       owner: { select: { name: true, email: true } },
-      ownerTeam: { select: { id: true, name: true } },
     };
   }
 

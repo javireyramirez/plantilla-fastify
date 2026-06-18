@@ -16,8 +16,7 @@ export type RoleWithPermissions = {
 // ── Contexto de membresía (sin permisos resueltos) ───────────────
 // Solo datos estructurales: quién es y dónde está
 // modules/rbac/rbac.interfaces.ts
-export interface MemberContext {
-  memberId: string;
+export interface UserContext {
   teamIds: string[];
 }
 // ── Permisos ya resueltos para un usuario en un contexto ─────────

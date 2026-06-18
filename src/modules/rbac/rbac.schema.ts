@@ -2,9 +2,12 @@ import { PermissionAction, PermissionScope } from '@prisma/client';
 import { z } from 'zod';
 
 import {
+  AuditFieldsSchema,
   GetListQueryBase,
+  GetPaginatedQueryBaseSchema,
   ResponseListSchemaBase,
-  recordStatusSchema,
+  createPaginatedResponseSchema,
+  dateQueryBase,
 } from '@/schemas/base.schema.js';
 
 // ==========================================
@@ -18,25 +21,17 @@ export const permissionActionSchema = z.enum(PermissionAction);
 // BASE SCHEMAS
 // ==========================================
 
-export const RoleSchema = z.object({
-  id: z.uuidv7(),
-  name: z.string().min(1),
-  slug: z.string().min(1),
-  description: z.string().optional().nullable(),
-  isSystem: z.boolean().default(false),
-  icon: z.string().optional().nullable(),
-  color: z.string().optional().nullable(),
-  status: recordStatusSchema,
-  // Auditoría
-  createdAt: z.date(),
-  updatedAt: z.date(),
-  deletedAt: z.date().optional().nullable(),
-  restoreAt: z.date().optional().nullable(),
-  createdBy: z.string().optional().nullable(),
-  deletedBy: z.string().optional().nullable(),
-  restoreBy: z.string().optional().nullable(),
-  updatedBy: z.string().optional().nullable(),
-});
+export const RoleSchema = z
+  .object({
+    id: z.uuidv7(),
+    name: z.string().min(1),
+    slug: z.string().min(1),
+    description: z.string().optional().nullable(),
+    isSystem: z.boolean().default(false),
+    icon: z.string().optional().nullable(),
+    color: z.string().optional().nullable(),
+  })
+  .extend(AuditFieldsSchema.shape);
 
 export const RolePermissionSchema = z.object({
   id: z.uuidv7(),
@@ -44,7 +39,6 @@ export const RolePermissionSchema = z.object({
   moduleId: z.uuidv7(),
   action: permissionActionSchema,
   scope: permissionScopeSchema.default('OWN'),
-  // ✅ CORREGIDO: Eliminados 'scopeId' y 'revokedBy'. Añadidos los campos reales de auditoría.
   grantedAt: z.date(),
   grantedBy: z.string().optional().nullable(),
   updatedAt: z.date(),
@@ -94,29 +88,9 @@ export const RoleAssignmentParamsSchema = z.object({
 // QUERIES
 // ==========================================
 
-export const GetRoleQuerySchema = z.object({
-  page: z.coerce.number().optional().default(1),
-  limit: z.coerce.number().optional().default(10),
-  isTrash: z.preprocess((val) => val === 'true' || val === true, z.boolean()).default(false),
-  name: z.string().optional(),
-  createdAtFrom: z
-    .preprocess((val) => {
-      if (!val) return undefined;
-      const num = Number(val);
-      return isNaN(num) ? val : new Date(num);
-    }, z.date())
-    .optional(),
-
-  createdAtTo: z
-    .preprocess((val) => {
-      if (!val) return undefined;
-      const num = Number(val);
-      return isNaN(num) ? val : new Date(num);
-    }, z.date())
-    .optional(),
+export const GetRoleQuerySchema = GetPaginatedQueryBaseSchema.extend({
   isSystem: z.preprocess((val) => val === 'true' || val === true, z.boolean()).optional(),
   sortBy: z.string().optional().default('createdAt'),
-  sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
 });
 
 export const GetListQuery = GetListQueryBase;
@@ -127,7 +101,6 @@ export const GetPermissionsQuerySchema = z.object({
   sortBy: z.string().optional().default('grantedAt'),
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
 
-  // Filtros de RBAC (se mapea a moduleId en el service)
   resource: z.preprocess(
     (val) => (typeof val === 'string' ? val.split(',') : val),
     z.array(z.string()).optional(),
@@ -141,8 +114,8 @@ export const GetPermissionsQuerySchema = z.object({
     z.array(z.string()).optional(),
   ),
 
-  grantedFrom: z.string().datetime().optional(),
-  grantedTo: z.string().datetime().optional(),
+  grantedFrom: dateQueryBase,
+  grantedTo: dateQueryBase,
 });
 
 export const GetAssignmentsQuerySchema = z.object({
@@ -154,8 +127,8 @@ export const GetAssignmentsQuerySchema = z.object({
   userId: z.string().optional(),
   teamId: z.string().optional(),
 
-  assignedFrom: z.string().datetime().optional(),
-  assignedTo: z.string().datetime().optional(),
+  assignedFrom: dateQueryBase,
+  assignedTo: dateQueryBase,
 });
 
 // ==========================================
@@ -169,10 +142,10 @@ export const CreateRoleBodySchema = RoleSchema.omit({
   createdAt: true,
   updatedAt: true,
   deletedAt: true,
-  restoreAt: true,
+  restoredAt: true,
   createdBy: true,
   deletedBy: true,
-  restoreBy: true,
+  restoredBy: true,
   updatedBy: true,
 });
 
@@ -222,15 +195,7 @@ export const RoleResponseSchema = RoleSchema;
 
 export const ResponseListSchema = ResponseListSchemaBase;
 
-export const RoleListResponseSchema = z.object({
-  data: z.array(RoleSchema),
-  meta: z.object({
-    page: z.number(),
-    limit: z.number(),
-    total: z.number(),
-    totalPages: z.number(),
-  }),
-});
+export const RoleListResponseSchema = createPaginatedResponseSchema(RoleSchema);
 
 export const RoleDeletedResponseSchema = z.object({
   success: z.boolean(),
@@ -241,7 +206,6 @@ export const BulkResponseSchema = z.object({
   count: z.number(),
 });
 
-// ✅ CORREGIDO: Ajustado al include real de tu RoleService (granter y updater)
 export const RolePermissionResponseSchema = RolePermissionSchema.extend({
   granter: z.object({ id: z.string(), name: z.string(), email: z.string() }).optional().nullable(),
   updater: z.object({ id: z.string(), name: z.string(), email: z.string() }).optional().nullable(),
@@ -256,17 +220,13 @@ export const RolePermissionsListResponseSchema = z.object({
   }),
 });
 
-// ✅ CORREGIDO: Sincronizado exactamente con el select del ASSIGNMENT_INCLUDE de tu servicio
 export const RoleAssignmentResponseSchema = RoleAssignmentSchema.extend({
   granter: z.object({ id: z.string(), name: z.string(), email: z.string() }).optional().nullable(),
   assignedUser: z
     .object({ id: z.string(), name: z.string(), email: z.string() })
     .optional()
     .nullable(),
-  assignedTeam: z
-    .object({ id: z.string(), name: z.string() }) // ❌ Removido slug porque tu service no lo pide en el select
-    .optional()
-    .nullable(),
+  assignedTeam: z.object({ id: z.string(), name: z.string() }).optional().nullable(),
   role: z.object({ id: z.string(), name: z.string(), slug: z.string() }).optional().nullable(),
 });
 

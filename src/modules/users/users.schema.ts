@@ -1,9 +1,14 @@
 import { z } from 'zod';
 
-import { GetListQueryBase, ResponseListSchemaBase } from '@/schemas/base.schema.js';
+import {
+  GetListQueryBase,
+  GetPaginatedQueryBaseSchema,
+  ResponseListSchemaBase,
+  createPaginatedResponseSchema,
+} from '@/schemas/base.schema.js';
 
 // ==========================================
-// SCHEMA BASE (refleja auth_users real)
+// SCHEMA BASE
 // ==========================================
 
 export const UsersSchema = z.object({
@@ -43,15 +48,8 @@ export const UsersIdParamsSchema = z.object({
 // QUERIES
 // ==========================================
 
-export const GetUsersQuerySchema = z.object({
-  page: z.coerce.number().int().positive().optional().default(1),
-  limit: z.coerce.number().int().positive().max(100).optional().default(10),
-
+export const GetUsersQuerySchema = GetPaginatedQueryBaseSchema.extend({
   // En users "isTrash" = usuarios inactivos (isActive: false)
-  isTrash: z.preprocess((v) => v === 'true' || v === true, z.boolean()).default(false),
-
-  // Filtros
-  search: z.string().optional(), // búsqueda por name o email
   isSystem: z
     .preprocess((v) => {
       if (v === undefined || v === null || v === '') return undefined;
@@ -70,24 +68,7 @@ export const GetUsersQuerySchema = z.object({
       return v === 'true' || v === true;
     }, z.boolean().optional())
     .optional(),
-
-  createdAtFrom: z
-    .preprocess((v) => {
-      if (!v) return undefined;
-      const n = Number(v);
-      return isNaN(n) ? new Date(v as string) : new Date(n);
-    }, z.date())
-    .optional(),
-  createdAtTo: z
-    .preprocess((v) => {
-      if (!v) return undefined;
-      const n = Number(v);
-      return isNaN(n) ? new Date(v as string) : new Date(n);
-    }, z.date())
-    .optional(),
-
   sortBy: z.enum(['name', 'email', 'createdAt', 'updatedAt']).optional().default('createdAt'),
-  sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
 });
 
 export const GetListQuery = GetListQueryBase;
@@ -96,25 +77,14 @@ export const GetListQuery = GetListQueryBase;
 // BODIES
 // ==========================================
 
-/**
- * Crear usuario: solo email y nombre.
- * La contraseña NO se recibe — se enviará un email de establecimiento.
- */
 export const CreateUsersBodySchema = z.object({
   email: z.email(),
   name: z.string().min(1).max(255).optional(),
-  isSuperAdmin: z.boolean().optional().default(false),
 });
 
-/**
- * Actualizar usuario: campos editables por un admin.
- * No se puede cambiar email ni contraseña desde aquí.
- */
 export const UpdateUsersBodySchema = z.object({
   name: z.string().min(1).max(255).optional(),
-  image: z.string().url().nullable().optional(),
-  isActive: z.boolean().optional(),
-  isSuperAdmin: z.boolean().optional(),
+  image: z.url().nullable().optional(),
 });
 
 export const BulkCreateUsersBodySchema = z.array(CreateUsersBodySchema);
@@ -129,15 +99,7 @@ export const BulkIdsBodySchema = z.object({
 
 export const UsersResponseSchema = UsersSchema;
 
-export const UsersListResponseSchema = z.object({
-  data: z.array(UsersSchema),
-  meta: z.object({
-    page: z.number(),
-    limit: z.number(),
-    total: z.number(),
-    totalPages: z.number(),
-  }),
-});
+export const UsersListResponseSchema = createPaginatedResponseSchema(UsersSchema);
 
 export const BulkResponseSchema = z.object({
   count: z.number(),

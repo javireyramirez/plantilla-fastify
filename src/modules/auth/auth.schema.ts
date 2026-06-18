@@ -18,7 +18,7 @@ export const AuthBaseSchema = z.object({
 });
 
 export const SignInSchema = AuthBaseSchema.extend({
-  rememberMe: z.boolean().default(false),
+  reuserMe: z.boolean().default(false),
 });
 
 export const SignUpSchema = AuthBaseSchema.extend({

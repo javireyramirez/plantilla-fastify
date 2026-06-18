@@ -22,7 +22,7 @@ export class UsersService extends BaseAuditService<Users> {
 
   protected getStatusFilter(isTrash: boolean) {
     return {
-      status: isTrash ? 'TRASHED' : 'ACTIVE',
+      status: isTrash ? 'TRASHED' : { not: 'TRASHED' },
       deletedAt: isTrash ? { not: null } : null,
     };
   }
@@ -59,7 +59,7 @@ export class UsersService extends BaseAuditService<Users> {
         emailVerified: false,
         isActive: true,
         isSystem: false,
-        isSuperAdmin: data.isSuperAdmin ?? false,
+        isSuperAdmin: false,
       },
     });
 
@@ -90,7 +90,7 @@ export class UsersService extends BaseAuditService<Users> {
 
     return this.usersRepo.update({
       where: { id },
-      data: { isActive: false },
+      data: { isActive: false, status: 'SUSPENDED' },
     }) as Promise<Users>;
   }
 
@@ -102,7 +102,7 @@ export class UsersService extends BaseAuditService<Users> {
 
     return this.usersRepo.update({
       where: { id },
-      data: { isActive: true },
+      data: { isActive: true, status: 'ACTIVE' },
     }) as Promise<Users>;
   }
 
@@ -123,7 +123,7 @@ export class UsersService extends BaseAuditService<Users> {
 
     return this.usersRepo.updateMany({
       where: { id: { in: safeIds }, isSystem: false, isActive: true },
-      data: { isActive: false },
+      data: { isActive: false, status: 'SUSPENDED' },
     });
   }
 
@@ -132,7 +132,7 @@ export class UsersService extends BaseAuditService<Users> {
 
     return this.usersRepo.updateMany({
       where: { id: { in: ids }, isSystem: false, isActive: false },
-      data: { isActive: true },
+      data: { isActive: true, status: 'ACTIVE' },
     });
   }
 }

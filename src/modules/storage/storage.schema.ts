@@ -71,8 +71,8 @@ export const DocumentItemSchema = z.object({
   createdBy: z.string().nullable().optional(),
   deletedAt: z.coerce.date().nullable().optional(),
   deletedBy: z.string().nullable().optional(),
-  restoreAt: z.coerce.date().nullable().optional(),
-  restoreBy: z.string().nullable().optional(),
+  restoredAt: z.coerce.date().nullable().optional(),
+  restoredBy: z.string().nullable().optional(),
 });
 
 export const PaginationMetaSchema = z.object({
