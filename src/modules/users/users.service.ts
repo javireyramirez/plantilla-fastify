@@ -34,11 +34,9 @@ export class UsersService extends BaseAuditService<Users> {
 
       ...this.buildBooleanFilter('isActive', filters.isActive),
       ...this.buildBooleanFilter('isSystem', filters.isSystem),
-      ...this.buildBooleanFilter('isSuperAdmin', filters.isSuperAdmin),
+      ...this.buildBooleanFilter('emailVerified', filters.emailVerified),
 
       ...this.buildDateRangeFilter('createdAt', filters.createdAtFrom, filters.createdAtTo),
-
-      ...this.buildMultiSelectFilter('sector', filters.sector),
     };
   }
 

@@ -56,7 +56,7 @@ export const GetUsersQuerySchema = GetPaginatedQueryBaseSchema.extend({
       return v === 'true' || v === true;
     }, z.boolean().optional())
     .optional(),
-  isSuperAdmin: z
+  isActive: z
     .preprocess((v) => {
       if (v === undefined || v === null || v === '') return undefined;
       return v === 'true' || v === true;
