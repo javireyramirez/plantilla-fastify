@@ -13,7 +13,9 @@ import {
   GetUsersQuerySchema,
   ResponseListSchema,
   ResponseMessageSchema,
+  UpdateUserAssignmentsBodySchema,
   UpdateUsersBodySchema,
+  UserAssignmentsResponseSchema,
   UsersIdParamsSchema,
   UsersListResponseSchema,
   UsersResponseSchema,
@@ -114,5 +116,49 @@ export default async function usersRoutes(fastify: FastifyInstance) {
     },
     preHandler: [requireAuth, userContext, requirePermission('users', PermissionAction.UPDATE)],
     handler: ctrl.bulkUnsuspend.bind(ctrl),
+  });
+
+  // ==========================================
+  // GET /users/:id/assignments
+  // ==========================================
+
+  app.get('/:id/assignments', {
+    schema: {
+      tags: ['User Assignments'],
+      params: UsersIdParamsSchema,
+      response: { 200: UserAssignmentsResponseSchema },
+    },
+    preHandler: [requireAuth, userContext, requirePermission('users', PermissionAction.READ)],
+    handler: ctrl.getAssignments.bind(ctrl),
+  });
+
+  // ==========================================
+  // POST /users/:id/assignments
+  // ==========================================
+
+  app.post('/:id/assignments', {
+    schema: {
+      tags: ['User Assignments'],
+      params: UsersIdParamsSchema,
+      body: UpdateUserAssignmentsBodySchema,
+      response: { 200: UserAssignmentsResponseSchema },
+    },
+    preHandler: [requireAuth, userContext, requirePermission('users', PermissionAction.SETTINGS)],
+    handler: ctrl.addAssignments.bind(ctrl),
+  });
+
+  // ==========================================
+  // DELETE /users/:id/assignments
+  // ==========================================
+
+  app.delete('/:id/assignments', {
+    schema: {
+      tags: ['User Assignments'],
+      params: UsersIdParamsSchema,
+      body: UpdateUserAssignmentsBodySchema,
+      response: { 200: UserAssignmentsResponseSchema },
+    },
+    preHandler: [requireAuth, userContext, requirePermission('users', PermissionAction.SETTINGS)],
+    handler: ctrl.removeAssignments.bind(ctrl),
   });
 }

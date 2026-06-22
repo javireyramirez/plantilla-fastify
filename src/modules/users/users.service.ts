@@ -1,17 +1,22 @@
 import { AuthInstance } from '@/config/auth/auth.js';
+import { withAssignedBy, withInvitedBy } from '@/decorators/audit.decorators.js';
+import { RoleAssignmentRepository } from '@/modules/rbac/role-assignment.repository.js';
+import { TeamUserRepository } from '@/modules/team/team-user.repository.js';
 import { BaseAuditService } from '@/services/base-audit.service.js';
 import { WriteOptions } from '@/types/base.types.js';
 import { HttpError } from '@/utils/http.error.js';
 
 import { SessionRepository } from './session.repository.js';
 import { UsersRepository } from './users.repository.js';
-import { CreateUsers, UpdateUsers, Users } from './users.schema.js';
+import { CreateUsers, UpdateUserAssignmentsBody, UpdateUsers, Users } from './users.schema.js';
 
 export class UsersService extends BaseAuditService<Users> {
   constructor(
     private readonly usersRepo: UsersRepository,
     private readonly sessionRepo: SessionRepository,
     private readonly auth: AuthInstance,
+    private readonly roleAssignmentRepo: RoleAssignmentRepository,
+    private readonly teamUserRepo: TeamUserRepository,
   ) {
     super(usersRepo);
   }
@@ -132,5 +137,120 @@ export class UsersService extends BaseAuditService<Users> {
       where: { id: { in: ids }, isSystem: false, isActive: false },
       data: { isActive: true, status: 'ACTIVE' },
     });
+  }
+
+  // ==========================================
+  // ROLES & TEAMS ASSIGNMENTS
+  // ==========================================
+
+  async getAssignments(userId: string) {
+    const userExists = await this.usersRepo.exists({
+      where: { id: userId, ...this.getStatusFilter(false) },
+    });
+    if (!userExists) throw new HttpError(404, 'Usuario no encontrado');
+
+    const roleAssignments = (await this.roleAssignmentRepo.findMany({
+      where: { userId },
+      include: {
+        role: {
+          select: { id: true, name: true, slug: true },
+        },
+      },
+    })) as any[];
+
+    const teamAssignments = (await this.teamUserRepo.findMany({
+      where: { userId },
+      include: {
+        team: {
+          select: { id: true, name: true, slug: true },
+        },
+      },
+    })) as any[];
+
+    return {
+      roles: roleAssignments.map((ra) => ({
+        id: ra.role.id,
+        name: ra.role.name,
+        slug: ra.role.slug,
+      })),
+      teams: teamAssignments.map((ta) => ({
+        id: ta.team.id,
+        name: ta.team.name,
+        slug: ta.team.slug,
+      })),
+    };
+  }
+
+  async addAssignments(userId: string, data: UpdateUserAssignmentsBody, assignedBy?: string) {
+    const userExists = await this.usersRepo.exists({
+      where: { id: userId, ...this.getStatusFilter(false) },
+    });
+    if (!userExists) throw new HttpError(404, 'Usuario no encontrado');
+
+    const { roles = [], teams = [] } = data;
+
+    // Asignar roles
+    if (roles.length > 0) {
+      // Filtrar los que ya están asignados para evitar duplicados
+      const existingRoles = await this.roleAssignmentRepo.findMany({
+        where: { userId, roleId: { in: roles } },
+      });
+      const existingRoleIds = new Set(existingRoles.map((r) => r.roleId));
+      const rolesToAdd = roles.filter((roleId) => !existingRoleIds.has(roleId));
+
+      if (rolesToAdd.length > 0) {
+        await this.roleAssignmentRepo.createMany({
+          data: rolesToAdd.map((roleId) => ({
+            roleId,
+            userId,
+            ...withAssignedBy(assignedBy),
+          })),
+        });
+      }
+    }
+
+    // Asignar equipos
+    if (teams.length > 0) {
+      const existingTeams = await this.teamUserRepo.findMany({
+        where: { userId, teamId: { in: teams } },
+      });
+      const existingTeamIds = new Set(existingTeams.map((t) => t.teamId));
+      const teamsToAdd = teams.filter((teamId) => !existingTeamIds.has(teamId));
+
+      if (teamsToAdd.length > 0) {
+        await this.teamUserRepo.createMany({
+          data: teamsToAdd.map((teamId) => ({
+            teamId,
+            userId,
+            ...withInvitedBy(assignedBy),
+          })),
+        });
+      }
+    }
+
+    return this.getAssignments(userId);
+  }
+
+  async removeAssignments(userId: string, data: UpdateUserAssignmentsBody) {
+    const userExists = await this.usersRepo.exists({
+      where: { id: userId, ...this.getStatusFilter(false) },
+    });
+    if (!userExists) throw new HttpError(404, 'Usuario no encontrado');
+
+    const { roles = [], teams = [] } = data;
+
+    if (roles.length > 0) {
+      await this.roleAssignmentRepo.deleteMany({
+        where: { userId, roleId: { in: roles } },
+      });
+    }
+
+    if (teams.length > 0) {
+      await this.teamUserRepo.deleteMany({
+        where: { userId, teamId: { in: teams } },
+      });
+    }
+
+    return this.getAssignments(userId);
   }
 }

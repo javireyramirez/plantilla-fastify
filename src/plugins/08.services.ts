@@ -24,6 +24,8 @@ export default fp(
       fastify.usersRepository,
       fastify.sessionRepository,
       fastify.auth,
+      fastify.roleAssignmentRepository,
+      fastify.teamUserRepository,
     );
 
     fastify.decorate('emailService', emailService);

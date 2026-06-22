@@ -111,6 +111,28 @@ export const ResponseMessageSchema = z.object({
   message: z.string(),
 });
 
+export const UserAssignmentsResponseSchema = z.object({
+  roles: z.array(
+    z.object({
+      id: z.uuidv7(),
+      name: z.string(),
+      slug: z.string(),
+    }),
+  ),
+  teams: z.array(
+    z.object({
+      id: z.uuidv7(),
+      name: z.string(),
+      slug: z.string(),
+    }),
+  ),
+});
+
+export const UpdateUserAssignmentsBodySchema = z.object({
+  roles: z.array(z.uuidv7()).optional().default([]),
+  teams: z.array(z.uuidv7()).optional().default([]),
+});
+
 // ==========================================
 // TYPES
 // ==========================================
@@ -120,3 +142,5 @@ export type Session = z.infer<typeof sessionSchema>;
 export type CreateUsers = z.infer<typeof CreateUsersBodySchema>;
 export type UpdateUsers = z.infer<typeof UpdateUsersBodySchema>;
 export type GetUsersQuery = z.infer<typeof GetUsersQuerySchema>;
+export type UserAssignmentsResponse = z.infer<typeof UserAssignmentsResponseSchema>;
+export type UpdateUserAssignmentsBody = z.infer<typeof UpdateUserAssignmentsBodySchema>;
