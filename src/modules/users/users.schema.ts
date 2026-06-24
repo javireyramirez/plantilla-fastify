@@ -7,6 +7,11 @@ import {
   createPaginatedResponseSchema,
 } from '@/schemas/base.schema.js';
 
+export const ResponseTeamRoleSchemaBase = z.object({
+  id: z.uuidv7(),
+  name: z.string(),
+});
+
 // ==========================================
 // SCHEMA BASE
 // ==========================================
@@ -22,6 +27,12 @@ export const UsersSchema = z.object({
   isSuperAdmin: z.boolean(),
   createdAt: z.date(),
   updatedAt: z.date(),
+  teamUser: z
+    .array(z.object({ team: ResponseTeamRoleSchemaBase }))
+    .transform((items) => items.map((i) => i.team)),
+  roleAssignments: z
+    .array(z.object({ role: ResponseTeamRoleSchemaBase }))
+    .transform((items) => items.map((i) => i.role)),
 });
 
 export const sessionSchema = z.object({
@@ -99,7 +110,9 @@ export const BulkIdsBodySchema = z.object({
 
 export const UsersResponseSchema = UsersSchema;
 
-export const UsersListResponseSchema = createPaginatedResponseSchema(UsersSchema);
+export const UsersListResponseSchema = createPaginatedResponseSchema(
+  UsersSchema.omit({ teamUser: true, roleAssignments: true }),
+);
 
 export const BulkResponseSchema = z.object({
   count: z.number(),
@@ -116,14 +129,12 @@ export const UserAssignmentsResponseSchema = z.object({
     z.object({
       id: z.uuidv7(),
       name: z.string(),
-      slug: z.string(),
     }),
   ),
   teams: z.array(
     z.object({
       id: z.uuidv7(),
       name: z.string(),
-      slug: z.string(),
     }),
   ),
 });

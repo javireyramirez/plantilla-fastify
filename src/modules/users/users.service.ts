@@ -22,6 +22,24 @@ export class UsersService extends BaseAuditService<Users> {
   }
 
   protected override getDefaultInclude() {
+    return {
+      teamUser: {
+        select: {
+          team: {
+            select: { id: true, name: true },
+          },
+        },
+      },
+      roleAssignments: {
+        select: {
+          role: {
+            select: { id: true, name: true },
+          },
+        },
+      },
+    };
+  }
+  protected override getDefaultListInclude() {
     return {};
   }
 
@@ -153,7 +171,7 @@ export class UsersService extends BaseAuditService<Users> {
       where: { userId },
       include: {
         role: {
-          select: { id: true, name: true, slug: true },
+          select: { id: true, name: true },
         },
       },
     })) as any[];
@@ -162,7 +180,7 @@ export class UsersService extends BaseAuditService<Users> {
       where: { userId },
       include: {
         team: {
-          select: { id: true, name: true, slug: true },
+          select: { id: true, name: true },
         },
       },
     })) as any[];
@@ -171,12 +189,10 @@ export class UsersService extends BaseAuditService<Users> {
       roles: roleAssignments.map((ra) => ({
         id: ra.role.id,
         name: ra.role.name,
-        slug: ra.role.slug,
       })),
       teams: teamAssignments.map((ta) => ({
         id: ta.team.id,
         name: ta.team.name,
-        slug: ta.team.slug,
       })),
     };
   }

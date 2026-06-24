@@ -119,20 +119,6 @@ export default async function usersRoutes(fastify: FastifyInstance) {
   });
 
   // ==========================================
-  // GET /users/:id/assignments
-  // ==========================================
-
-  app.get('/:id/assignments', {
-    schema: {
-      tags: ['User Assignments'],
-      params: UsersIdParamsSchema,
-      response: { 200: UserAssignmentsResponseSchema },
-    },
-    preHandler: [requireAuth, userContext, requirePermission('users', PermissionAction.READ)],
-    handler: ctrl.getAssignments.bind(ctrl),
-  });
-
-  // ==========================================
   // POST /users/:id/assignments
   // ==========================================
 

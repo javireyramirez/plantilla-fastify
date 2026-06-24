@@ -72,16 +72,6 @@ export class UsersController extends BaseController<Users> {
   }
 
   // ==========================================
-  // GET /users/:id/assignments
-  // ==========================================
-
-  async getAssignments(req: FastifyRequest, reply: FastifyReply) {
-    const { id } = UsersIdParamsSchema.parse(req.params);
-    const result = await this.usersService.getAssignments(id);
-    return reply.send(result);
-  }
-
-  // ==========================================
   // POST /users/:id/assignments
   // ==========================================
 
