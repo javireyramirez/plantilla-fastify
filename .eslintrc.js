@@ -1,11 +1,7 @@
 export default {
   root: true,
   parser: '@typescript-eslint/parser',
-  extends: [
-    'eslint:recommended',
-    'plugin:@typescript-eslint/recommended',
-    'prettier'
-  ],
+  extends: ['eslint:recommended', 'plugin:@typescript-eslint/recommended', 'prettier'],
   plugins: ['@typescript-eslint'],
   env: {
     node: true,
@@ -25,4 +21,4 @@ export default {
     'no-console': ['warn', { allow: ['warn', 'error', 'log', 'info'] }],
   },
   ignorePatterns: ['dist', 'node_modules', '.turbo', 'build'],
-}
+};

@@ -13,9 +13,12 @@ export abstract class BaseCrudService<T> {
   constructor(protected readonly repository: BaseRepository<T>) {}
 
   //Includes
-  // TeamService
   protected getDefaultInclude() {
     return {};
+  }
+
+  protected getDefaultListInclude() {
+    return this.getDefaultInclude();
   }
 
   // Filtros texto
@@ -191,7 +194,7 @@ export abstract class BaseCrudService<T> {
     return this.repository.findManyWithCount({
       ...params,
       include: {
-        ...this.getDefaultInclude(),
+        ...this.getDefaultListInclude(),
 
         ...(params.include || {}),
       },

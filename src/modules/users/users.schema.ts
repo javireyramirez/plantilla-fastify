@@ -7,6 +7,11 @@ import {
   createPaginatedResponseSchema,
 } from '@/schemas/base.schema.js';
 
+export const ResponseTeamRoleSchemaBase = z.object({
+  id: z.uuidv7(),
+  name: z.string(),
+});
+
 // ==========================================
 // SCHEMA BASE
 // ==========================================
@@ -22,6 +27,12 @@ export const UsersSchema = z.object({
   isSuperAdmin: z.boolean(),
   createdAt: z.date(),
   updatedAt: z.date(),
+  teamUser: z
+    .array(z.object({ team: ResponseTeamRoleSchemaBase }))
+    .transform((items) => items.map((i) => i.team)),
+  roleAssignments: z
+    .array(z.object({ role: ResponseTeamRoleSchemaBase }))
+    .transform((items) => items.map((i) => i.role)),
 });
 
 export const sessionSchema = z.object({
@@ -56,7 +67,7 @@ export const GetUsersQuerySchema = GetPaginatedQueryBaseSchema.extend({
       return v === 'true' || v === true;
     }, z.boolean().optional())
     .optional(),
-  isSuperAdmin: z
+  isActive: z
     .preprocess((v) => {
       if (v === undefined || v === null || v === '') return undefined;
       return v === 'true' || v === true;
@@ -99,7 +110,9 @@ export const BulkIdsBodySchema = z.object({
 
 export const UsersResponseSchema = UsersSchema;
 
-export const UsersListResponseSchema = createPaginatedResponseSchema(UsersSchema);
+export const UsersListResponseSchema = createPaginatedResponseSchema(
+  UsersSchema.omit({ teamUser: true, roleAssignments: true }),
+);
 
 export const BulkResponseSchema = z.object({
   count: z.number(),
@@ -111,6 +124,26 @@ export const ResponseMessageSchema = z.object({
   message: z.string(),
 });
 
+export const UserAssignmentsResponseSchema = z.object({
+  roles: z.array(
+    z.object({
+      id: z.uuidv7(),
+      name: z.string(),
+    }),
+  ),
+  teams: z.array(
+    z.object({
+      id: z.uuidv7(),
+      name: z.string(),
+    }),
+  ),
+});
+
+export const UpdateUserAssignmentsBodySchema = z.object({
+  roles: z.array(z.uuidv7()).optional().default([]),
+  teams: z.array(z.uuidv7()).optional().default([]),
+});
+
 // ==========================================
 // TYPES
 // ==========================================
@@ -120,3 +153,5 @@ export type Session = z.infer<typeof sessionSchema>;
 export type CreateUsers = z.infer<typeof CreateUsersBodySchema>;
 export type UpdateUsers = z.infer<typeof UpdateUsersBodySchema>;
 export type GetUsersQuery = z.infer<typeof GetUsersQuerySchema>;
+export type UserAssignmentsResponse = z.infer<typeof UserAssignmentsResponseSchema>;
+export type UpdateUserAssignmentsBody = z.infer<typeof UpdateUserAssignmentsBodySchema>;
