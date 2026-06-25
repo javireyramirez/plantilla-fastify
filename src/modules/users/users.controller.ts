@@ -3,12 +3,14 @@ import { FastifyReply, FastifyRequest } from 'fastify';
 import { BaseController } from '@/controllers/base.controller.js';
 import {
   BulkIdsBodySchema,
-  UpdateUserAssignmentsBodySchema,
+  UpdateUserRolesBodySchema,
+  UpdateUserTeamsBodySchema,
   Users,
   UsersIdParamsSchema,
 } from '@/modules/users/users.schema.js';
 import { UsersService } from '@/modules/users/users.service.js';
 import { HttpError } from '@/utils/http.error.js';
+import { parsePagination } from '@/utils/pagination.js';
 
 export class UsersController extends BaseController<Users> {
   constructor(private readonly usersService: UsersService) {
@@ -72,25 +74,83 @@ export class UsersController extends BaseController<Users> {
   }
 
   // ==========================================
-  // POST /users/:id/assignments
+  // GET /users/:id/roles
   // ==========================================
+  async getRoleAssignments(request: FastifyRequest, reply: FastifyReply) {
+    const { id } = UsersIdParamsSchema.parse(request.params);
+    const { page = 1, limit = 10, sortBy = 'name', sortOrder = 'asc' } = request.query as any;
 
-  async addAssignments(req: FastifyRequest, reply: FastifyReply) {
-    const { id } = UsersIdParamsSchema.parse(req.params);
-    const body = UpdateUserAssignmentsBodySchema.parse(req.body);
-    const requesterId = req.session?.userId!;
-    const result = await this.usersService.addAssignments(id, body, requesterId);
+    const { skip, take, meta } = parsePagination({ page, limit, sortBy, sortOrder });
+
+    // Pasamos el skip y take para la paginación de la tabla
+    const result = await this.usersService.getRoleAssignments(id, { skip, take });
+
+    return reply.send({
+      data: result.data,
+      meta: meta(result.total),
+    });
+  }
+
+  // ==========================================
+  // POST /users/:id/roles
+  // ==========================================
+  async addRoleAssignments(request: FastifyRequest, reply: FastifyReply) {
+    const { id } = UsersIdParamsSchema.parse(request.params);
+    const { roles } = UpdateUserRolesBodySchema.parse(request.body);
+    const requesterId = request.session?.userId!;
+
+    const result = await this.usersService.addRoleAssignments(id, roles, requesterId);
     return reply.send(result);
   }
 
   // ==========================================
-  // DELETE /users/:id/assignments
+  // DELETE /users/:id/roles
   // ==========================================
+  async removeRoleAssignments(request: FastifyRequest, reply: FastifyReply) {
+    const { id } = UsersIdParamsSchema.parse(request.params);
+    const { roles } = UpdateUserRolesBodySchema.parse(request.body);
 
-  async removeAssignments(req: FastifyRequest, reply: FastifyReply) {
-    const { id } = UsersIdParamsSchema.parse(req.params);
-    const body = UpdateUserAssignmentsBodySchema.parse(req.body);
-    const result = await this.usersService.removeAssignments(id, body);
+    const result = await this.usersService.removeRoleAssignments(id, roles);
+    return reply.send(result); // Devuelve { count: number }
+  }
+
+  // ==========================================
+  // GET /users/:id/teams
+  // ==========================================
+  async getTeamAssignments(request: FastifyRequest, reply: FastifyReply) {
+    const { id } = UsersIdParamsSchema.parse(request.params);
+    const { page = 1, limit = 10, sortBy = 'name', sortOrder = 'asc' } = request.query as any;
+
+    const { skip, take, meta } = parsePagination({ page, limit, sortBy, sortOrder });
+
+    const result = await this.usersService.getTeamAssignments(id, { skip, take });
+
+    return reply.send({
+      data: result.data,
+      meta: meta(result.total),
+    });
+  }
+
+  // ==========================================
+  // POST /users/:id/teams
+  // ==========================================
+  async addTeamAssignments(request: FastifyRequest, reply: FastifyReply) {
+    const { id } = UsersIdParamsSchema.parse(request.params);
+    const { teams } = UpdateUserTeamsBodySchema.parse(request.body);
+    const requesterId = request.session?.userId!;
+
+    const result = await this.usersService.addTeamAssignments(id, teams, requesterId);
+    return reply.send(result);
+  }
+
+  // ==========================================
+  // DELETE /users/:id/teams
+  // ==========================================
+  async removeTeamAssignments(request: FastifyRequest, reply: FastifyReply) {
+    const { id } = UsersIdParamsSchema.parse(request.params);
+    const { teams } = UpdateUserTeamsBodySchema.parse(request.body);
+
+    const result = await this.usersService.removeTeamAssignments(id, teams);
     return reply.send(result);
   }
 }

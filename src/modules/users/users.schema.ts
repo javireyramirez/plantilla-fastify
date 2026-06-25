@@ -84,6 +84,10 @@ export const GetUsersQuerySchema = GetPaginatedQueryBaseSchema.extend({
 
 export const GetListQuery = GetListQueryBase;
 
+export const GetUserAssignmentsQuerySchema = GetPaginatedQueryBaseSchema.extend({
+  sortBy: z.enum(['name']).optional().default('name'),
+});
+
 // ==========================================
 // BODIES
 // ==========================================
@@ -102,6 +106,14 @@ export const BulkCreateUsersBodySchema = z.array(CreateUsersBodySchema);
 
 export const BulkIdsBodySchema = z.object({
   ids: z.array(z.uuidv7()).min(1),
+});
+
+export const UpdateUserRolesBodySchema = z.object({
+  roles: z.array(z.uuidv7()).min(1),
+});
+
+export const UpdateUserTeamsBodySchema = z.object({
+  teams: z.array(z.uuidv7()).min(1),
 });
 
 // ==========================================
@@ -139,10 +151,12 @@ export const UserAssignmentsResponseSchema = z.object({
   ),
 });
 
-export const UpdateUserAssignmentsBodySchema = z.object({
-  roles: z.array(z.uuidv7()).optional().default([]),
-  teams: z.array(z.uuidv7()).optional().default([]),
-});
+export const UserRolesPaginatedResponseSchema = createPaginatedResponseSchema(
+  ResponseTeamRoleSchemaBase,
+);
+export const UserTeamsPaginatedResponseSchema = createPaginatedResponseSchema(
+  ResponseTeamRoleSchemaBase,
+);
 
 // ==========================================
 // TYPES
@@ -154,4 +168,5 @@ export type CreateUsers = z.infer<typeof CreateUsersBodySchema>;
 export type UpdateUsers = z.infer<typeof UpdateUsersBodySchema>;
 export type GetUsersQuery = z.infer<typeof GetUsersQuerySchema>;
 export type UserAssignmentsResponse = z.infer<typeof UserAssignmentsResponseSchema>;
-export type UpdateUserAssignmentsBody = z.infer<typeof UpdateUserAssignmentsBodySchema>;
+export type UpdateUserRolesBody = z.infer<typeof UpdateUserRolesBodySchema>;
+export type UpdateUserTeamsBody = z.infer<typeof UpdateUserTeamsBodySchema>;

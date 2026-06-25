@@ -10,12 +10,17 @@ import {
   BulkResponseSchema,
   CreateUsersBodySchema,
   GetListQuery,
+  GetUserAssignmentsQuerySchema,
   GetUsersQuerySchema,
   ResponseListSchema,
   ResponseMessageSchema,
   UpdateUserAssignmentsBodySchema,
+  UpdateUserRolesBodySchema,
+  UpdateUserTeamsBodySchema,
   UpdateUsersBodySchema,
   UserAssignmentsResponseSchema,
+  UserRolesPaginatedResponseSchema,
+  UserTeamsPaginatedResponseSchema,
   UsersIdParamsSchema,
   UsersListResponseSchema,
   UsersResponseSchema,
@@ -119,32 +124,76 @@ export default async function usersRoutes(fastify: FastifyInstance) {
   });
 
   // ==========================================
-  // POST /users/:id/assignments
+  // ROLES ASSIGNMENTS ROUTES
   // ==========================================
 
-  app.post('/:id/assignments', {
+  app.get('/:id/roles', {
     schema: {
-      tags: ['User Assignments'],
+      tags: ['User Roles'],
       params: UsersIdParamsSchema,
-      body: UpdateUserAssignmentsBodySchema,
-      response: { 200: UserAssignmentsResponseSchema },
+      querystring: GetUserAssignmentsQuerySchema,
+      response: { 200: UserRolesPaginatedResponseSchema },
     },
-    preHandler: [requireAuth, userContext, requirePermission('users', PermissionAction.SETTINGS)],
-    handler: ctrl.addAssignments.bind(ctrl),
+    preHandler: [requireAuth, userContext, requirePermission('roles', PermissionAction.SETTINGS)],
+    handler: ctrl.getRoleAssignments.bind(ctrl),
+  });
+
+  app.post('/:id/roles', {
+    schema: {
+      tags: ['User Roles'],
+      params: UsersIdParamsSchema,
+      body: UpdateUserRolesBodySchema,
+      response: { 200: BulkResponseSchema },
+    },
+    preHandler: [requireAuth, userContext, requirePermission('roles', PermissionAction.SETTINGS)],
+    handler: ctrl.addRoleAssignments.bind(ctrl),
+  });
+
+  app.delete('/:id/roles', {
+    schema: {
+      tags: ['User Roles'],
+      params: UsersIdParamsSchema,
+      body: UpdateUserRolesBodySchema,
+      response: { 200: BulkResponseSchema },
+    },
+    preHandler: [requireAuth, userContext, requirePermission('roles', PermissionAction.SETTINGS)],
+    handler: ctrl.removeRoleAssignments.bind(ctrl),
   });
 
   // ==========================================
-  // DELETE /users/:id/assignments
+  // TEAMS ASSIGNMENTS ROUTES
   // ==========================================
 
-  app.delete('/:id/assignments', {
+  app.get('/:id/teams', {
     schema: {
-      tags: ['User Assignments'],
+      tags: ['User Teams'],
       params: UsersIdParamsSchema,
-      body: UpdateUserAssignmentsBodySchema,
-      response: { 200: UserAssignmentsResponseSchema },
+      querystring: GetUserAssignmentsQuerySchema,
+      response: { 200: UserTeamsPaginatedResponseSchema },
     },
-    preHandler: [requireAuth, userContext, requirePermission('users', PermissionAction.SETTINGS)],
-    handler: ctrl.removeAssignments.bind(ctrl),
+    preHandler: [requireAuth, userContext, requirePermission('teams', PermissionAction.SETTINGS)],
+    handler: ctrl.getTeamAssignments.bind(ctrl),
+  });
+
+  app.post('/:id/teams', {
+    schema: {
+      tags: ['User Teams'],
+      params: UsersIdParamsSchema,
+      body: UpdateUserTeamsBodySchema,
+      response: { 200: BulkResponseSchema },
+    },
+    preHandler: [requireAuth, userContext, requirePermission('teams', PermissionAction.SETTINGS)],
+    handler: ctrl.addTeamAssignments.bind(ctrl),
+  });
+
+  app.delete('/:id/teams', {
+    schema: {
+      tags: ['User Teams'],
+      params: UsersIdParamsSchema,
+      body: UpdateUserTeamsBodySchema,
+      response: { 200: BulkResponseSchema },
+    },
+    preHandler: [requireAuth, userContext, requirePermission('teams', PermissionAction.SETTINGS)],
+    handler: ctrl.removeTeamAssignments.bind(ctrl),
   });
 }
