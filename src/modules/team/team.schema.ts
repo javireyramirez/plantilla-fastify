@@ -119,6 +119,22 @@ export const TeamUserResponseSchema = TeamUserSchemaBase.extend({
 
 export const TeamUserListResponseSchema = createPaginatedResponseSchema(TeamUserResponseSchema);
 
+export const GetTeamAssignmentsQuerySchema = GetPaginatedQueryBaseSchema.extend({
+  sortBy: z.enum(['name']).optional().default('name'),
+});
+
+export const UpdateTeamRolesBodySchema = z.object({
+  roles: z.array(z.uuidv7()).min(1),
+});
+
+export const TeamRolesPaginatedResponseSchema = createPaginatedResponseSchema(
+  z.object({
+    id: z.uuidv7(),
+    name: z.string(),
+    assignedAt: z.date(),
+  }),
+);
+
 // ==========================================
 // TYPES
 // ==========================================
@@ -129,3 +145,5 @@ export type UpdateTeam = z.infer<typeof UpdateTeamBodySchema>;
 export type TeamUser = z.infer<typeof TeamUserSchemaBase>;
 export type CreateTeamUser = z.infer<typeof CreateTeamUserSchema>;
 export type GetTeamUsersQuery = z.infer<typeof GetTeamUsersQuerySchema>;
+export type UpdateTeamRolesBody = z.infer<typeof UpdateTeamRolesBodySchema>;
+export type GetTeamAssignmentsQuery = z.infer<typeof GetTeamAssignmentsQuerySchema>;

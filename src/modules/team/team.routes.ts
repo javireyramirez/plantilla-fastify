@@ -13,16 +13,19 @@ import {
   CreateTeamBodySchema,
   CreateTeamUserSchema,
   GetListQuery,
+  GetTeamAssignmentsQuerySchema,
   GetTeamQuerySchema,
   GetTeamUsersQuerySchema,
   ResponseListSchema,
   TeamIdParamsSchema,
   TeamListResponseSchema,
   TeamResponseSchema,
+  TeamRolesPaginatedResponseSchema,
   TeamUserListResponseSchema,
   TeamUserResponseSchema,
   TeamuserIdParamsSchema,
   UpdateTeamBodySchema,
+  UpdateTeamRolesBodySchema,
 } from '@/modules/team/team.schema.js';
 import { registerBaseRoutes } from '@/routes/base.routes.js';
 
@@ -118,5 +121,42 @@ export default async function teamRoutes(fastify: FastifyInstance) {
     },
     preHandler: [requireAuth, userContext, requirePermission('teams', PermissionAction.SETTINGS)],
     handler: fastify.teamController.removeUsers.bind(fastify.teamController),
+  });
+
+  // ==========================================
+  // ROLES ASSIGNMENTS ROUTES
+  // ==========================================
+
+  app.get('/:id/roles', {
+    schema: {
+      tags: ['Team Roles'],
+      params: TeamIdParamsSchema,
+      querystring: GetTeamAssignmentsQuerySchema,
+      response: { 200: TeamRolesPaginatedResponseSchema },
+    },
+    preHandler: [requireAuth, userContext, requirePermission('roles', PermissionAction.SETTINGS)],
+    handler: fastify.teamController.getRoleAssignments.bind(fastify.teamController),
+  });
+
+  app.post('/:id/roles', {
+    schema: {
+      tags: ['Team Roles'],
+      params: TeamIdParamsSchema,
+      body: UpdateTeamRolesBodySchema,
+      response: { 200: BulkResponseSchema },
+    },
+    preHandler: [requireAuth, userContext, requirePermission('roles', PermissionAction.SETTINGS)],
+    handler: fastify.teamController.addRoleAssignments.bind(fastify.teamController),
+  });
+
+  app.delete('/:id/roles', {
+    schema: {
+      tags: ['Team Roles'],
+      params: TeamIdParamsSchema,
+      body: UpdateTeamRolesBodySchema,
+      response: { 200: BulkResponseSchema },
+    },
+    preHandler: [requireAuth, userContext, requirePermission('roles', PermissionAction.SETTINGS)],
+    handler: fastify.teamController.removeRoleAssignments.bind(fastify.teamController),
   });
 }
