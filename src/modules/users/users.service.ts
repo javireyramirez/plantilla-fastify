@@ -8,7 +8,7 @@ import { HttpError } from '@/utils/http.error.js';
 
 import { SessionRepository } from './session.repository.js';
 import { UsersRepository } from './users.repository.js';
-import { CreateUsers, UpdateUserAssignmentsBody, UpdateUsers, Users } from './users.schema.js';
+import { CreateUsers, UpdateUsers, Users } from './users.schema.js';
 
 export class UsersService extends BaseAuditService<Users> {
   constructor(
@@ -22,24 +22,6 @@ export class UsersService extends BaseAuditService<Users> {
   }
 
   protected override getDefaultInclude() {
-    return {
-      teamUser: {
-        select: {
-          team: {
-            select: { id: true, name: true },
-          },
-        },
-      },
-      roleAssignments: {
-        select: {
-          role: {
-            select: { id: true, name: true },
-          },
-        },
-      },
-    };
-  }
-  protected override getDefaultListInclude() {
     return {};
   }
 
@@ -158,115 +140,144 @@ export class UsersService extends BaseAuditService<Users> {
   }
 
   // ==========================================
-  // ROLES & TEAMS ASSIGNMENTS
+  // ROLES ASSIGNMENTS
   // ==========================================
 
-  async getAssignments(userId: string) {
+  async getRoleAssignments(userId: string, params: { skip?: number; take?: number } = {}) {
     const userExists = await this.usersRepo.exists({
       where: { id: userId, ...this.getStatusFilter(false) },
     });
     if (!userExists) throw new HttpError(404, 'Usuario no encontrado');
 
-    const roleAssignments = (await this.roleAssignmentRepo.findMany({
+    const { data, total } = await this.roleAssignmentRepo.findManyWithCount({
       where: { userId },
+      skip: params.skip,
+      take: params.take,
+      orderBy: { role: { name: 'asc' } },
       include: {
-        role: {
-          select: { id: true, name: true },
-        },
+        role: true,
       },
-    })) as any[];
-
-    const teamAssignments = (await this.teamUserRepo.findMany({
-      where: { userId },
-      include: {
-        team: {
-          select: { id: true, name: true },
-        },
-      },
-    })) as any[];
+    });
 
     return {
-      roles: roleAssignments.map((ra) => ({
+      data: data.map((ra: any) => ({
         id: ra.role.id,
         name: ra.role.name,
       })),
-      teams: teamAssignments.map((ta) => ({
-        id: ta.team.id,
-        name: ta.team.name,
-      })),
+      total,
     };
   }
 
-  async addAssignments(userId: string, data: UpdateUserAssignmentsBody, assignedBy?: string) {
+  async addRoleAssignments(
+    userId: string,
+    roles: string[],
+    assignedBy?: string,
+  ): Promise<{ count: number }> {
     const userExists = await this.usersRepo.exists({
       where: { id: userId, ...this.getStatusFilter(false) },
     });
     if (!userExists) throw new HttpError(404, 'Usuario no encontrado');
 
-    const { roles = [], teams = [] } = data;
+    if (!roles || roles.length === 0) return { count: 0 };
 
-    // Asignar roles
-    if (roles.length > 0) {
-      // Filtrar los que ya están asignados para evitar duplicados
-      const existingRoles = await this.roleAssignmentRepo.findMany({
-        where: { userId, roleId: { in: roles } },
-      });
-      const existingRoleIds = new Set(existingRoles.map((r) => r.roleId));
-      const rolesToAdd = roles.filter((roleId) => !existingRoleIds.has(roleId));
+    const existingRoles = await this.roleAssignmentRepo.findMany({
+      where: { userId, roleId: { in: roles } },
+    });
+    const existingRoleIds = new Set(existingRoles.map((r) => r.roleId));
+    const rolesToAdd = roles.filter((roleId) => !existingRoleIds.has(roleId));
 
-      if (rolesToAdd.length > 0) {
-        await this.roleAssignmentRepo.createMany({
-          data: rolesToAdd.map((roleId) => ({
-            roleId,
-            userId,
-            ...withAssignedBy(assignedBy),
-          })),
-        });
-      }
-    }
+    if (rolesToAdd.length === 0) return { count: 0 };
 
-    // Asignar equipos
-    if (teams.length > 0) {
-      const existingTeams = await this.teamUserRepo.findMany({
-        where: { userId, teamId: { in: teams } },
-      });
-      const existingTeamIds = new Set(existingTeams.map((t) => t.teamId));
-      const teamsToAdd = teams.filter((teamId) => !existingTeamIds.has(teamId));
-
-      if (teamsToAdd.length > 0) {
-        await this.teamUserRepo.createMany({
-          data: teamsToAdd.map((teamId) => ({
-            teamId,
-            userId,
-            ...withInvitedBy(assignedBy),
-          })),
-        });
-      }
-    }
-
-    return this.getAssignments(userId);
+    return await this.roleAssignmentRepo.createMany({
+      data: rolesToAdd.map((roleId) => ({
+        roleId,
+        userId,
+        ...withAssignedBy(assignedBy),
+      })),
+    });
   }
 
-  async removeAssignments(userId: string, data: UpdateUserAssignmentsBody) {
+  async removeRoleAssignments(userId: string, roles: string[]): Promise<{ count: number }> {
     const userExists = await this.usersRepo.exists({
       where: { id: userId, ...this.getStatusFilter(false) },
     });
     if (!userExists) throw new HttpError(404, 'Usuario no encontrado');
 
-    const { roles = [], teams = [] } = data;
+    if (!roles || roles.length === 0) return { count: 0 };
 
-    if (roles.length > 0) {
-      await this.roleAssignmentRepo.deleteMany({
-        where: { userId, roleId: { in: roles } },
-      });
-    }
+    return await this.roleAssignmentRepo.deleteMany({
+      where: { userId, roleId: { in: roles } },
+    });
+  }
 
-    if (teams.length > 0) {
-      await this.teamUserRepo.deleteMany({
-        where: { userId, teamId: { in: teams } },
-      });
-    }
+  // ==========================================
+  // TEAMS ASSIGNMENTS
+  // ==========================================
 
-    return this.getAssignments(userId);
+  async getTeamAssignments(userId: string, params: { skip?: number; take?: number } = {}) {
+    const userExists = await this.usersRepo.exists({
+      where: { id: userId, ...this.getStatusFilter(false) },
+    });
+    if (!userExists) throw new HttpError(404, 'Usuario no encontrado');
+
+    const { data, total } = await this.teamUserRepo.findManyWithCount({
+      where: { userId },
+      skip: params.skip,
+      take: params.take,
+      orderBy: { team: { name: 'asc' } },
+      include: {
+        team: true,
+      },
+    });
+
+    return {
+      data: data.map((ta: any) => ({
+        id: ta.team.id,
+        name: ta.team.name,
+      })),
+      total,
+    };
+  }
+
+  async addTeamAssignments(
+    userId: string,
+    teams: string[],
+    assignedBy?: string,
+  ): Promise<{ count: number }> {
+    const userExists = await this.usersRepo.exists({
+      where: { id: userId, ...this.getStatusFilter(false) },
+    });
+    if (!userExists) throw new HttpError(404, 'Usuario no encontrado');
+
+    if (!teams || teams.length === 0) return { count: 0 };
+
+    const existingTeams = await this.teamUserRepo.findMany({
+      where: { userId, teamId: { in: teams } },
+    });
+    const existingTeamIds = new Set(existingTeams.map((t) => t.teamId));
+    const teamsToAdd = teams.filter((teamId) => !existingTeamIds.has(teamId));
+
+    if (teamsToAdd.length === 0) return { count: 0 };
+
+    return await this.teamUserRepo.createMany({
+      data: teamsToAdd.map((teamId) => ({
+        teamId,
+        userId,
+        ...withInvitedBy(assignedBy),
+      })),
+    });
+  }
+
+  async removeTeamAssignments(userId: string, teams: string[]): Promise<{ count: number }> {
+    const userExists = await this.usersRepo.exists({
+      where: { id: userId, ...this.getStatusFilter(false) },
+    });
+    if (!userExists) throw new HttpError(404, 'Usuario no encontrado');
+
+    if (!teams || teams.length === 0) return { count: 0 };
+
+    return await this.teamUserRepo.deleteMany({
+      where: { userId, teamId: { in: teams } },
+    });
   }
 }

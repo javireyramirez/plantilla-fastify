@@ -27,12 +27,6 @@ export const UsersSchema = z.object({
   isSuperAdmin: z.boolean(),
   createdAt: z.date(),
   updatedAt: z.date(),
-  teamUser: z
-    .array(z.object({ team: ResponseTeamRoleSchemaBase }))
-    .transform((items) => items.map((i) => i.team)),
-  roleAssignments: z
-    .array(z.object({ role: ResponseTeamRoleSchemaBase }))
-    .transform((items) => items.map((i) => i.role)),
 });
 
 export const sessionSchema = z.object({
@@ -84,6 +78,10 @@ export const GetUsersQuerySchema = GetPaginatedQueryBaseSchema.extend({
 
 export const GetListQuery = GetListQueryBase;
 
+export const GetUserAssignmentsQuerySchema = GetPaginatedQueryBaseSchema.extend({
+  sortBy: z.enum(['name']).optional().default('name'),
+});
+
 // ==========================================
 // BODIES
 // ==========================================
@@ -104,15 +102,21 @@ export const BulkIdsBodySchema = z.object({
   ids: z.array(z.uuidv7()).min(1),
 });
 
+export const UpdateUserRolesBodySchema = z.object({
+  roles: z.array(z.uuidv7()).min(1),
+});
+
+export const UpdateUserTeamsBodySchema = z.object({
+  teams: z.array(z.uuidv7()).min(1),
+});
+
 // ==========================================
 // RESPONSES
 // ==========================================
 
 export const UsersResponseSchema = UsersSchema;
 
-export const UsersListResponseSchema = createPaginatedResponseSchema(
-  UsersSchema.omit({ teamUser: true, roleAssignments: true }),
-);
+export const UsersListResponseSchema = createPaginatedResponseSchema(UsersSchema);
 
 export const BulkResponseSchema = z.object({
   count: z.number(),
@@ -124,25 +128,12 @@ export const ResponseMessageSchema = z.object({
   message: z.string(),
 });
 
-export const UserAssignmentsResponseSchema = z.object({
-  roles: z.array(
-    z.object({
-      id: z.uuidv7(),
-      name: z.string(),
-    }),
-  ),
-  teams: z.array(
-    z.object({
-      id: z.uuidv7(),
-      name: z.string(),
-    }),
-  ),
-});
-
-export const UpdateUserAssignmentsBodySchema = z.object({
-  roles: z.array(z.uuidv7()).optional().default([]),
-  teams: z.array(z.uuidv7()).optional().default([]),
-});
+export const UserRolesPaginatedResponseSchema = createPaginatedResponseSchema(
+  ResponseTeamRoleSchemaBase,
+);
+export const UserTeamsPaginatedResponseSchema = createPaginatedResponseSchema(
+  ResponseTeamRoleSchemaBase,
+);
 
 // ==========================================
 // TYPES
@@ -153,5 +144,5 @@ export type Session = z.infer<typeof sessionSchema>;
 export type CreateUsers = z.infer<typeof CreateUsersBodySchema>;
 export type UpdateUsers = z.infer<typeof UpdateUsersBodySchema>;
 export type GetUsersQuery = z.infer<typeof GetUsersQuerySchema>;
-export type UserAssignmentsResponse = z.infer<typeof UserAssignmentsResponseSchema>;
-export type UpdateUserAssignmentsBody = z.infer<typeof UpdateUserAssignmentsBodySchema>;
+export type UpdateUserRolesBody = z.infer<typeof UpdateUserRolesBodySchema>;
+export type UpdateUserTeamsBody = z.infer<typeof UpdateUserTeamsBodySchema>;
