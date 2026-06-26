@@ -3,6 +3,7 @@ import { FastifyReply, FastifyRequest } from 'fastify';
 import { BaseController } from '@/controllers/base.controller.js';
 import {
   BulkIdsBodySchema,
+  GetUserAssignmentsQuerySchema,
   UpdateUserRolesBodySchema,
   UpdateUserTeamsBodySchema,
   Users,
@@ -78,19 +79,15 @@ export class UsersController extends BaseController<Users> {
   // ==========================================
   async getRoleAssignments(request: FastifyRequest, reply: FastifyReply) {
     const { id } = UsersIdParamsSchema.parse(request.params);
-    const { page = 1, limit = 10, sortBy = 'name', sortOrder = 'asc' } = request.query as any;
-
+    const { page, limit, sortBy, sortOrder, ...filters } = GetUserAssignmentsQuerySchema.parse(
+      request.query,
+    );
     const { skip, take, meta } = parsePagination({ page, limit, sortBy, sortOrder });
 
-    // Pasamos el skip y take para la paginación de la tabla
-    const result = await this.usersService.getRoleAssignments(id, { skip, take });
+    const result = await this.usersService.getRoleAssignments(id, { skip, take, filters });
 
-    return reply.send({
-      data: result.data,
-      meta: meta(result.total),
-    });
+    return reply.send({ data: result.data, meta: meta(result.total) });
   }
-
   // ==========================================
   // POST /users/:id/roles
   // ==========================================
@@ -119,11 +116,12 @@ export class UsersController extends BaseController<Users> {
   // ==========================================
   async getTeamAssignments(request: FastifyRequest, reply: FastifyReply) {
     const { id } = UsersIdParamsSchema.parse(request.params);
-    const { page = 1, limit = 10, sortBy = 'name', sortOrder = 'asc' } = request.query as any;
-
+    const { page, limit, sortBy, sortOrder, ...filters } = GetUserAssignmentsQuerySchema.parse(
+      request.query,
+    );
     const { skip, take, meta } = parsePagination({ page, limit, sortBy, sortOrder });
 
-    const result = await this.usersService.getTeamAssignments(id, { skip, take });
+    const result = await this.usersService.getTeamAssignments(id, { skip, take, filters });
 
     return reply.send({
       data: result.data,

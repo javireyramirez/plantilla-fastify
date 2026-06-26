@@ -129,10 +129,11 @@ export const ResponseMessageSchema = z.object({
 });
 
 export const UserRolesPaginatedResponseSchema = createPaginatedResponseSchema(
-  ResponseTeamRoleSchemaBase,
+  ResponseTeamRoleSchemaBase.extend({ assignedAt: z.date() }),
 );
+
 export const UserTeamsPaginatedResponseSchema = createPaginatedResponseSchema(
-  ResponseTeamRoleSchemaBase,
+  ResponseTeamRoleSchemaBase.extend({ joinedAt: z.date() }),
 );
 
 // ==========================================

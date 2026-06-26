@@ -143,14 +143,25 @@ export class UsersService extends BaseAuditService<Users> {
   // ROLES ASSIGNMENTS
   // ==========================================
 
-  async getRoleAssignments(userId: string, params: { skip?: number; take?: number } = {}) {
+  async getRoleAssignments(
+    userId: string,
+    params: { skip?: number; take?: number; filters?: Record<string, any> } = {},
+  ) {
     const userExists = await this.usersRepo.exists({
       where: { id: userId, ...this.getStatusFilter(false) },
     });
     if (!userExists) throw new HttpError(404, 'Usuario no encontrado');
 
+    const filters = params.filters ?? {};
+
     const { data, total } = await this.roleAssignmentRepo.findManyWithCount({
-      where: { userId },
+      where: {
+        userId,
+        ...this.buildDateRangeFilter('assignedAt', filters.createdAtFrom, filters.createdAtTo),
+        role: {
+          ...this.buildStringFilter('name', filters.name),
+        },
+      },
       skip: params.skip,
       take: params.take,
       orderBy: { role: { name: 'asc' } },
@@ -163,6 +174,7 @@ export class UsersService extends BaseAuditService<Users> {
       data: data.map((ra: any) => ({
         id: ra.role.id,
         name: ra.role.name,
+        assignedAt: ra.assignedAt,
       })),
       total,
     };
@@ -214,14 +226,25 @@ export class UsersService extends BaseAuditService<Users> {
   // TEAMS ASSIGNMENTS
   // ==========================================
 
-  async getTeamAssignments(userId: string, params: { skip?: number; take?: number } = {}) {
+  async getTeamAssignments(
+    userId: string,
+    params: { skip?: number; take?: number; filters?: Record<string, any> } = {},
+  ) {
     const userExists = await this.usersRepo.exists({
       where: { id: userId, ...this.getStatusFilter(false) },
     });
     if (!userExists) throw new HttpError(404, 'Usuario no encontrado');
 
+    const filters = params.filters ?? {};
+
     const { data, total } = await this.teamUserRepo.findManyWithCount({
-      where: { userId },
+      where: {
+        userId,
+        ...this.buildDateRangeFilter('joinedAt', filters.createdAtFrom, filters.createdAtTo),
+        team: {
+          ...this.buildStringFilter('name', filters.name),
+        },
+      },
       skip: params.skip,
       take: params.take,
       orderBy: { team: { name: 'asc' } },
@@ -234,6 +257,7 @@ export class UsersService extends BaseAuditService<Users> {
       data: data.map((ta: any) => ({
         id: ta.team.id,
         name: ta.team.name,
+        joinedAt: ta.joinedAt,
       })),
       total,
     };
