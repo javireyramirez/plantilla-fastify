@@ -27,12 +27,6 @@ export const UsersSchema = z.object({
   isSuperAdmin: z.boolean(),
   createdAt: z.date(),
   updatedAt: z.date(),
-  teamUser: z
-    .array(z.object({ team: ResponseTeamRoleSchemaBase }))
-    .transform((items) => items.map((i) => i.team)),
-  roleAssignments: z
-    .array(z.object({ role: ResponseTeamRoleSchemaBase }))
-    .transform((items) => items.map((i) => i.role)),
 });
 
 export const sessionSchema = z.object({
@@ -122,9 +116,7 @@ export const UpdateUserTeamsBodySchema = z.object({
 
 export const UsersResponseSchema = UsersSchema;
 
-export const UsersListResponseSchema = createPaginatedResponseSchema(
-  UsersSchema.omit({ teamUser: true, roleAssignments: true }),
-);
+export const UsersListResponseSchema = createPaginatedResponseSchema(UsersSchema);
 
 export const BulkResponseSchema = z.object({
   count: z.number(),
@@ -134,21 +126,6 @@ export const ResponseListSchema = ResponseListSchemaBase;
 
 export const ResponseMessageSchema = z.object({
   message: z.string(),
-});
-
-export const UserAssignmentsResponseSchema = z.object({
-  roles: z.array(
-    z.object({
-      id: z.uuidv7(),
-      name: z.string(),
-    }),
-  ),
-  teams: z.array(
-    z.object({
-      id: z.uuidv7(),
-      name: z.string(),
-    }),
-  ),
 });
 
 export const UserRolesPaginatedResponseSchema = createPaginatedResponseSchema(
@@ -167,6 +144,5 @@ export type Session = z.infer<typeof sessionSchema>;
 export type CreateUsers = z.infer<typeof CreateUsersBodySchema>;
 export type UpdateUsers = z.infer<typeof UpdateUsersBodySchema>;
 export type GetUsersQuery = z.infer<typeof GetUsersQuerySchema>;
-export type UserAssignmentsResponse = z.infer<typeof UserAssignmentsResponseSchema>;
 export type UpdateUserRolesBody = z.infer<typeof UpdateUserRolesBodySchema>;
 export type UpdateUserTeamsBody = z.infer<typeof UpdateUserTeamsBodySchema>;

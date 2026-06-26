@@ -8,7 +8,7 @@ import { HttpError } from '@/utils/http.error.js';
 
 import { SessionRepository } from './session.repository.js';
 import { UsersRepository } from './users.repository.js';
-import { CreateUsers, UpdateUserAssignmentsBody, UpdateUsers, Users } from './users.schema.js';
+import { CreateUsers, UpdateUsers, Users } from './users.schema.js';
 
 export class UsersService extends BaseAuditService<Users> {
   constructor(
@@ -22,24 +22,6 @@ export class UsersService extends BaseAuditService<Users> {
   }
 
   protected override getDefaultInclude() {
-    return {
-      teamUser: {
-        select: {
-          team: {
-            select: { id: true, name: true },
-          },
-        },
-      },
-      roleAssignments: {
-        select: {
-          role: {
-            select: { id: true, name: true },
-          },
-        },
-      },
-    };
-  }
-  protected override getDefaultListInclude() {
     return {};
   }
 
