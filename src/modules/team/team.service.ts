@@ -1,4 +1,5 @@
-import { withInvitedBy } from '@/decorators/audit.decorators.js';
+import { withAssignedBy, withInvitedBy } from '@/decorators/audit.decorators.js';
+import { RoleAssignmentRepository } from '@/modules/rbac/role-assignment.repository.js';
 import { BaseAuditService } from '@/services/base-audit.service.js';
 import { WriteOptions } from '@/types/base.types.js';
 import { HttpError } from '@/utils/http.error.js';
@@ -11,6 +12,7 @@ export class TeamService extends BaseAuditService<Team> {
   constructor(
     private readonly teamRepo: TeamRepository,
     private readonly teamUserRepo: TeamUserRepository,
+    private readonly roleAssignmentRepo: RoleAssignmentRepository,
   ) {
     super(teamRepo);
   }
@@ -211,6 +213,80 @@ export class TeamService extends BaseAuditService<Team> {
 
     return this.teamUserRepo.deleteMany({
       where: { teamId, userId: { in: userIds } },
+    });
+  }
+
+  // ==========================================
+  // ROLES ASSIGNMENTS
+  // ==========================================
+
+  async getRoleAssignments(
+    teamId: string,
+    params: { skip?: number; take?: number; filters?: Record<string, any> } = {},
+  ) {
+    await this.ensureTeamExists(teamId);
+
+    const filters = params.filters ?? {};
+
+    const { data, total } = await this.roleAssignmentRepo.findManyWithCount({
+      where: {
+        teamId,
+        ...this.buildDateRangeFilter('assignedAt', filters.createdAtFrom, filters.createdAtTo),
+        role: {
+          ...this.buildStringFilter('name', filters.name),
+        },
+      },
+      skip: params.skip,
+      take: params.take,
+      orderBy: { role: { name: 'asc' } },
+      include: {
+        role: true,
+      },
+    });
+
+    return {
+      data: data.map((ra: any) => ({
+        id: ra.role.id,
+        name: ra.role.name,
+        assignedAt: ra.assignedAt,
+      })),
+      total,
+    };
+  }
+
+  async addRoleAssignments(
+    teamId: string,
+    roles: string[],
+    assignedBy?: string,
+  ): Promise<{ count: number }> {
+    await this.ensureTeamExists(teamId);
+
+    if (!roles || roles.length === 0) return { count: 0 };
+
+    const existingRoles = await this.roleAssignmentRepo.findMany({
+      where: { teamId, roleId: { in: roles } },
+    });
+    const existingRoleIds = new Set(existingRoles.map((r) => r.roleId));
+    const rolesToAdd = roles.filter((roleId) => !existingRoleIds.has(roleId));
+
+    if (rolesToAdd.length === 0) return { count: 0 };
+
+    return await this.roleAssignmentRepo.createMany({
+      data: rolesToAdd.map((roleId) => ({
+        roleId,
+        teamId,
+        ...withAssignedBy(assignedBy),
+      })),
+    });
+  }
+
+  async removeRoleAssignments(teamId: string, roles: string[]): Promise<{ count: number }> {
+    await this.ensureTeamExists(teamId);
+
+    if (!roles || roles.length === 0) return { count: 0 };
+
+    return await this.roleAssignmentRepo.deleteMany({
+      where: { teamId, roleId: { in: roles } },
     });
   }
 }
