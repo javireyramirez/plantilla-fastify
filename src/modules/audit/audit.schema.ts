@@ -28,6 +28,10 @@ export const AuditLogSchema = z.object({
   ipAddress: z.string().nullable().optional(),
   userAgent: z.string().nullable().optional(),
   createdAt: z.date(),
+  user: z.object({
+    name: z.string().nullable().optional(),
+    email: z.string().nullable().optional(),
+  }).nullable().optional(),
 });
 
 // PARAMS
@@ -40,7 +44,20 @@ export const GetAuditLogsQuerySchema = GetPaginatedQueryBaseSchema.extend({
   action: AuditActionSchema.optional(),
   moduleSlug: z.string().optional(),
   entityId: z.string().optional(),
-  userId: z.string().optional(),
+  userId: z
+    .preprocess((val) => {
+      if (typeof val === 'string') return val.split(',');
+      if (Array.isArray(val)) return val;
+      return undefined;
+    }, z.array(z.string()))
+    .optional(),
+  user: z
+    .preprocess((val) => {
+      if (typeof val === 'string') return val.split(',');
+      if (Array.isArray(val)) return val;
+      return undefined;
+    }, z.array(z.string()))
+    .optional(),
   sortBy: z.enum(['createdAt', 'action', 'moduleSlug']).optional().default('createdAt'),
 });
 
