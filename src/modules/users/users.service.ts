@@ -11,6 +11,8 @@ import { UsersRepository } from './users.repository.js';
 import { CreateUsers, UpdateUsers, Users } from './users.schema.js';
 
 export class UsersService extends BaseAuditService<Users> {
+  protected override readonly moduleSlug = 'users';
+
   constructor(
     private readonly usersRepo: UsersRepository,
     private readonly sessionRepo: SessionRepository,

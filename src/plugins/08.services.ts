@@ -6,6 +6,7 @@ import { ModuleService } from '@/modules/module/modules.service.js';
 import { RoleService } from '@/modules/rbac/rbac.service.js';
 import { StorageService } from '@/modules/storage/storage.service.js';
 import { TeamService } from '@/modules/team/team.service.js';
+import { TrashService } from '@/modules/trash/trash.service.js';
 import { UsersService } from '@/modules/users/users.service.js';
 
 export default fp(
@@ -31,6 +32,7 @@ export default fp(
       fastify.roleAssignmentRepository,
       fastify.teamUserRepository,
     );
+    const trashService = new TrashService(fastify);
 
     fastify.decorate('emailService', emailService);
     fastify.decorate('storageService', storageService);
@@ -39,6 +41,7 @@ export default fp(
     fastify.decorate('teamService', teamService);
     fastify.decorate('roleService', roleService);
     fastify.decorate('moduleService', moduleService);
+    fastify.decorate('trashService', trashService);
 
     fastify.log.info('Domain Services ready');
   },
@@ -57,5 +60,6 @@ declare module 'fastify' {
     roleService: RoleService;
     teamService: TeamService;
     moduleService: ModuleService;
+    trashService: TrashService;
   }
 }

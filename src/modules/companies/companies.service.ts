@@ -4,6 +4,8 @@ import { CompaniesRepository } from './companies.repository.js';
 import { Company } from './companies.schema.js';
 
 export class CompaniesService extends BaseRbacService<Company> {
+  protected override readonly moduleSlug = 'companies';
+
   constructor(private readonly companiesRepo: CompaniesRepository) {
     super(companiesRepo);
   }

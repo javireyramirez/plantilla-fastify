@@ -89,6 +89,10 @@ model User {
   restoredModule Module[] @relation("RestoredModule")
   updatedModule  Module[] @relation("UpdatedModule")
 
+  // Papelera y Auditoría
+  auditLogs      AuditLog[] @relation("UserAuditLogs")
+  trashDeletions TrashBin[] @relation("TrashDeletions")
+
   @@index([email])
   @@index([isActive])
   @@map("auth_users")
@@ -189,7 +193,7 @@ model Verification {
   createdAt  DateTime? @default(now())
   updatedAt  DateTime? @updatedAt
 
-  @@map("auth_verification")
+  @@map("auth_verifications")
 }
 
 model Key {
@@ -274,7 +278,7 @@ model EmailLog {
   @@index([providerId])
   @@index([status])
   @@index([createdAt])
-  @@map("email_log")
+  @@map("email_logs")
 }
 
 // ==========================================
@@ -322,7 +326,7 @@ model Document {
   @@index([entityId, entityType, status])
   @@index([fileName])
   @@index([createdAt])
-  @@map("document")
+  @@map("documents")
 }
 
 // ==========================================
@@ -359,6 +363,10 @@ model Module {
   updater   User?   @relation("UpdatedModule", fields: [updatedBy], references: [id], onDelete: SetNull)
 
   permissions RolePermission[]
+
+  // Papelera y Auditoría
+  auditLogs  AuditLog[] @relation("ModuleAuditLogs")
+  trashItems TrashBin[] @relation("ModuleTrashItems")
 
   @@map("rbac_modules")
 }
@@ -571,5 +579,73 @@ model Company {
   @@index([nif])
   @@index([status])
   @@index([ownerId])
-  @@map("test_companies")
+  @@map("companies")
 }
+
+// ==========================================
+// UNIFIED TRASH & AUDITING MODELS
+// ==========================================
+
+model AuditLog {
+  id          String      @id @default(uuid(7))
+  userId      String?
+  action      AuditAction
+  
+  // Module reference (Option C)
+  moduleId    String?
+  moduleSlug  String?
+  module      Module?     @relation("ModuleAuditLogs", fields: [moduleId], references: [id], onDelete: SetNull)
+  
+  entityId    String?
+  displayName String?
+  description String?     @db.Text
+  metadata    Json?
+  ipAddress   String?
+  userAgent   String?     @db.Text
+  createdAt   DateTime    @default(now())
+
+  user        User?       @relation("UserAuditLogs", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([action])
+  @@index([moduleSlug, entityId])
+  @@index([createdAt])
+  @@map("sys_audit_logs")
+}
+
+model TrashBin {
+  id          String   @id @default(uuid(7))
+  
+  // Module reference (Option C)
+  moduleId    String
+  moduleSlug  String
+  module      Module   @relation("ModuleTrashItems", fields: [moduleId], references: [id], onDelete: Cascade)
+  
+  entityId    String   // The UUID of the soft-deleted row
+  displayName String   // Quick preview to show the user (e.g. name, file name)
+  deletedAt   DateTime @default(now())
+  deletedBy   String?
+  expiresAt   DateTime // Date when this item will be permanently purged
+  metadata    Json?    // Optional extra context
+
+  // Ownership mirrors (for RBAC)
+  ownerId     String?
+  createdBy   String?
+
+  deletor     User?    @relation("TrashDeletions", fields: [deletedBy], references: [id], onDelete: SetNull)
+
+  @@unique([moduleSlug, entityId])
+  @@index([expiresAt])
+  @@index([deletedAt])
+  @@map("sys_trash_bin")
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  SOFT_DELETE
+  RESTORE
+  HARD_DELETE
+  LOGIN
+  LOGOUT
+}
+

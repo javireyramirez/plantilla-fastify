@@ -9,6 +9,8 @@ import { TeamRepository } from './team.repository.js';
 import { Team } from './team.schema.js';
 
 export class TeamService extends BaseAuditService<Team> {
+  protected override readonly moduleSlug = 'teams';
+
   constructor(
     private readonly teamRepo: TeamRepository,
     private readonly teamUserRepo: TeamUserRepository,

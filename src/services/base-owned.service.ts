@@ -37,33 +37,6 @@ export abstract class BaseRbacService<T> extends BaseAuditService<T> {
     }
   }
 
-  override async softDelete(id: string, options: WriteOptions = {}): Promise<T> {
-    try {
-      return await this.repository.update({
-        where: { id, ...this.getStatusFilter(false) },
-        data: withDeletedBy(options.userId),
-        scope: options.scope,
-      });
-    } catch (error: any) {
-      if (error.code === 'P2025') {
-        throw new HttpError(404, 'Registro no encontrado o sin permisos');
-      }
-      if (error instanceof HttpError) throw error;
-      throw new HttpError(500, `Error al mover a la papelera: ${error.message}`);
-    }
-  }
-
-  override async restore(id: string, options: WriteOptions = {}): Promise<T> {
-    const record = await this.repository.findFirst({
-      where: { id, ...this.getStatusFilter(true) },
-      scope: options.scope,
-    });
-    if (!record) {
-      throw new HttpError(404, 'Registro no encontrado o sin permisos');
-    }
-
-    return super.restore(id, options) as Promise<T>;
-  }
 
   override async hardDelete(id: string, options: WriteOptions = {}): Promise<T> {
     try {
@@ -139,23 +112,6 @@ export abstract class BaseRbacService<T> extends BaseAuditService<T> {
   // 3. OPERACIONES MASIVAS (BULK)
   // ==========================================
 
-  override async softDeleteMany(ids: string[], options: WriteOptions = {}) {
-    if (!ids.length) return { count: 0 };
-    return this.repository.updateMany({
-      where: { id: { in: ids } },
-      data: withDeletedBy(options.userId),
-      scope: options.scope,
-    });
-  }
-
-  override async restoreMany(ids: string[], options: WriteOptions = {}) {
-    if (!ids.length) return { count: 0 };
-    return this.repository.updateMany({
-      where: { id: { in: ids } },
-      data: withRestoredBy(options.userId),
-      scope: options.scope,
-    });
-  }
 
   override async hardDeleteMany(ids: string[], options: WriteOptions = {}) {
     if (!ids.length) return { count: 0 };

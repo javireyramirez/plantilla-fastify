@@ -2,6 +2,7 @@ import { Zip, ZipPassThrough } from 'fflate';
 import { PassThrough, Readable } from 'stream';
 
 import { BaseRbacService } from '@/services/base-owned.service.js';
+import { WriteOptions } from '@/types/base.types.js';
 import { HttpError } from '@/utils/http.error.js';
 
 import type { IStorageProvider } from './interfaces/storage.provider.interface.js';
@@ -10,6 +11,8 @@ import { StorageRepository } from './storage.repository.js';
 import { RequestUploadParams } from './storage.schema.js';
 
 export class StorageService extends BaseRbacService<any> {
+  protected override readonly moduleSlug = 'documents';
+
   constructor(
     private readonly storageRepo: StorageRepository,
     private readonly storage: IStorageProvider,
@@ -369,5 +372,32 @@ export class StorageService extends BaseRbacService<any> {
     const where = { status: 'PENDING', createdAt: { lt: threshold } };
 
     return this.hardDeleteManyWithContext(where);
+  }
+
+  override async hardDelete(id: string, options: WriteOptions = {}): Promise<any> {
+    const doc = await this.storageRepo.findFirst({
+      where: { id },
+      scope: options.scope,
+    });
+    if (!doc) throw new HttpError(404, 'Documento no encontrado');
+
+    await this.storage.deleteFile(doc.fileKey);
+    return super.hardDelete(id, options);
+  }
+
+  override async hardDeleteMany(ids: string[], options: WriteOptions = {}) {
+    if (!ids.length) return { count: 0 };
+
+    const docs = await this.storageRepo.findMany({
+      where: { id: { in: ids } },
+      scope: options.scope,
+    });
+
+    if (docs.length === 0) return { count: 0 };
+
+    const keys = docs.map((d) => d.fileKey);
+    await this.storage.deleteFiles(keys);
+
+    return super.hardDeleteMany(ids, options);
   }
 }
