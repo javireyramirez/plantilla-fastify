@@ -4,6 +4,7 @@ import {
   withRestoredBy,
   withUpdatedBy,
 } from '@/decorators/audit.decorators.js';
+import { env } from '@/config/env.js';
 import { WriteOptions } from '@/types/base.types.js';
 import { HttpError } from '@/utils/http.error.js';
 
@@ -43,6 +44,159 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
   }
 
   // ==========================================
+  // METODOS AUXILIARES DE AUDITORIA
+  // ==========================================
+
+  protected scrubSensitiveFields(obj: any): any {
+    if (!obj || typeof obj !== 'object') return obj;
+    const sensitiveKeys = ['password', 'token', 'secret', 'accessToken', 'refreshToken', 'idToken'];
+    
+    if (Array.isArray(obj)) {
+      return obj.map(item => this.scrubSensitiveFields(item));
+    }
+
+    const cleanObj = { ...obj };
+    for (const key of Object.keys(cleanObj)) {
+      if (sensitiveKeys.includes(key)) {
+        cleanObj[key] = '[REDACTED]';
+      } else if (cleanObj[key] && typeof cleanObj[key] === 'object' && !(cleanObj[key] instanceof Date)) {
+        cleanObj[key] = this.scrubSensitiveFields(cleanObj[key]);
+      }
+    }
+    return cleanObj;
+  }
+
+  protected scrubSensitiveValue(key: string, value: any): any {
+    const sensitiveKeys = ['password', 'token', 'secret', 'accessToken', 'refreshToken', 'idToken'];
+    if (sensitiveKeys.includes(key)) {
+      return '[REDACTED]';
+    }
+    return value;
+  }
+
+  protected getChangesDiff(before: any, after: any): Record<string, { before: any; after: any }> {
+    const diff: Record<string, { before: any; after: any }> = {};
+    if (!before || !after) return diff;
+
+    const ignoredKeys = [
+      'updatedAt',
+      'updatedBy',
+      'createdAt',
+      'createdBy',
+      'deletedAt',
+      'deletedBy',
+      'restoredAt',
+      'restoredBy',
+    ];
+
+    const allKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
+
+    for (const key of allKeys) {
+      if (ignoredKeys.includes(key)) continue;
+
+      const valBefore = before[key];
+      const valAfter = after[key];
+
+      let isDifferent = false;
+      if (valBefore instanceof Date && valAfter instanceof Date) {
+        isDifferent = valBefore.getTime() !== valAfter.getTime();
+      } else if (valBefore && valAfter && (typeof valBefore === 'object' || typeof valAfter === 'object')) {
+        isDifferent = JSON.stringify(valBefore) !== JSON.stringify(valAfter);
+      } else {
+        isDifferent = valBefore !== valAfter;
+      }
+
+      if (isDifferent) {
+        diff[key] = {
+          before: this.scrubSensitiveValue(key, valBefore),
+          after: this.scrubSensitiveValue(key, valAfter),
+        };
+      }
+    }
+    return diff;
+  }
+
+  public async auditUpdate(id: string, recordBefore: any, updatedRecord: any, options: WriteOptions = {}) {
+    try {
+      const moduleId = await this.getModuleId();
+      await this.repository.prisma.auditLog.create({
+        data: {
+          userId: options.userId,
+          action: 'UPDATE',
+          moduleId,
+          moduleSlug: this.moduleSlug,
+          entityId: id,
+          displayName: this.getRecordDisplayName(updatedRecord),
+          description: options.description || undefined,
+          ipAddress: options.ipAddress,
+          userAgent: options.userAgent,
+          metadata: env.AUDIT_LOG_DETAILS_ENABLED
+            ? {
+                before: this.scrubSensitiveFields(recordBefore),
+                after: this.scrubSensitiveFields(updatedRecord),
+                changes: this.getChangesDiff(recordBefore, updatedRecord),
+              }
+            : undefined,
+        },
+      });
+    } catch (error) {
+      console.error('Error al guardar log de auditoría (UPDATE):', error);
+    }
+  }
+
+  public async auditHardDelete(id: string, recordBefore: any, options: WriteOptions = {}) {
+    try {
+      const moduleId = await this.getModuleId();
+      await this.repository.prisma.auditLog.create({
+        data: {
+          userId: options.userId,
+          action: 'HARD_DELETE',
+          moduleId,
+          moduleSlug: this.moduleSlug,
+          entityId: id,
+          displayName: this.getRecordDisplayName(recordBefore),
+          description: options.description || undefined,
+          ipAddress: options.ipAddress,
+          userAgent: options.userAgent,
+          metadata: env.AUDIT_LOG_DETAILS_ENABLED
+            ? { before: this.scrubSensitiveFields(recordBefore) }
+            : undefined,
+        },
+      });
+    } catch (error) {
+      console.error('Error al guardar log de auditoría (HARD_DELETE):', error);
+    }
+  }
+
+  public async auditHardDeleteMany(ids: string[], recordsBefore: any[], count: number, options: WriteOptions = {}) {
+    try {
+      const moduleId = await this.getModuleId();
+      await this.repository.prisma.auditLog.create({
+        data: {
+          userId: options.userId,
+          action: 'HARD_DELETE',
+          moduleId,
+          moduleSlug: this.moduleSlug,
+          description: options.description || `Eliminación permanente masiva de ${count} registros`,
+          ipAddress: options.ipAddress,
+          userAgent: options.userAgent,
+          metadata: env.AUDIT_LOG_DETAILS_ENABLED
+            ? {
+                count,
+                records: recordsBefore.map((r: any) => ({
+                  id: r.id,
+                  displayName: this.getRecordDisplayName(r),
+                })),
+              }
+            : { count },
+        },
+      });
+    } catch (error) {
+      console.error('Error al guardar log de auditoría (hardDeleteMany):', error);
+    }
+  }
+
+  // ==========================================
   // 1. OPERACIONES INDIVIDUALES
   // ==========================================
 
@@ -52,7 +206,31 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
       ...options,
       include: { ...(options.include ?? {}) },
     };
-    return super.create(auditedData, auditedOptions);
+    const record = await super.create(auditedData, auditedOptions);
+
+    try {
+      const moduleId = await this.getModuleId();
+      await this.repository.prisma.auditLog.create({
+        data: {
+          userId: options.userId,
+          action: 'CREATE',
+          moduleId,
+          moduleSlug: this.moduleSlug,
+          entityId: (record as any).id,
+          displayName: this.getRecordDisplayName(record),
+          description: options.description || undefined,
+          ipAddress: options.ipAddress,
+          userAgent: options.userAgent,
+          metadata: env.AUDIT_LOG_DETAILS_ENABLED
+            ? { after: this.scrubSensitiveFields(record) }
+            : undefined,
+        },
+      });
+    } catch (error) {
+      console.error('Error al guardar log de auditoría (CREATE):', error);
+    }
+
+    return record;
   }
 
   override async update(id: string, data: any, options: WriteOptions = {}): Promise<T> {
@@ -68,7 +246,11 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
       include: { ...(options.include ?? {}) },
     };
 
-    return super.update(id, auditedData, auditedOptions) as Promise<T>;
+    const updatedRecord = await super.update(id, auditedData, auditedOptions) as Promise<T>;
+
+    await this.auditUpdate(id, record, updatedRecord, options);
+
+    return updatedRecord;
   }
 
   async softDelete(id: string, options: WriteOptions = {}): Promise<T> {
@@ -114,6 +296,9 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
             moduleSlug: this.moduleSlug,
             entityId: id,
             displayName: this.getRecordDisplayName(record),
+            description: options.description || undefined,
+            ipAddress: options.ipAddress,
+            userAgent: options.userAgent,
           },
         }),
       ]);
@@ -159,6 +344,9 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
             moduleSlug: this.moduleSlug,
             entityId: id,
             displayName: this.getRecordDisplayName(record),
+            description: options.description || undefined,
+            ipAddress: options.ipAddress,
+            userAgent: options.userAgent,
           },
         }),
       ]);
@@ -171,6 +359,20 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
       if (error instanceof HttpError) throw error;
       throw new HttpError(500, `Error al restaurar: ${error.message}`);
     }
+  }
+
+  override async hardDelete(id: string, options: WriteOptions = {}): Promise<T> {
+    const record = await this.repository.findFirst({
+      where: { id },
+      scope: options.scope,
+    });
+    if (!record) throw new HttpError(404, 'Registro no encontrado');
+
+    const result = await super.hardDelete(id, options);
+
+    await this.auditHardDelete(id, record, options);
+
+    return result;
   }
 
   // ==========================================
@@ -194,20 +396,32 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
   }
 
   // ==========================================
-  // 2. Operaciones con contexto
+  // 3. OPERACIONES CON CONTEXTO
   // ==========================================
+
   override async updateWithContext(where: any, data: any, options: WriteOptions = {}): Promise<T> {
-    try {
-      return await this.repository.update({
-        where,
-        data: { ...data, ...withUpdatedBy(options.userId) },
-      });
-    } catch (error) {
+    const record = await this.repository.findFirst({ where });
+    if (!record) {
       throw new HttpError(404, 'Registro no encontrado para actualizar');
+    }
+
+    try {
+      const auditedData = { ...data, ...withUpdatedBy(options.userId) };
+      const updatedRecord = await this.repository.update({
+        where,
+        data: auditedData,
+      });
+
+      await this.auditUpdate((updatedRecord as any).id, record, updatedRecord, options);
+
+      return updatedRecord;
+    } catch (error) {
+      if (error instanceof HttpError) throw error;
+      throw new HttpError(500, `Error al actualizar con contexto: ${(error as Error).message}`);
     }
   }
 
-  async softDeleteWithContext(where: any, userId: string): Promise<T> {
+  async softDeleteWithContext(where: any, userId: string, extraOptions: { ipAddress?: string; userAgent?: string; description?: string } = {}): Promise<T> {
     const record = await this.repository.findFirst({ where });
     if (!record) throw new HttpError(404, 'Registro no encontrado en este contexto');
 
@@ -247,6 +461,9 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
             moduleSlug: this.moduleSlug,
             entityId: (record as any).id,
             displayName: this.getRecordDisplayName(record),
+            description: extraOptions.description || undefined,
+            ipAddress: extraOptions.ipAddress,
+            userAgent: extraOptions.userAgent,
           },
         }),
       ]);
@@ -258,7 +475,7 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
     }
   }
 
-  async restoreWithContext(where: any, userId?: string): Promise<T> {
+  async restoreWithContext(where: any, userId?: string, extraOptions: { ipAddress?: string; userAgent?: string; description?: string } = {}): Promise<T> {
     const record = await this.repository.findFirst({ where });
     if (!record) throw new HttpError(404, 'Registro no encontrado en este contexto');
 
@@ -286,6 +503,9 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
             moduleSlug: this.moduleSlug,
             entityId: (record as any).id,
             displayName: this.getRecordDisplayName(record),
+            description: extraOptions.description || undefined,
+            ipAddress: extraOptions.ipAddress,
+            userAgent: extraOptions.userAgent,
           },
         }),
       ]);
@@ -298,7 +518,7 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
   }
 
   // ==========================================
-  // 3. OPERACIONES MASIVAS (BULK)
+  // 4. OPERACIONES MASIVAS (BULK)
   // ==========================================
 
   override async createMany(data: any[], options: WriteOptions = {}) {
@@ -307,10 +527,35 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
       ...withCreatedBy(options.userId),
     }));
 
-    return this.repository.createMany({
+    const result = await this.repository.createMany({
       data: auditData,
       skipDuplicates: true,
     });
+
+    try {
+      const moduleId = await this.getModuleId();
+      await this.repository.prisma.auditLog.create({
+        data: {
+          userId: options.userId,
+          action: 'CREATE',
+          moduleId,
+          moduleSlug: this.moduleSlug,
+          description: options.description || `Creación masiva de ${result.count} registros`,
+          ipAddress: options.ipAddress,
+          userAgent: options.userAgent,
+          metadata: env.AUDIT_LOG_DETAILS_ENABLED
+            ? {
+                count: result.count,
+                records: data.map((r) => this.scrubSensitiveFields(r)),
+              }
+            : { count: result.count },
+        },
+      });
+    } catch (error) {
+      console.error('Error al guardar log de auditoría (createMany):', error);
+    }
+
+    return result;
   }
 
   async softDeleteMany(ids: string[], options: WriteOptions = {}) {
@@ -363,6 +608,9 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
           moduleSlug: this.moduleSlug,
           entityId: record.id,
           displayName: this.getRecordDisplayName(record),
+          description: options.description || undefined,
+          ipAddress: options.ipAddress,
+          userAgent: options.userAgent,
         })),
       }),
     ]);
@@ -405,6 +653,9 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
           moduleSlug: this.moduleSlug,
           entityId: record.id,
           displayName: this.getRecordDisplayName(record),
+          description: options.description || undefined,
+          ipAddress: options.ipAddress,
+          userAgent: options.userAgent,
         })),
       }),
     ]);
@@ -412,11 +663,25 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
     return updateResult;
   }
 
+  override async hardDeleteMany(ids: string[], options: WriteOptions = {}) {
+    if (!ids.length) return { count: 0 };
+    const records = await this.repository.findMany({
+      where: { id: { in: ids } },
+      scope: options.scope,
+    });
+
+    const result = await super.hardDeleteMany(ids, options);
+
+    await this.auditHardDeleteMany(ids, records, result.count, options);
+
+    return result;
+  }
+
   // ==========================================
-  // 4. OPERACIONES MASIVAS CON CONTEXTO
+  // 5. OPERACIONES MASIVAS CON CONTEXTO
   // ==========================================
 
-  async softDeleteManyWithContext(where: any, userId?: string) {
+  async softDeleteManyWithContext(where: any, userId?: string, extraOptions: { ipAddress?: string; userAgent?: string; description?: string } = {}) {
     const records = await this.repository.findMany({ where });
     if (!records.length) return { count: 0 };
 
@@ -457,6 +722,9 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
           moduleSlug: this.moduleSlug,
           entityId: record.id,
           displayName: this.getRecordDisplayName(record),
+          ipAddress: extraOptions.ipAddress,
+          userAgent: extraOptions.userAgent,
+          description: extraOptions.description || undefined,
         })),
       }),
     ]);
@@ -464,7 +732,7 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
     return updateResult;
   }
 
-  async restoreManyWithContext(where: any, userId?: string) {
+  async restoreManyWithContext(where: any, userId?: string, extraOptions: { ipAddress?: string; userAgent?: string; description?: string } = {}) {
     const records = await this.repository.findMany({ where });
     if (!records.length) return { count: 0 };
 
@@ -490,6 +758,9 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
           moduleSlug: this.moduleSlug,
           entityId: record.id,
           displayName: this.getRecordDisplayName(record),
+          ipAddress: extraOptions.ipAddress,
+          userAgent: extraOptions.userAgent,
+          description: extraOptions.description || undefined,
         })),
       }),
     ]);
@@ -497,7 +768,14 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
     return updateResult;
   }
 
-  async hardDeleteManyWithContext(where: any) {
-    return this.repository.deleteMany({ where });
+  override async hardDeleteManyWithContext(where: any, options: WriteOptions = {}) {
+    const records = await this.repository.findMany({ where });
+    if (!records.length) return { count: 0 };
+
+    const result = await super.hardDeleteManyWithContext(where, options);
+
+    await this.auditHardDeleteMany(records.map((r: any) => r.id), records, result.count, options);
+
+    return result;
   }
 }

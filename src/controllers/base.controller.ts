@@ -3,6 +3,7 @@ import { FastifyReply, FastifyRequest } from 'fastify';
 import { CreateSchema } from '@/schemas/base.schema.js';
 import { BaseAuditService } from '@/services/base-audit.service.js';
 import { BaseRbacService } from '@/services/base-owned.service.js';
+import { WriteOptions } from '@/types/base.types.js';
 import { HttpError } from '@/utils/http.error.js';
 import { parsePagination } from '@/utils/pagination.js';
 import { requireScope } from '@/utils/scope.js';
@@ -12,6 +13,15 @@ export abstract class BaseController<T> {
 
   protected getUserId(request: FastifyRequest): string | undefined {
     return request.session?.user?.id;
+  }
+
+  protected getWriteOptions(request: FastifyRequest, extra?: Partial<WriteOptions>): WriteOptions {
+    return {
+      userId: this.getUserId(request),
+      ipAddress: request.ip,
+      userAgent: request.headers['user-agent'],
+      ...extra,
+    };
   }
 
   // ==========================================
@@ -83,11 +93,8 @@ export abstract class BaseController<T> {
   // ==========================================
 
   async create(request: FastifyRequest<{ Body: any }>, reply: FastifyReply) {
-    const userId = this.getUserId(request);
-
     const body = CreateSchema.parse(request.body);
-
-    const record = await this.service.create(body, { userId });
+    const record = await this.service.create(body, this.getWriteOptions(request));
     return reply.code(201).send(record);
   }
 
@@ -96,10 +103,9 @@ export abstract class BaseController<T> {
     reply: FastifyReply,
   ) {
     const { id } = request.params;
-    const userId = this.getUserId(request);
     const scope = requireScope(request);
 
-    const record = await this.service.update(id, request.body, { userId, scope });
+    const record = await this.service.update(id, request.body, this.getWriteOptions(request, { scope }));
     return reply.send(record);
   }
 
@@ -109,19 +115,17 @@ export abstract class BaseController<T> {
 
   async softDelete(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
     const { id } = request.params;
-    const userId = this.getUserId(request);
     const scope = requireScope(request);
 
-    const record = await this.service.softDelete(id, { userId, scope });
+    const record = await this.service.softDelete(id, this.getWriteOptions(request, { scope }));
     return reply.send(record);
   }
 
   async restore(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
     const { id } = request.params;
-    const userId = this.getUserId(request);
     const scope = requireScope(request);
 
-    const record = await this.service.restore(id, { userId, scope });
+    const record = await this.service.restore(id, this.getWriteOptions(request, { scope }));
     return reply.send(record);
   }
 
@@ -129,7 +133,7 @@ export abstract class BaseController<T> {
     const { id } = request.params;
     const scope = requireScope(request);
 
-    await this.service.hardDelete(id, { scope });
+    await this.service.hardDelete(id, this.getWriteOptions(request, { scope }));
     return reply.code(204).send();
   }
 
@@ -145,25 +149,23 @@ export abstract class BaseController<T> {
       ownerId: item.ownerId ?? userId,
     }));
 
-    const result = await this.service.createMany(data, { userId });
+    const result = await this.service.createMany(data, this.getWriteOptions(request));
     return reply.code(201).send(result);
   }
 
   async softDeleteMany(request: FastifyRequest<{ Body: { ids: string[] } }>, reply: FastifyReply) {
-    const userId = this.getUserId(request);
     const scope = requireScope(request);
     const { ids } = request.body;
 
-    const result = await this.service.softDeleteMany(ids, { userId, scope });
+    const result = await this.service.softDeleteMany(ids, this.getWriteOptions(request, { scope }));
     return reply.send(result);
   }
 
   async restoreMany(request: FastifyRequest<{ Body: { ids: string[] } }>, reply: FastifyReply) {
-    const userId = this.getUserId(request);
     const scope = requireScope(request);
     const { ids } = request.body;
 
-    const result = await this.service.restoreMany(ids, { userId, scope });
+    const result = await this.service.restoreMany(ids, this.getWriteOptions(request, { scope }));
     return reply.send(result);
   }
 
@@ -174,7 +176,8 @@ export abstract class BaseController<T> {
     const scope = requireScope(request);
     const { ids } = request.body;
 
-    const result = await this.service.hardDeleteMany(ids, { scope });
+    const result = await this.service.hardDeleteMany(ids, this.getWriteOptions(request, { scope }));
     return reply.send(result);
   }
 }
+

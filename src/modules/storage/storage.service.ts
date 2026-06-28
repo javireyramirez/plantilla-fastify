@@ -20,11 +20,26 @@ export class StorageService extends BaseRbacService<any> {
     super(storageRepo);
   }
 
+  protected override getDefaultInclude(): object {
+    return {};
+  }
+
   protected override buildWhereFilters(filters: Record<string, any>) {
     return {
-      ...this.buildStringFilter('name', filters.name),
-      ...this.buildExactMatchFilters(filters, ['entityId', 'entityType']),
-      ...this.buildDateRangeFilter('createdAt', filters.createdAtFrom, filters.createdAtTo),
+      ...this.buildStringFilter('fileName', filters.fileName),
+      ...this.buildMultiSelectFilter('contentType', filters.contentTypes),
+      ...this.buildMultiSelectFilter('createdBy', filters.createdBy),
+      ...this.buildMultiSelectFilter('deletedBy', filters.deletedBy),
+      ...this.buildDateRangeFilter('createdAt', filters.createdFrom, filters.createdTo),
+      ...this.buildDateRangeFilter('deletedAt', filters.deletedFrom, filters.deletedTo),
+      ...(filters.sizeMin !== undefined || filters.sizeMax !== undefined
+        ? {
+            size: {
+              ...(filters.sizeMin !== undefined && { gte: filters.sizeMin }),
+              ...(filters.sizeMax !== undefined && { lte: filters.sizeMax }),
+            },
+          }
+        : {}),
     };
   }
 
@@ -56,139 +71,52 @@ export class StorageService extends BaseRbacService<any> {
     isTrash: boolean,
     page: number,
     limit: number,
-    params: {
-      fileName?: string;
-      contentTypes?: string[];
-      sizeMin?: number;
-      sizeMax?: number;
-      createdFrom?: Date;
-      createdTo?: Date;
-      deletedFrom?: Date;
-      deletedTo?: Date;
-      createdBy?: string[];
-      deletedBy?: string[];
-      sortBy?: string;
-      sortOrder?: 'asc' | 'desc';
-    },
+    sortBy: string = 'createdAt',
+    sortOrder: 'asc' | 'desc' = 'desc',
+    params: Record<string, any> = {},
   ) {
-    const {
-      fileName,
-      contentTypes,
-      sizeMin,
-      sizeMax,
-      createdFrom,
-      createdTo,
-      deletedFrom,
-      deletedTo,
-      createdBy,
-      deletedBy,
-      sortBy = 'createdAt',
-      sortOrder = 'desc',
-    } = params;
-
-    const whereClause: any = this.getAuditWhere(isTrash, {
-      entityId,
+    const filters = this.buildWhereFilters(params);
+    const where = {
       entityType,
-    });
-
-    if (fileName) {
-      whereClause.fileName = { contains: fileName, mode: 'insensitive' };
-    }
-
-    if (contentTypes && contentTypes.length > 0) {
-      whereClause.AND = [
-        {
-          OR: contentTypes.map((type) => ({
-            contentType: {
-              startsWith: type,
-            },
-          })),
-        },
-      ];
-    }
-
-    if (sizeMin !== undefined || sizeMax !== undefined) {
-      whereClause.size = {
-        ...(sizeMin !== undefined && { gte: sizeMin }),
-        ...(sizeMax !== undefined && { lte: sizeMax }),
-      };
-    }
-
-    if (createdFrom || createdTo) {
-      whereClause.createdAt = {
-        ...(createdFrom && { gte: new Date(createdFrom) }),
-        ...(createdTo && { lte: new Date(new Date(createdTo).setHours(23, 59, 59, 999)) }),
-      };
-    }
-
-    if (isTrash && (deletedFrom || deletedTo)) {
-      whereClause.deletedAt = {
-        ...(deletedFrom && { gte: new Date(deletedFrom) }),
-        ...(deletedTo && { lte: new Date(new Date(deletedTo).setHours(23, 59, 59, 999)) }),
-      };
-    }
-
-    if (createdBy?.length) whereClause.createdBy = { in: createdBy };
-    if (deletedBy?.length) whereClause.deletedBy = { in: deletedBy };
-
-    const [total, documents] = await Promise.all([
-      this.storageRepo.count(whereClause),
-      this.storageRepo.findMany({
-        where: whereClause,
-        take: limit,
-        skip: (page - 1) * limit,
-        orderBy: { [sortBy]: sortOrder },
-      }),
-    ]);
-
-    return {
-      documents,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-        hasNextPage: page * limit < total,
-        sortBy,
-        sortOrder,
-      },
+      entityId,
+      ...this.getStatusFilter(isTrash),
+      ...filters,
     };
+
+    const orderBy = this.buildOrderBy(sortBy, sortOrder);
+
+    return this.findManyWithCount({
+      where,
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy,
+    });
   }
 
   async getPreSignedDownloadUrl(
     entityType: string,
     entityId: string,
     documentId: string,
-    mode: 'view' | 'download' = 'view',
+    operation: 'view' | 'download' = 'view',
   ) {
-    const document = await this.getDocument(entityType, entityId, documentId);
-
-    if (document.status !== 'ACTIVE') {
-      throw new HttpError(400, 'El documento no está disponible');
+    const doc = await this.getDocument(entityType, entityId, documentId);
+    if (doc.status !== 'ACTIVE') {
+      throw new HttpError(400, 'El documento no está activo');
     }
 
-    const downloadUrl = await this.storage.generateDownloadUrl(
-      document.fileKey,
-      document.fileName,
-      mode,
-    );
-
-    return {
-      downloadUrl,
-      fileName: document.fileName,
-      contentType: document.contentType,
-    };
+    const url = await this.storage.generateDownloadUrl(doc.fileKey, doc.fileName, operation);
+    return { url, expiresAt: new Date(Date.now() + 15 * 60 * 1000) }; // 15 min
   }
 
   // ==========================================
-  // 2. CICLO DE VIDA DE SUBIDA
+  // 2. CICLO DE SUBIDA
   // ==========================================
 
   async requestUploadUrl(
     fileData: RequestUploadParams,
     entityId: string,
     entityType: string,
-    userId?: string,
+    options: WriteOptions = {},
   ) {
     if (fileData.size > GLOBAL_UPLOAD_RULES.MAX_FILE_SIZE) {
       throw new HttpError(400, 'El archivo excede el tamaño máximo permitido');
@@ -210,15 +138,39 @@ export class StorageService extends BaseRbacService<any> {
         entityType,
         entityId,
         isPublic: fileData.isPublic,
-        createdBy: userId,
+        createdBy: options.userId,
       },
     });
+
+    try {
+      const moduleId = await this.getModuleId();
+      await this.repository.prisma.auditLog.create({
+        data: {
+          userId: options.userId,
+          action: 'CREATE',
+          moduleId,
+          moduleSlug: this.moduleSlug,
+          entityId: document.id,
+          displayName: document.fileName,
+          description: options.description || `Solicitud de subida de archivo: ${document.fileName} (${(document.size / 1024).toFixed(2)} KB)`,
+          ipAddress: options.ipAddress,
+          userAgent: options.userAgent,
+        },
+      });
+    } catch (error) {
+      console.error('Error al guardar log de auditoría (requestUploadUrl):', error);
+    }
 
     const uploadUrl = await this.storage.generateUploadUrl(fileKey, fileData.mimeType);
     return { uploadUrl, documentId: document.id, fileKey };
   }
 
-  async confirmUpload(entityType: string, entityId: string, documentId: string, userId?: string) {
+  async confirmUpload(
+    entityType: string,
+    entityId: string,
+    documentId: string,
+    options: WriteOptions = {},
+  ) {
     const where = { id: documentId, entityType, entityId };
     const document = await this.getDocument(entityType, entityId, documentId);
 
@@ -227,7 +179,10 @@ export class StorageService extends BaseRbacService<any> {
     const exists = await this.storage.checkFileExists(document.fileKey);
     if (!exists) throw new HttpError(400, 'El archivo aún no se ha subido al almacenamiento');
 
-    return this.updateWithContext(where, { status: 'ACTIVE' }, { userId });
+    return this.updateWithContext(where, { status: 'ACTIVE' }, {
+      ...options,
+      description: `Confirmación de subida de archivo: ${document.fileName}`,
+    });
   }
 
   // ==========================================
@@ -239,27 +194,45 @@ export class StorageService extends BaseRbacService<any> {
     entityId: string,
     documentId: string,
     data: { fileName?: string; isPublic?: boolean },
-    userId: string,
+    options: WriteOptions = {},
   ) {
-    return this.updateWithContext({ id: documentId, entityType, entityId }, data, { userId });
+    return this.updateWithContext({ id: documentId, entityType, entityId }, data, {
+      ...options,
+      description: `Actualización de metadatos del archivo`,
+    });
   }
 
   async deleteSoftDocument(
     entityType: string,
     entityId: string,
     documentId: string,
-    userId: string,
+    options: WriteOptions = {},
   ) {
+    const document = await this.getDocument(entityType, entityId, documentId);
     return this.softDeleteWithContext(
       { id: documentId, entityType, entityId, status: 'ACTIVE' },
-      userId,
+      options.userId!,
+      {
+        ...options,
+        description: `Archivo movido a la papelera: ${document.fileName}`,
+      },
     );
   }
 
-  async restoreDocument(entityType: string, entityId: string, documentId: string, userId: string) {
+  async restoreDocument(
+    entityType: string,
+    entityId: string,
+    documentId: string,
+    options: WriteOptions = {},
+  ) {
+    const document = await this.getDocument(entityType, entityId, documentId);
     return this.restoreWithContext(
       { id: documentId, entityType, entityId, status: 'TRASHED' },
-      userId,
+      options.userId,
+      {
+        ...options,
+        description: `Archivo restaurado de la papelera: ${document.fileName}`,
+      },
     );
   }
 
@@ -271,18 +244,31 @@ export class StorageService extends BaseRbacService<any> {
     entityType: string,
     entityId: string,
     documentIds: string[],
-    userId: string,
+    options: WriteOptions = {},
   ) {
     return this.softDeleteManyWithContext(
       { id: { in: documentIds }, entityType, entityId, status: 'ACTIVE' },
-      userId,
+      options.userId,
+      {
+        ...options,
+        description: `Eliminación lógica masiva de ${documentIds.length} archivos`,
+      },
     );
   }
 
-  async bulkRestore(entityType: string, entityId: string, documentIds: string[], userId: string) {
+  async bulkRestore(
+    entityType: string,
+    entityId: string,
+    documentIds: string[],
+    options: WriteOptions = {},
+  ) {
     return this.restoreManyWithContext(
       { id: { in: documentIds }, entityType, entityId, status: 'TRASHED' },
-      userId,
+      options.userId,
+      {
+        ...options,
+        description: `Restauración masiva de ${documentIds.length} archivos de la papelera`,
+      },
     );
   }
 
@@ -340,11 +326,17 @@ export class StorageService extends BaseRbacService<any> {
 
     return output;
   }
+
   // ==========================================
   // 5. MANTENIMIENTO Y ELIMINACIÓN FÍSICA
   // ==========================================
 
-  async deleteDocumentPermanent(entityType: string, entityId: string, documentId: string) {
+  async deleteDocumentPermanent(
+    entityType: string,
+    entityId: string,
+    documentId: string,
+    options: WriteOptions = {},
+  ) {
     const document = await this.storageRepo.findFirst({
       where: { id: documentId, entityType, entityId, status: 'TRASHED' },
     });
@@ -352,10 +344,13 @@ export class StorageService extends BaseRbacService<any> {
     if (!document) throw new HttpError(404, 'Documento no encontrado en la papelera');
 
     await this.storage.deleteFile(document.fileKey);
-    return this.hardDeleteManyWithContext({ id: documentId });
+    return this.hardDeleteManyWithContext({ id: documentId }, {
+      ...options,
+      description: `Eliminación permanente física del archivo: ${document.fileName}`,
+    });
   }
 
-  async emptyTrash(entityType: string, entityId: string) {
+  async emptyTrash(entityType: string, entityId: string, options: WriteOptions = {}) {
     const where = { entityType, entityId, status: 'TRASHED' };
     const docs = await this.storageRepo.findMany({ where });
 
@@ -364,7 +359,10 @@ export class StorageService extends BaseRbacService<any> {
     const keys = docs.map((d) => d.fileKey);
     await this.storage.deleteFiles(keys);
 
-    return this.hardDeleteManyWithContext(where);
+    return this.hardDeleteManyWithContext(where, {
+      ...options,
+      description: `Vaciado de papelera: eliminación física de ${docs.length} archivos`,
+    });
   }
 
   async cleanupPendingUploads(hoursOld: number = 24) {

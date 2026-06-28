@@ -8,6 +8,8 @@ import { StorageService } from '@/modules/storage/storage.service.js';
 import { TeamService } from '@/modules/team/team.service.js';
 import { TrashService } from '@/modules/trash/trash.service.js';
 import { UsersService } from '@/modules/users/users.service.js';
+import { AuditLogService } from '@/modules/audit/audit.service.js';
+
 
 export default fp(
   async (fastify) => {
@@ -33,6 +35,7 @@ export default fp(
       fastify.teamUserRepository,
     );
     const trashService = new TrashService(fastify);
+    const auditLogService = new AuditLogService(fastify.auditLogRepository);
 
     fastify.decorate('emailService', emailService);
     fastify.decorate('storageService', storageService);
@@ -42,6 +45,7 @@ export default fp(
     fastify.decorate('roleService', roleService);
     fastify.decorate('moduleService', moduleService);
     fastify.decorate('trashService', trashService);
+    fastify.decorate('auditLogService', auditLogService);
 
     fastify.log.info('Domain Services ready');
   },
@@ -61,5 +65,6 @@ declare module 'fastify' {
     teamService: TeamService;
     moduleService: ModuleService;
     trashService: TrashService;
+    auditLogService: AuditLogService;
   }
 }

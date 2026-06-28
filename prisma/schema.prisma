@@ -214,24 +214,11 @@ model Key {
   @@map("auth_keys")
 }
 
-model LoginAttempt {
-  id         String   @id @default(uuid(7))
-  email      String
-  success    Boolean
-  ipAddress  String?
-  userAgent  String?  @db.Text
-  failReason String?
-  createdAt  DateTime @default(now())
-
-  @@index([email])
-  @@index([createdAt])
-  @@index([success])
-  @@map("auth_login_attempts")
-}
-
 // ==========================================
 // COMMUNICATIONS
 // ==========================================
+
+
 
 enum EmailType {
   PASSWORD_RESET
