@@ -11,6 +11,7 @@ type Prisma = FastifyInstance['prisma'];
 type Logger = FastifyInstance['log'];
 
 const isDevelopment = env.NODE_ENV === 'development';
+const isBodyEnambled = env.EMAIL_BODY_ENABLED;
 
 export class EmailService {
   constructor(
@@ -53,7 +54,7 @@ export class EmailService {
           userId,
           recipient,
           subject,
-          body: html,
+          body: isBodyEnambled ? html : '',
           type,
           status: 'PENDING',
           metadata: (metadata ?? {}) as any,

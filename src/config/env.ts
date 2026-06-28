@@ -38,12 +38,18 @@ export const baseSchema = z.object({
   RATE_LIMIT_WINDOW: z.string().default('1 minute'),
 
   // Swagger
-  SWAGGER_ENABLED: z.preprocess((val) => val === 'true' || val === true, z.boolean()).default(false),
+  SWAGGER_ENABLED: z
+    .preprocess((val) => val === 'true' || val === true, z.boolean())
+    .default(false),
 
   // Auditoría
-  AUDIT_LOG_DETAILS_ENABLED: z.preprocess((val) => val === 'true' || val === true, z.boolean()).default(false),
+  AUDIT_LOG_DETAILS_ENABLED: z
+    .preprocess((val) => val === 'true' || val === true, z.boolean())
+    .default(false),
+  EMAIL_BODY_ENABLED: z
+    .preprocess((val) => val === 'true' || val === true, z.boolean())
+    .default(false),
 });
-
 
 const s3Schema = baseSchema.extend({
   STORAGE_PROVIDER: z.literal('s3'),
