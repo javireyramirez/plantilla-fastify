@@ -20,7 +20,7 @@ export class StorageService extends BaseRbacService<any> {
   protected override buildWhereFilters(filters: Record<string, any>) {
     return {
       ...this.buildStringFilter('name', filters.name),
-
+      ...this.buildExactMatchFilters(filters, ['entityId', 'entityType']),
       ...this.buildDateRangeFilter('createdAt', filters.createdAtFrom, filters.createdAtTo),
     };
   }
