@@ -3,8 +3,10 @@ import type { FastifyInstance } from 'fastify';
 import { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
+import { requirePermission } from '@/hooks/rbac.js';
 import { requireEntityPermission } from '@/hooks/rbac-storage.js';
 import { requireAuth } from '@/hooks/require.auth.js';
+import { requireSuperAdmin } from '@/hooks/require.superadmin.js';
 import { userContext } from '@/hooks/user.context.js';
 
 import { TrashController } from './trash.controller.js';
@@ -26,7 +28,7 @@ export default async function trashRoutes(fastify: FastifyInstance) {
           200: TrashListResponseSchema,
         },
       },
-      preHandler: [requireAuth, userContext],
+      preHandler: [requireAuth, userContext, requirePermission('trash', PermissionAction.READ)],
     },
     (req, reply) => controller.getTrash(req as any, reply),
   );
@@ -43,7 +45,12 @@ export default async function trashRoutes(fastify: FastifyInstance) {
           id: z.string().uuid(),
         }),
       },
-      preHandler: [requireAuth, userContext, requireEntityPermission(PermissionAction.RESTORE)],
+      preHandler: [
+        requireAuth,
+        userContext,
+        requirePermission('trash', PermissionAction.RESTORE),
+        requireEntityPermission(PermissionAction.RESTORE),
+      ],
     },
     (req, reply) => {
       const requestWithSlug = req as any;
@@ -64,7 +71,12 @@ export default async function trashRoutes(fastify: FastifyInstance) {
           id: z.string().uuid(),
         }),
       },
-      preHandler: [requireAuth, userContext, requireEntityPermission(PermissionAction.DELETE)],
+      preHandler: [
+        requireAuth,
+        userContext,
+        requirePermission('trash', PermissionAction.DELETE),
+        requireEntityPermission(PermissionAction.DELETE),
+      ],
     },
     (req, reply) => {
       const requestWithSlug = req as any;
@@ -81,7 +93,7 @@ export default async function trashRoutes(fastify: FastifyInstance) {
         tags: ['Trash'],
         description: 'Ejecutar limpieza de papelera expirada (SuperAdmin)',
       },
-      preHandler: [requireAuth, userContext],
+      preHandler: [requireAuth, userContext, requireSuperAdmin],
     },
     (req, reply) => controller.triggerCleanup(req as any, reply),
   );
