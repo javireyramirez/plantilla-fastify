@@ -6,6 +6,8 @@ import { BaseRbacService } from '@/services/base-owned.service.js';
 import { ModuleRepository } from './module.repository.js';
 
 export class ModuleService extends BaseAuditService<Module> {
+  protected override readonly moduleSlug = 'modules';
+
   constructor(private readonly modulesRepo: ModuleRepository) {
     super(modulesRepo);
   }

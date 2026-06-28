@@ -76,6 +76,13 @@ const SYSTEM_MODULES = [
     icon: 'activity',
     sortOrder: 8,
   },
+  {
+    key: 'trash',
+    label: 'Papelera',
+    description: 'Papelera de reciclaje y recuperación',
+    icon: 'trash-2',
+    sortOrder: 9,
+  },
 ] as const;
 
 const ALL_ACTIONS: PermissionAction[] = [

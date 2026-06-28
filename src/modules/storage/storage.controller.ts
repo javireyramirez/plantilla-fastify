@@ -1,6 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { FastifyReply, FastifyRequest } from 'fastify';
 
+import { parsePagination } from '@/utils/pagination.js';
+import { WriteOptions } from '@/types/base.types.js';
 import {
   BulkAction,
   ConfirmParams,
@@ -15,6 +17,14 @@ type StorageService = FastifyInstance['storageService'];
 export class StorageController {
   constructor(private readonly storageService: StorageService) {}
 
+  private getWriteOptions(request: FastifyRequest): WriteOptions {
+    return {
+      userId: request.session?.user?.id || (request as any).session?.userId,
+      ipAddress: request.ip,
+      userAgent: request.headers['user-agent'],
+    };
+  }
+
   // ==========================================
   // 1. LECTURA
   // ==========================================
@@ -24,7 +34,9 @@ export class StorageController {
     reply: FastifyReply,
   ) {
     const { entityType, entityId } = request.params;
-    const { page, limit, isTrash, ...filters } = request.query;
+    const { page, limit, isTrash, sortBy, sortOrder, ...filters } = request.query;
+
+    const { meta } = parsePagination({ page, limit, sortBy, sortOrder });
 
     const result = await this.storageService.getDocumentsByEntity(
       entityType,
@@ -32,9 +44,23 @@ export class StorageController {
       isTrash,
       page,
       limit,
+      sortBy,
+      sortOrder,
       filters,
     );
-    return reply.send(result);
+
+    const baseMeta = meta(result.total);
+    const hasNextPage = baseMeta.page < baseMeta.totalPages;
+
+    return reply.send({
+      documents: result.data,
+      meta: {
+        ...baseMeta,
+        hasNextPage,
+        sortBy,
+        sortOrder,
+      },
+    });
   }
 
   async getDocument(request: FastifyRequest<{ Params: ConfirmParams }>, reply: FastifyReply) {
@@ -66,26 +92,23 @@ export class StorageController {
   ) {
     const { fileData } = request.body;
     const { entityType, entityId } = request.params;
-    const userId = request.session?.user?.id;
 
     const result = await this.storageService.requestUploadUrl(
       fileData,
       entityId,
       entityType,
-      userId,
+      this.getWriteOptions(request),
     );
     return reply.code(201).send(result);
   }
 
   async confirmUpload(request: FastifyRequest<{ Params: ConfirmParams }>, reply: FastifyReply) {
     const { entityType, entityId, documentId } = request.params;
-    const userId = request.session?.user?.id;
-
     const result = await this.storageService.confirmUpload(
       entityType,
       entityId,
       documentId,
-      userId,
+      this.getWriteOptions(request),
     );
     return reply.send(result);
   }
@@ -102,40 +125,34 @@ export class StorageController {
     reply: FastifyReply,
   ) {
     const { entityType, entityId, documentId } = request.params;
-    const userId = request.session.user.id;
-
     const result = await this.storageService.updateDocumentMetadata(
       entityType,
       entityId,
       documentId,
       request.body,
-      userId,
+      this.getWriteOptions(request),
     );
     return reply.send(result);
   }
 
   async deleteSoft(request: FastifyRequest<{ Params: ConfirmParams }>, reply: FastifyReply) {
     const { entityType, entityId, documentId } = request.params;
-    const userId = request.session.user.id;
-
     const result = await this.storageService.deleteSoftDocument(
       entityType,
       entityId,
       documentId,
-      userId,
+      this.getWriteOptions(request),
     );
     return reply.send(result);
   }
 
   async restore(request: FastifyRequest<{ Params: ConfirmParams }>, reply: FastifyReply) {
     const { entityType, entityId, documentId } = request.params;
-    const userId = request.session.user.id;
-
     const result = await this.storageService.restoreDocument(
       entityType,
       entityId,
       documentId,
-      userId,
+      this.getWriteOptions(request),
     );
     return reply.send(result);
   }
@@ -150,13 +167,11 @@ export class StorageController {
   ) {
     const { entityType, entityId } = request.params;
     const { documentIds } = request.body;
-    const userId = request.session.user.id;
-
     const result = await this.storageService.bulkDeleteSoft(
       entityType,
       entityId,
       documentIds,
-      userId,
+      this.getWriteOptions(request),
     );
     return reply.send(result);
   }
@@ -167,9 +182,12 @@ export class StorageController {
   ) {
     const { entityType, entityId } = request.params;
     const { documentIds } = request.body;
-    const userId = request.session.user.id;
-
-    const result = await this.storageService.bulkRestore(entityType, entityId, documentIds, userId);
+    const result = await this.storageService.bulkRestore(
+      entityType,
+      entityId,
+      documentIds,
+      this.getWriteOptions(request),
+    );
     return reply.send(result);
   }
 
@@ -204,9 +222,8 @@ export class StorageController {
       reply
         .header('Content-Type', 'application/zip')
         .header('Content-Disposition', 'attachment; filename="documentos.zip"')
-        // .header('Transfer-Encoding', 'chunked') // Opcional, para forzar streaming
         .send(stream)
-    ); // Fastify se encarga del pipe y del cierre automático
+    );
   }
 
   // ==========================================
@@ -215,7 +232,11 @@ export class StorageController {
 
   async emptyTrash(request: FastifyRequest<{ Params: EntityParams }>, reply: FastifyReply) {
     const { entityType, entityId } = request.params;
-    const result = await this.storageService.emptyTrash(entityType, entityId);
+    const result = await this.storageService.emptyTrash(
+      entityType,
+      entityId,
+      this.getWriteOptions(request),
+    );
     return reply.send(result);
   }
 
@@ -225,6 +246,7 @@ export class StorageController {
       entityType,
       entityId,
       documentId,
+      this.getWriteOptions(request),
     );
     return reply.send(result);
   }

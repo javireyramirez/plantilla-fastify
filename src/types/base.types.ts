@@ -11,4 +11,9 @@ export interface WriteOptions {
   scope?: ScopeContext;
   include?: any;
   select?: any;
+  ipAddress?: string;
+  userAgent?: string;
+  description?: string;
 }
+
+

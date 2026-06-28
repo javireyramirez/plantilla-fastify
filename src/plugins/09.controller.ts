@@ -5,6 +5,8 @@ import { ModuleController } from '@/modules/module/module.controller.js';
 import { RoleController } from '@/modules/rbac/rbac.controller.js';
 import { TeamController } from '@/modules/team/team.controller.js';
 import { UsersController } from '@/modules/users/users.controller.js';
+import { AuditLogController } from '@/modules/audit/audit.controller.js';
+
 
 export default fp(
   async (fastify) => {
@@ -13,12 +15,14 @@ export default fp(
     const roleController = new RoleController(fastify.roleService);
     const moduleController = new ModuleController(fastify.moduleService);
     const usersController = new UsersController(fastify.usersService);
+    const auditLogController = new AuditLogController(fastify.auditLogService);
 
     fastify.decorate('companiesController', companiesController);
     fastify.decorate('teamController', teamController);
     fastify.decorate('roleController', roleController);
     fastify.decorate('moduleController', moduleController);
     fastify.decorate('usersController', usersController);
+    fastify.decorate('auditLogController', auditLogController);
 
     fastify.log.info('Controllers ready');
   },
@@ -35,5 +39,6 @@ declare module 'fastify' {
     roleController: RoleController;
     moduleController: ModuleController;
     usersController: UsersController;
+    auditLogController: AuditLogController;
   }
 }

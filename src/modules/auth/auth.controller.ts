@@ -31,4 +31,34 @@ export class AuthController {
       failReason: isSuccess ? null : 'Invalid credentials',
     });
   }
+
+  async handleLogoutLog(context: any) {
+    const headers = context.request.headers;
+    const ipAddress =
+      headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      headers.get('x-real-ip') ||
+      headers.get('cf-connecting-ip') ||
+      'unknown';
+
+    const userAgent = headers.get('user-agent') || 'unknown';
+
+    let session: any = null;
+    try {
+      session = await context.context.getSession({
+        headers: context.request.headers,
+      });
+    } catch (error) {
+      console.error('Error al obtener sesión en handleLogoutLog:', error);
+    }
+
+    if (session?.user) {
+      await this.authService.logLogout({
+        userId: session.user.id,
+        email: session.user.email,
+        name: session.user.name,
+        ipAddress,
+        userAgent,
+      });
+    }
+  }
 }

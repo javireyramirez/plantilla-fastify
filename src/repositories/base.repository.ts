@@ -15,8 +15,8 @@ export abstract class BaseRepository<T> {
   protected readonly hasOwnership: boolean;
 
   constructor(
-    protected readonly prisma: PrismaClient,
-    protected readonly modelName: keyof PrismaClient,
+    public readonly prisma: PrismaClient,
+    public readonly modelName: keyof PrismaClient,
     options?: BaseRepositoryOptions,
   ) {
     this.hasOwnership = options?.hasOwnership ?? false;

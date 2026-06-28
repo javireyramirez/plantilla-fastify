@@ -17,6 +17,8 @@ const ASSIGNMENT_INCLUDE = {
 };
 
 export class RoleService extends BaseAuditService<Role> {
+  protected override readonly moduleSlug = 'roles';
+
   constructor(
     private readonly roleRepo: RoleRepository,
     private readonly rolePermissionRepo: RolePermissionRepository,
