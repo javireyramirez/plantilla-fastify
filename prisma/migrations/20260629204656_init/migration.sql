@@ -16,6 +16,9 @@ CREATE TYPE "PermissionAction" AS ENUM ('READ', 'CREATE', 'UPDATE', 'DELETE', 'R
 -- CreateEnum
 CREATE TYPE "PrincipalType" AS ENUM ('USER', 'TEAM');
 
+-- CreateEnum
+CREATE TYPE "AuditAction" AS ENUM ('CREATE', 'UPDATE', 'SOFT_DELETE', 'RESTORE', 'HARD_DELETE', 'LOGIN', 'LOGOUT');
+
 -- CreateTable
 CREATE TABLE "auth_users" (
     "id" TEXT NOT NULL,
@@ -34,7 +37,7 @@ CREATE TABLE "auth_users" (
     "restoredAt" TIMESTAMP(3),
     "createdBy" TEXT,
     "deletedBy" TEXT,
-    "restoredBy " TEXT,
+    "restoredBy" TEXT,
     "updatedBy" TEXT,
 
     CONSTRAINT "auth_users_pkey" PRIMARY KEY ("id")
@@ -112,7 +115,7 @@ CREATE TABLE "auth_email_verification_codes" (
 );
 
 -- CreateTable
-CREATE TABLE "auth_verification" (
+CREATE TABLE "auth_verifications" (
     "id" TEXT NOT NULL,
     "identifier" TEXT NOT NULL,
     "value" TEXT NOT NULL,
@@ -120,7 +123,7 @@ CREATE TABLE "auth_verification" (
     "createdAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3),
 
-    CONSTRAINT "auth_verification_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "auth_verifications_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -139,20 +142,7 @@ CREATE TABLE "auth_keys" (
 );
 
 -- CreateTable
-CREATE TABLE "auth_login_attempts" (
-    "id" TEXT NOT NULL,
-    "email" TEXT NOT NULL,
-    "success" BOOLEAN NOT NULL,
-    "ipAddress" TEXT,
-    "userAgent" TEXT,
-    "failReason" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "auth_login_attempts_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "email_log" (
+CREATE TABLE "email_logs" (
     "id" TEXT NOT NULL,
     "userId" TEXT,
     "recipient" TEXT NOT NULL,
@@ -171,11 +161,11 @@ CREATE TABLE "email_log" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "email_log_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "email_logs_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "document" (
+CREATE TABLE "documents" (
     "id" TEXT NOT NULL,
     "fileName" TEXT NOT NULL,
     "fileKey" TEXT NOT NULL,
@@ -192,19 +182,20 @@ CREATE TABLE "document" (
     "restoredAt" TIMESTAMP(3),
     "createdBy" TEXT,
     "deletedBy" TEXT,
-    "restoredBy " TEXT,
+    "restoredBy" TEXT,
     "updatedBy" TEXT,
     "isPublic" BOOLEAN NOT NULL DEFAULT false,
 
-    CONSTRAINT "document_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "documents_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "rbac_modules" (
+CREATE TABLE "sys_modules" (
     "id" TEXT NOT NULL,
-    "key" TEXT NOT NULL,
-    "label" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "slug" TEXT NOT NULL,
     "description" TEXT,
+    "category" TEXT NOT NULL,
     "icon" TEXT,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "sortOrder" INTEGER NOT NULL DEFAULT 0,
@@ -216,10 +207,10 @@ CREATE TABLE "rbac_modules" (
     "restoredAt" TIMESTAMP(3),
     "createdBy" TEXT,
     "deletedBy" TEXT,
-    "restoredBy " TEXT,
+    "restoredBy" TEXT,
     "updatedBy" TEXT,
 
-    CONSTRAINT "rbac_modules_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "sys_modules_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -238,7 +229,7 @@ CREATE TABLE "rbac_roles" (
     "restoredAt" TIMESTAMP(3),
     "createdBy" TEXT,
     "deletedBy" TEXT,
-    "restoredBy " TEXT,
+    "restoredBy" TEXT,
     "updatedBy" TEXT,
 
     CONSTRAINT "rbac_roles_pkey" PRIMARY KEY ("id")
@@ -284,7 +275,7 @@ CREATE TABLE "teams" (
     "restoredAt" TIMESTAMP(3),
     "createdBy" TEXT,
     "deletedBy" TEXT,
-    "restoredBy " TEXT,
+    "restoredBy" TEXT,
     "updatedBy" TEXT,
 
     CONSTRAINT "teams_pkey" PRIMARY KEY ("id")
@@ -302,7 +293,7 @@ CREATE TABLE "team_users" (
 );
 
 -- CreateTable
-CREATE TABLE "test_companies" (
+CREATE TABLE "companies" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "nif" TEXT NOT NULL,
@@ -316,12 +307,46 @@ CREATE TABLE "test_companies" (
     "restoredAt" TIMESTAMP(3),
     "createdBy" TEXT,
     "deletedBy" TEXT,
-    "restoredBy " TEXT,
+    "restoredBy" TEXT,
     "updatedBy" TEXT,
     "ownerId" TEXT,
-    "ownerTeamId" TEXT,
 
-    CONSTRAINT "test_companies_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "companies_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "sys_audit_logs" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT,
+    "action" "AuditAction" NOT NULL,
+    "moduleId" TEXT,
+    "moduleSlug" TEXT,
+    "entityId" TEXT,
+    "displayName" TEXT,
+    "description" TEXT,
+    "metadata" JSONB,
+    "ipAddress" TEXT,
+    "userAgent" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "sys_audit_logs_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "sys_trash_bin" (
+    "id" TEXT NOT NULL,
+    "moduleId" TEXT NOT NULL,
+    "moduleSlug" TEXT NOT NULL,
+    "entityId" TEXT NOT NULL,
+    "displayName" TEXT NOT NULL,
+    "deletedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deletedBy" TEXT,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "metadata" JSONB,
+    "ownerId" TEXT,
+    "createdBy" TEXT,
+
+    CONSTRAINT "sys_trash_bin_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -400,43 +425,34 @@ CREATE INDEX "auth_keys_userId_idx" ON "auth_keys"("userId");
 CREATE INDEX "auth_keys_isActive_idx" ON "auth_keys"("isActive");
 
 -- CreateIndex
-CREATE INDEX "auth_login_attempts_email_idx" ON "auth_login_attempts"("email");
+CREATE UNIQUE INDEX "email_logs_providerId_key" ON "email_logs"("providerId");
 
 -- CreateIndex
-CREATE INDEX "auth_login_attempts_createdAt_idx" ON "auth_login_attempts"("createdAt");
+CREATE INDEX "email_logs_userId_idx" ON "email_logs"("userId");
 
 -- CreateIndex
-CREATE INDEX "auth_login_attempts_success_idx" ON "auth_login_attempts"("success");
+CREATE INDEX "email_logs_providerId_idx" ON "email_logs"("providerId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "email_log_providerId_key" ON "email_log"("providerId");
+CREATE INDEX "email_logs_status_idx" ON "email_logs"("status");
 
 -- CreateIndex
-CREATE INDEX "email_log_userId_idx" ON "email_log"("userId");
+CREATE INDEX "email_logs_createdAt_idx" ON "email_logs"("createdAt");
 
 -- CreateIndex
-CREATE INDEX "email_log_providerId_idx" ON "email_log"("providerId");
+CREATE UNIQUE INDEX "documents_fileKey_key" ON "documents"("fileKey");
 
 -- CreateIndex
-CREATE INDEX "email_log_status_idx" ON "email_log"("status");
+CREATE INDEX "documents_entityId_entityType_status_idx" ON "documents"("entityId", "entityType", "status");
 
 -- CreateIndex
-CREATE INDEX "email_log_createdAt_idx" ON "email_log"("createdAt");
+CREATE INDEX "documents_fileName_idx" ON "documents"("fileName");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "document_fileKey_key" ON "document"("fileKey");
+CREATE INDEX "documents_createdAt_idx" ON "documents"("createdAt");
 
 -- CreateIndex
-CREATE INDEX "document_entityId_entityType_status_idx" ON "document"("entityId", "entityType", "status");
-
--- CreateIndex
-CREATE INDEX "document_fileName_idx" ON "document"("fileName");
-
--- CreateIndex
-CREATE INDEX "document_createdAt_idx" ON "document"("createdAt");
-
--- CreateIndex
-CREATE UNIQUE INDEX "rbac_modules_key_key" ON "rbac_modules"("key");
+CREATE UNIQUE INDEX "sys_modules_slug_key" ON "sys_modules"("slug");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "rbac_roles_name_key" ON "rbac_roles"("name");
@@ -487,19 +503,34 @@ CREATE INDEX "team_users_userId_idx" ON "team_users"("userId");
 CREATE UNIQUE INDEX "team_users_teamId_userId_key" ON "team_users"("teamId", "userId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "test_companies_nif_key" ON "test_companies"("nif");
+CREATE UNIQUE INDEX "companies_nif_key" ON "companies"("nif");
 
 -- CreateIndex
-CREATE INDEX "test_companies_nif_idx" ON "test_companies"("nif");
+CREATE INDEX "companies_nif_idx" ON "companies"("nif");
 
 -- CreateIndex
-CREATE INDEX "test_companies_status_idx" ON "test_companies"("status");
+CREATE INDEX "companies_status_idx" ON "companies"("status");
 
 -- CreateIndex
-CREATE INDEX "test_companies_ownerId_idx" ON "test_companies"("ownerId");
+CREATE INDEX "companies_ownerId_idx" ON "companies"("ownerId");
 
 -- CreateIndex
-CREATE INDEX "test_companies_ownerTeamId_idx" ON "test_companies"("ownerTeamId");
+CREATE INDEX "sys_audit_logs_action_idx" ON "sys_audit_logs"("action");
+
+-- CreateIndex
+CREATE INDEX "sys_audit_logs_moduleSlug_entityId_idx" ON "sys_audit_logs"("moduleSlug", "entityId");
+
+-- CreateIndex
+CREATE INDEX "sys_audit_logs_createdAt_idx" ON "sys_audit_logs"("createdAt");
+
+-- CreateIndex
+CREATE INDEX "sys_trash_bin_expiresAt_idx" ON "sys_trash_bin"("expiresAt");
+
+-- CreateIndex
+CREATE INDEX "sys_trash_bin_deletedAt_idx" ON "sys_trash_bin"("deletedAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "sys_trash_bin_moduleSlug_entityId_key" ON "sys_trash_bin"("moduleSlug", "entityId");
 
 -- AddForeignKey
 ALTER TABLE "auth_accounts" ADD CONSTRAINT "auth_accounts_userId_fkey" FOREIGN KEY ("userId") REFERENCES "auth_users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -511,31 +542,31 @@ ALTER TABLE "auth_sessions" ADD CONSTRAINT "auth_sessions_userId_fkey" FOREIGN K
 ALTER TABLE "auth_keys" ADD CONSTRAINT "auth_keys_userId_fkey" FOREIGN KEY ("userId") REFERENCES "auth_users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "email_log" ADD CONSTRAINT "email_log_userId_fkey" FOREIGN KEY ("userId") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "email_logs" ADD CONSTRAINT "email_logs_userId_fkey" FOREIGN KEY ("userId") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "document" ADD CONSTRAINT "document_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "documents" ADD CONSTRAINT "documents_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "document" ADD CONSTRAINT "document_deletedBy_fkey" FOREIGN KEY ("deletedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "documents" ADD CONSTRAINT "documents_deletedBy_fkey" FOREIGN KEY ("deletedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "document" ADD CONSTRAINT "document_restoredBy _fkey" FOREIGN KEY ("restoredBy ") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "documents" ADD CONSTRAINT "documents_restoredBy_fkey" FOREIGN KEY ("restoredBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "document" ADD CONSTRAINT "document_updatedBy_fkey" FOREIGN KEY ("updatedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "documents" ADD CONSTRAINT "documents_updatedBy_fkey" FOREIGN KEY ("updatedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "rbac_modules" ADD CONSTRAINT "rbac_modules_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "sys_modules" ADD CONSTRAINT "sys_modules_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "rbac_modules" ADD CONSTRAINT "rbac_modules_deletedBy_fkey" FOREIGN KEY ("deletedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "sys_modules" ADD CONSTRAINT "sys_modules_deletedBy_fkey" FOREIGN KEY ("deletedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "rbac_modules" ADD CONSTRAINT "rbac_modules_restoredBy _fkey" FOREIGN KEY ("restoredBy ") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "sys_modules" ADD CONSTRAINT "sys_modules_restoredBy_fkey" FOREIGN KEY ("restoredBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "rbac_modules" ADD CONSTRAINT "rbac_modules_updatedBy_fkey" FOREIGN KEY ("updatedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "sys_modules" ADD CONSTRAINT "sys_modules_updatedBy_fkey" FOREIGN KEY ("updatedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "rbac_roles" ADD CONSTRAINT "rbac_roles_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -544,7 +575,7 @@ ALTER TABLE "rbac_roles" ADD CONSTRAINT "rbac_roles_createdBy_fkey" FOREIGN KEY 
 ALTER TABLE "rbac_roles" ADD CONSTRAINT "rbac_roles_deletedBy_fkey" FOREIGN KEY ("deletedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "rbac_roles" ADD CONSTRAINT "rbac_roles_restoredBy _fkey" FOREIGN KEY ("restoredBy ") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "rbac_roles" ADD CONSTRAINT "rbac_roles_restoredBy_fkey" FOREIGN KEY ("restoredBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "rbac_roles" ADD CONSTRAINT "rbac_roles_updatedBy_fkey" FOREIGN KEY ("updatedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -559,7 +590,7 @@ ALTER TABLE "rbac_role_permissions" ADD CONSTRAINT "rbac_role_permissions_update
 ALTER TABLE "rbac_role_permissions" ADD CONSTRAINT "rbac_role_permissions_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "rbac_roles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "rbac_role_permissions" ADD CONSTRAINT "rbac_role_permissions_moduleId_fkey" FOREIGN KEY ("moduleId") REFERENCES "rbac_modules"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "rbac_role_permissions" ADD CONSTRAINT "rbac_role_permissions_moduleId_fkey" FOREIGN KEY ("moduleId") REFERENCES "sys_modules"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "rbac_role_assignments" ADD CONSTRAINT "rbac_role_assignments_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "rbac_roles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -580,7 +611,7 @@ ALTER TABLE "teams" ADD CONSTRAINT "teams_createdBy_fkey" FOREIGN KEY ("createdB
 ALTER TABLE "teams" ADD CONSTRAINT "teams_deletedBy_fkey" FOREIGN KEY ("deletedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "teams" ADD CONSTRAINT "teams_restoredBy _fkey" FOREIGN KEY ("restoredBy ") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "teams" ADD CONSTRAINT "teams_restoredBy_fkey" FOREIGN KEY ("restoredBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "teams" ADD CONSTRAINT "teams_updatedBy_fkey" FOREIGN KEY ("updatedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -595,19 +626,28 @@ ALTER TABLE "team_users" ADD CONSTRAINT "team_users_userId_fkey" FOREIGN KEY ("u
 ALTER TABLE "team_users" ADD CONSTRAINT "team_users_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "teams"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "test_companies" ADD CONSTRAINT "test_companies_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "companies" ADD CONSTRAINT "companies_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "test_companies" ADD CONSTRAINT "test_companies_deletedBy_fkey" FOREIGN KEY ("deletedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "companies" ADD CONSTRAINT "companies_deletedBy_fkey" FOREIGN KEY ("deletedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "test_companies" ADD CONSTRAINT "test_companies_restoredBy _fkey" FOREIGN KEY ("restoredBy ") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "companies" ADD CONSTRAINT "companies_restoredBy_fkey" FOREIGN KEY ("restoredBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "test_companies" ADD CONSTRAINT "test_companies_updatedBy_fkey" FOREIGN KEY ("updatedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "companies" ADD CONSTRAINT "companies_updatedBy_fkey" FOREIGN KEY ("updatedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "test_companies" ADD CONSTRAINT "test_companies_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "companies" ADD CONSTRAINT "companies_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "test_companies" ADD CONSTRAINT "test_companies_ownerTeamId_fkey" FOREIGN KEY ("ownerTeamId") REFERENCES "teams"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "sys_audit_logs" ADD CONSTRAINT "sys_audit_logs_moduleId_fkey" FOREIGN KEY ("moduleId") REFERENCES "sys_modules"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "sys_audit_logs" ADD CONSTRAINT "sys_audit_logs_userId_fkey" FOREIGN KEY ("userId") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "sys_trash_bin" ADD CONSTRAINT "sys_trash_bin_moduleId_fkey" FOREIGN KEY ("moduleId") REFERENCES "sys_modules"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "sys_trash_bin" ADD CONSTRAINT "sys_trash_bin_deletedBy_fkey" FOREIGN KEY ("deletedBy") REFERENCES "auth_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;

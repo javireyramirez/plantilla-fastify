@@ -19,6 +19,7 @@ const SYSTEM_MODULES = [
     description: 'Gestión de usuarios',
     icon: 'users',
     sortOrder: 0,
+    category: 'security',
   },
   {
     key: 'teams',
@@ -26,6 +27,7 @@ const SYSTEM_MODULES = [
     description: 'Gestión de equipos',
     icon: 'users-round',
     sortOrder: 1,
+    category: 'security',
   },
   {
     key: 'roles',
@@ -33,6 +35,7 @@ const SYSTEM_MODULES = [
     description: 'Gestión de roles y permisos',
     icon: 'shield',
     sortOrder: 2,
+    category: 'security',
   },
   {
     key: 'companies',
@@ -40,6 +43,7 @@ const SYSTEM_MODULES = [
     description: 'Gestión de empresas / clientes',
     icon: 'briefcase',
     sortOrder: 3,
+    category: 'business',
   },
   {
     key: 'documents',
@@ -47,6 +51,7 @@ const SYSTEM_MODULES = [
     description: 'Gestión de documentos',
     icon: 'file',
     sortOrder: 4,
+    category: 'files',
   },
   {
     key: 'storage',
@@ -54,34 +59,23 @@ const SYSTEM_MODULES = [
     description: 'Gestión de archivos',
     icon: 'hard-drive',
     sortOrder: 5,
-  },
-  {
-    key: 'settings',
-    label: 'Configuración',
-    description: 'Configuración del sistema',
-    icon: 'settings',
-    sortOrder: 6,
-  },
-  {
-    key: 'reports',
-    label: 'Reportes',
-    description: 'Generación de reportes',
-    icon: 'bar-chart',
-    sortOrder: 7,
+    category: 'files',
   },
   {
     key: 'audit',
     label: 'Auditoría',
     description: 'Logs y auditoría',
     icon: 'activity',
-    sortOrder: 8,
+    sortOrder: 6,
+    category: 'system',
   },
   {
     key: 'trash',
     label: 'Papelera',
     description: 'Papelera de reciclaje y recuperación',
     icon: 'trash-2',
-    sortOrder: 9,
+    sortOrder: 7,
+    category: 'system',
   },
 ] as const;
 
@@ -193,6 +187,7 @@ async function main() {
       update: {
         name: mod.label,
         description: mod.description,
+        category: mod.category,
         icon: mod.icon,
         sortOrder: mod.sortOrder,
         isActive: true,
@@ -201,6 +196,7 @@ async function main() {
         slug: mod.key,
         name: mod.label,
         description: mod.description,
+        category: mod.category,
         icon: mod.icon,
         sortOrder: mod.sortOrder,
         isActive: true,

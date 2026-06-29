@@ -325,6 +325,7 @@ model Module {
   name               String
   slug               String       @unique
   description        String?
+  category           String
   icon               String?
   isActive           Boolean      @default(true)
   sortOrder          Int          @default(0)
@@ -355,7 +356,7 @@ model Module {
   auditLogs  AuditLog[] @relation("ModuleAuditLogs")
   trashItems TrashBin[] @relation("ModuleTrashItems")
 
-  @@map("rbac_modules")
+  @@map("sys_modules")
 }
 
 // ==========================================
