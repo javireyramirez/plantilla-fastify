@@ -1,3 +1,4 @@
+import { PermissionAction, PermissionScope } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import { HttpError } from '@/utils/http.error.js';
 
@@ -242,6 +243,224 @@ export class TrashService {
       ]);
 
       purgedCount += items.length;
+    }
+
+    return { count: purgedCount };
+  }
+
+  async getUserPermissionsForAction(
+    userId: string,
+    teamIds: string[],
+    action: PermissionAction,
+  ): Promise<Record<string, { scope: PermissionScope }>> {
+    const assignments = await this.fastify.prisma.roleAssignment.findMany({
+      where: {
+        OR: [{ userId }, ...(teamIds.length > 0 ? [{ teamId: { in: teamIds } }] : [])],
+      },
+      include: {
+        role: {
+          include: {
+            permissions: {
+              where: {
+                action,
+              },
+              include: {
+                module: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const permissions: Record<string, { scope: PermissionScope }> = {};
+
+    for (const assignment of assignments) {
+      for (const perm of assignment.role.permissions) {
+        const moduleSlug = perm.module.slug;
+        const currentScope = perm.scope;
+
+        if (!permissions[moduleSlug]) {
+          permissions[moduleSlug] = { scope: currentScope };
+        } else {
+          const SCOPE_PRIORITY: Record<PermissionScope, number> = { GLOBAL: 3, TEAM: 2, OWN: 1 };
+          const best = permissions[moduleSlug].scope;
+          if (SCOPE_PRIORITY[currentScope] > SCOPE_PRIORITY[best]) {
+            permissions[moduleSlug].scope = currentScope;
+          }
+        }
+      }
+    }
+
+    return permissions;
+  }
+
+  async restoreMany(
+    ids: string[],
+    userId: string,
+    teamIds: string[],
+    isSuperAdmin: boolean,
+  ): Promise<{ count: number }> {
+    if (!ids.length) return { count: 0 };
+
+    const trashItems = await this.fastify.prisma.trashBin.findMany({
+      where: { id: { in: ids } },
+    });
+
+    if (!trashItems.length) return { count: 0 };
+
+    let allowedModules: Record<string, { scope: PermissionScope }> = {};
+    if (isSuperAdmin) {
+      const modules = await this.fastify.prisma.module.findMany({
+        select: { slug: true },
+      });
+      for (const mod of modules) {
+        allowedModules[mod.slug] = { scope: 'GLOBAL' };
+      }
+    } else {
+      allowedModules = await this.getUserPermissionsForAction(userId, teamIds, PermissionAction.RESTORE);
+    }
+
+    for (const item of trashItems) {
+      const perm = allowedModules[item.moduleSlug];
+      if (!perm) {
+        throw new HttpError(403, `No tiene permisos para restaurar elementos del módulo: ${item.moduleSlug}`);
+      }
+
+      const scope = perm.scope;
+      if (scope === 'OWN') {
+        const isOwner =
+          item.ownerId === userId ||
+          item.createdBy === userId ||
+          item.deletedBy === userId;
+        if (!isOwner) {
+          throw new HttpError(403, `No tiene permisos para restaurar el elemento: ${item.displayName}`);
+        }
+      } else if (scope === 'TEAM') {
+        const isTeam =
+          (item.ownerId && teamIds.includes(item.ownerId)) ||
+          (item.createdBy && teamIds.includes(item.createdBy)) ||
+          (item.deletedBy && teamIds.includes(item.deletedBy));
+        if (!isTeam) {
+          throw new HttpError(403, `No tiene permisos para restaurar el elemento: ${item.displayName}`);
+        }
+      }
+    }
+
+    const grouped = trashItems.reduce((acc, item) => {
+      acc[item.moduleSlug] = acc[item.moduleSlug] || [];
+      acc[item.moduleSlug].push(item);
+      return acc;
+    }, {} as Record<string, typeof trashItems>);
+
+    let restoredCount = 0;
+
+    for (const [moduleSlug, items] of Object.entries(grouped)) {
+      const entityIds = items.map((item) => item.entityId);
+      const service = this.getService(moduleSlug);
+
+      if (!service) {
+        throw new HttpError(500, `Servicio no configurado para el módulo: ${moduleSlug}`);
+      }
+
+      const perm = allowedModules[moduleSlug];
+      const scopeContext = {
+        scope: perm.scope,
+        userId,
+        teamIds,
+      };
+
+      const restoreResult = await service.restoreMany(entityIds, { userId, scope: scopeContext });
+      restoredCount += restoreResult.count;
+    }
+
+    return { count: restoredCount };
+  }
+
+  async purgeMany(
+    ids: string[],
+    userId: string,
+    teamIds: string[],
+    isSuperAdmin: boolean,
+  ): Promise<{ count: number }> {
+    if (!ids.length) return { count: 0 };
+
+    const trashItems = await this.fastify.prisma.trashBin.findMany({
+      where: { id: { in: ids } },
+    });
+
+    if (!trashItems.length) return { count: 0 };
+
+    let allowedModules: Record<string, { scope: PermissionScope }> = {};
+    if (isSuperAdmin) {
+      const modules = await this.fastify.prisma.module.findMany({
+        select: { slug: true },
+      });
+      for (const mod of modules) {
+        allowedModules[mod.slug] = { scope: 'GLOBAL' };
+      }
+    } else {
+      allowedModules = await this.getUserPermissionsForAction(userId, teamIds, PermissionAction.DELETE);
+    }
+
+    for (const item of trashItems) {
+      const perm = allowedModules[item.moduleSlug];
+      if (!perm) {
+        throw new HttpError(403, `No tiene permisos para purgar elementos del módulo: ${item.moduleSlug}`);
+      }
+
+      const scope = perm.scope;
+      if (scope === 'OWN') {
+        const isOwner =
+          item.ownerId === userId ||
+          item.createdBy === userId ||
+          item.deletedBy === userId;
+        if (!isOwner) {
+          throw new HttpError(403, `No tiene permisos para purgar el elemento: ${item.displayName}`);
+        }
+      } else if (scope === 'TEAM') {
+        const isTeam =
+          (item.ownerId && teamIds.includes(item.ownerId)) ||
+          (item.createdBy && teamIds.includes(item.createdBy)) ||
+          (item.deletedBy && teamIds.includes(item.deletedBy));
+        if (!isTeam) {
+          throw new HttpError(403, `No tiene permisos para purgar el elemento: ${item.displayName}`);
+        }
+      }
+    }
+
+    const grouped = trashItems.reduce((acc, item) => {
+      acc[item.moduleSlug] = acc[item.moduleSlug] || [];
+      acc[item.moduleSlug].push(item);
+      return acc;
+    }, {} as Record<string, typeof trashItems>);
+
+    let purgedCount = 0;
+
+    for (const [moduleSlug, items] of Object.entries(grouped)) {
+      const entityIds = items.map((item) => item.entityId);
+      const service = this.getService(moduleSlug);
+
+      if (!service) {
+        throw new HttpError(500, `Servicio no configurado para el módulo: ${moduleSlug}`);
+      }
+
+      const perm = allowedModules[moduleSlug];
+      const scopeContext = {
+        scope: perm.scope,
+        userId,
+        teamIds,
+      };
+
+      await this.fastify.prisma.trashBin.deleteMany({
+        where: {
+          moduleSlug,
+          entityId: { in: entityIds },
+        },
+      });
+
+      const deleteResult = await service.hardDeleteMany(entityIds, { userId, scope: scopeContext });
+      purgedCount += deleteResult.count;
     }
 
     return { count: purgedCount };

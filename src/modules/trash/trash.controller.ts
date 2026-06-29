@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { requireScope } from '@/utils/scope.js';
 import { parsePagination } from '@/utils/pagination.js';
-import { GetTrashQuerySchema } from './trash.schema.js';
+import { GetTrashQuerySchema, BulkIdsBodySchema } from './trash.schema.js';
 import type { TrashService } from './trash.service.js';
 
 export class TrashController {
@@ -88,5 +88,49 @@ export class TrashController {
 
     const result = await this.trashService.emptyExpiredTrash();
     return reply.send({ success: true, message: 'Limpieza completada', ...result });
+  }
+
+  async restoreMany(
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ) {
+    const session = request.session;
+    if (!session?.user) {
+      return reply.status(401).send({ error: 'No autorizado' });
+    }
+
+    const { ids } = BulkIdsBodySchema.parse(request.body);
+    const userContext = request.userContext ?? { teamIds: [] };
+
+    const result = await this.trashService.restoreMany(
+      ids,
+      session.user.id,
+      userContext.teamIds,
+      session.user.isSuperAdmin,
+    );
+
+    return reply.send(result);
+  }
+
+  async purgeMany(
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ) {
+    const session = request.session;
+    if (!session?.user) {
+      return reply.status(401).send({ error: 'No autorizado' });
+    }
+
+    const { ids } = BulkIdsBodySchema.parse(request.body);
+    const userContext = request.userContext ?? { teamIds: [] };
+
+    const result = await this.trashService.purgeMany(
+      ids,
+      session.user.id,
+      userContext.teamIds,
+      session.user.isSuperAdmin,
+    );
+
+    return reply.send(result);
   }
 }

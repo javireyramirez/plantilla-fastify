@@ -10,7 +10,7 @@ import { requireSuperAdmin } from '@/hooks/require.superadmin.js';
 import { userContext } from '@/hooks/user.context.js';
 
 import { TrashController } from './trash.controller.js';
-import { GetTrashQuerySchema, TrashListResponseSchema } from './trash.schema.js';
+import { GetTrashQuerySchema, TrashListResponseSchema, BulkIdsBodySchema, BulkResponseSchema } from './trash.schema.js';
 
 export default async function trashRoutes(fastify: FastifyInstance) {
   const app = fastify.withTypeProvider<ZodTypeProvider>();
@@ -96,5 +96,47 @@ export default async function trashRoutes(fastify: FastifyInstance) {
       preHandler: [requireAuth, userContext, requireSuperAdmin],
     },
     (req, reply) => controller.triggerCleanup(req as any, reply),
+  );
+
+  // 5. PATCH /bulk/restore -> Bulk restore items
+  app.patch(
+    '/bulk/restore',
+    {
+      schema: {
+        tags: ['Trash'],
+        description: 'Restaurar varios elementos de la papelera en lote',
+        body: BulkIdsBodySchema,
+        response: {
+          200: BulkResponseSchema,
+        },
+      },
+      preHandler: [
+        requireAuth,
+        userContext,
+        requirePermission('trash', PermissionAction.RESTORE),
+      ],
+    },
+    (req, reply) => controller.restoreMany(req as any, reply),
+  );
+
+  // 6. DELETE /bulk/permanent -> Bulk purge items
+  app.delete(
+    '/bulk/permanent',
+    {
+      schema: {
+        tags: ['Trash'],
+        description: 'Purgar definitivamente varios elementos de la papelera en lote',
+        body: BulkIdsBodySchema,
+        response: {
+          200: BulkResponseSchema,
+        },
+      },
+      preHandler: [
+        requireAuth,
+        userContext,
+        requirePermission('trash', PermissionAction.DELETE),
+      ],
+    },
+    (req, reply) => controller.purgeMany(req as any, reply),
   );
 }

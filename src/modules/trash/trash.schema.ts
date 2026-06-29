@@ -11,8 +11,6 @@ export const GetTrashQuerySchema = z.object({
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
 });
 
-export type GetTrashQuery = z.infer<typeof GetTrashQuerySchema>;
-
 export const TrashBinItemSchema = z.object({
   id: z.uuidv7(),
   moduleId: z.uuidv7(),
@@ -28,3 +26,13 @@ export const TrashBinItemSchema = z.object({
 });
 
 export const TrashListResponseSchema = createPaginatedResponseSchema(TrashBinItemSchema);
+
+export const BulkIdsBodySchema = z.object({
+  ids: z.array(z.uuidv7()),
+});
+
+export const BulkResponseSchema = z.object({
+  count: z.number(),
+});
+
+export type GetTrashQuery = z.infer<typeof GetTrashQuerySchema>;
