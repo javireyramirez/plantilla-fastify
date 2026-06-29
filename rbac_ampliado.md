@@ -20,7 +20,7 @@ erDiagram
     org_teams ||--o{ rbac_role_assignments : "recibe asignación"
     rbac_roles ||--o{ rbac_role_assignments : "asignado en"
     rbac_roles ||--o{ rbac_role_permissions : "contiene"
-    rbac_modules ||--o{ rbac_role_permissions : "aplica sobre"
+    sys_modules ||--o{ rbac_role_permissions : "aplica sobre"
 
     auth_users {
         string id PK
@@ -40,10 +40,11 @@ erDiagram
         string slug
         boolean isSystem
     }
-    rbac_modules {
+    sys_modules {
         string id PK
-        string key "ej: 'companies'"
-        string label
+        string slug
+        string name
+        string category
     }
     rbac_role_permissions {
         string id PK

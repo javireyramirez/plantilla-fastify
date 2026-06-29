@@ -3,9 +3,7 @@ import { z } from 'zod';
 
 import {
   AuditFieldsSchema,
-  GetListQueryBase,
   GetPaginatedQueryBaseSchema,
-  ResponseListSchemaBase,
   createPaginatedResponseSchema,
 } from '@/schemas/base.schema.js';
 
@@ -18,6 +16,7 @@ export const ModuleSchema = z
     id: z.uuidv7(),
     name: z.string().min(1),
     slug: z.string().min(1),
+    category: z.string().min(1),
     description: z.string().optional().nullable(),
     icon: z.string().optional().nullable(),
     isActive: z.boolean().default(true),
@@ -41,9 +40,17 @@ export const ModuleParamsSchema = z.object({
 export const GetModulesQuerySchema = GetPaginatedQueryBaseSchema.extend({
   isActive: z.preprocess((val) => val === 'true' || val === true, z.boolean()).optional(),
   sortBy: z.string().optional().default('createdAt'),
+  slug: z.string().optional(),
+  category: z.string().optional(),
 });
 
-export const GetListQuery = GetListQueryBase;
+export const GetListQuery = z.object({
+  limit: z.coerce.number().int().positive().max(100).default(20),
+  sortBy: z.string().optional().default('slug'),
+  sortOrder: z.enum(['asc', 'desc']).optional().default('asc'),
+  slug: z.string().optional(),
+  category: z.string().optional(),
+});
 
 // ==========================================
 // BODIES
@@ -76,7 +83,13 @@ export const BulkIdsBodySchema = z.object({
 
 export const ModuleResponseSchema = ModuleSchema;
 
-export const ResponseListSchema = ResponseListSchemaBase;
+export const ResponseListSchema = z.array(
+  z.object({
+    id: z.uuidv7(),
+    slug: z.string(),
+    category: z.string(),
+  }),
+);
 
 export const ModulesListResponseSchema = createPaginatedResponseSchema(ModuleSchema);
 
