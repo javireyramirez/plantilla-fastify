@@ -15,5 +15,3 @@ export interface WriteOptions {
   userAgent?: string;
   description?: string;
 }
-
-

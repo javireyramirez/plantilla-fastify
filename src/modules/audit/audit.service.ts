@@ -1,4 +1,5 @@
 import { BaseAuditService } from '@/services/base-audit.service.js';
+
 import { AuditLogRepository } from './audit.repository.js';
 import { AuditLogType } from './audit.schema.js';
 
@@ -17,10 +18,12 @@ export class AuditLogService extends BaseAuditService<AuditLogType> {
       ...(filters.user
         ? {
             user: {
-              OR: (Array.isArray(filters.user) ? filters.user : [filters.user]).flatMap((u: string) => [
-                { name: { contains: u, mode: 'insensitive' as const } },
-                { email: { contains: u, mode: 'insensitive' as const } },
-              ]),
+              OR: (Array.isArray(filters.user) ? filters.user : [filters.user]).flatMap(
+                (u: string) => [
+                  { name: { contains: u, mode: 'insensitive' as const } },
+                  { email: { contains: u, mode: 'insensitive' as const } },
+                ],
+              ),
             },
           }
         : {}),

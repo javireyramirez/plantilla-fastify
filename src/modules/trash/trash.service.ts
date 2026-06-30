@@ -1,5 +1,6 @@
 import { PermissionAction, PermissionScope } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
+
 import { HttpError } from '@/utils/http.error.js';
 
 export class TrashService {
@@ -17,7 +18,10 @@ export class TrashService {
     return servicesMap[moduleSlug];
   }
 
-  async getUserPermissions(userId: string, teamIds: string[] = []): Promise<Record<string, { scope: string }>> {
+  async getUserPermissions(
+    userId: string,
+    teamIds: string[] = [],
+  ): Promise<Record<string, { scope: string }>> {
     const assignments = await this.fastify.prisma.roleAssignment.findMany({
       where: {
         OR: [{ userId }, ...(teamIds.length > 0 ? [{ teamId: { in: teamIds } }] : [])],
@@ -313,11 +317,14 @@ export class TrashService {
 
     if (expiredItems.length === 0) return { count: 0 };
 
-    const grouped = expiredItems.reduce((acc, item) => {
-      acc[item.moduleSlug] = acc[item.moduleSlug] || [];
-      acc[item.moduleSlug].push(item);
-      return acc;
-    }, {} as Record<string, typeof expiredItems>);
+    const grouped = expiredItems.reduce(
+      (acc, item) => {
+        acc[item.moduleSlug] = acc[item.moduleSlug] || [];
+        acc[item.moduleSlug].push(item);
+        return acc;
+      },
+      {} as Record<string, typeof expiredItems>,
+    );
 
     let purgedCount = 0;
 
@@ -346,7 +353,7 @@ export class TrashService {
               displayName: item.displayName,
               description: 'Automatic purge after retention period expired',
             },
-          })
+          }),
         ),
       ]);
 
@@ -426,23 +433,31 @@ export class TrashService {
         allowedModules[mod.slug] = { scope: 'GLOBAL' };
       }
     } else {
-      allowedModules = await this.getUserPermissionsForAction(userId, teamIds, PermissionAction.RESTORE);
+      allowedModules = await this.getUserPermissionsForAction(
+        userId,
+        teamIds,
+        PermissionAction.RESTORE,
+      );
     }
 
     for (const item of trashItems) {
       const perm = allowedModules[item.moduleSlug];
       if (!perm) {
-        throw new HttpError(403, `No tiene permisos para restaurar elementos del módulo: ${item.moduleSlug}`);
+        throw new HttpError(
+          403,
+          `No tiene permisos para restaurar elementos del módulo: ${item.moduleSlug}`,
+        );
       }
 
       const scope = perm.scope;
       if (scope === 'OWN') {
         const isOwner =
-          item.ownerId === userId ||
-          item.createdBy === userId ||
-          item.deletedBy === userId;
+          item.ownerId === userId || item.createdBy === userId || item.deletedBy === userId;
         if (!isOwner) {
-          throw new HttpError(403, `No tiene permisos para restaurar el elemento: ${item.displayName}`);
+          throw new HttpError(
+            403,
+            `No tiene permisos para restaurar el elemento: ${item.displayName}`,
+          );
         }
       } else if (scope === 'TEAM') {
         const isTeam =
@@ -450,16 +465,22 @@ export class TrashService {
           (item.createdBy && teamIds.includes(item.createdBy)) ||
           (item.deletedBy && teamIds.includes(item.deletedBy));
         if (!isTeam) {
-          throw new HttpError(403, `No tiene permisos para restaurar el elemento: ${item.displayName}`);
+          throw new HttpError(
+            403,
+            `No tiene permisos para restaurar el elemento: ${item.displayName}`,
+          );
         }
       }
     }
 
-    const grouped = trashItems.reduce((acc, item) => {
-      acc[item.moduleSlug] = acc[item.moduleSlug] || [];
-      acc[item.moduleSlug].push(item);
-      return acc;
-    }, {} as Record<string, typeof trashItems>);
+    const grouped = trashItems.reduce(
+      (acc, item) => {
+        acc[item.moduleSlug] = acc[item.moduleSlug] || [];
+        acc[item.moduleSlug].push(item);
+        return acc;
+      },
+      {} as Record<string, typeof trashItems>,
+    );
 
     let restoredCount = 0;
 
@@ -508,23 +529,31 @@ export class TrashService {
         allowedModules[mod.slug] = { scope: 'GLOBAL' };
       }
     } else {
-      allowedModules = await this.getUserPermissionsForAction(userId, teamIds, PermissionAction.DELETE);
+      allowedModules = await this.getUserPermissionsForAction(
+        userId,
+        teamIds,
+        PermissionAction.DELETE,
+      );
     }
 
     for (const item of trashItems) {
       const perm = allowedModules[item.moduleSlug];
       if (!perm) {
-        throw new HttpError(403, `No tiene permisos para purgar elementos del módulo: ${item.moduleSlug}`);
+        throw new HttpError(
+          403,
+          `No tiene permisos para purgar elementos del módulo: ${item.moduleSlug}`,
+        );
       }
 
       const scope = perm.scope;
       if (scope === 'OWN') {
         const isOwner =
-          item.ownerId === userId ||
-          item.createdBy === userId ||
-          item.deletedBy === userId;
+          item.ownerId === userId || item.createdBy === userId || item.deletedBy === userId;
         if (!isOwner) {
-          throw new HttpError(403, `No tiene permisos para purgar el elemento: ${item.displayName}`);
+          throw new HttpError(
+            403,
+            `No tiene permisos para purgar el elemento: ${item.displayName}`,
+          );
         }
       } else if (scope === 'TEAM') {
         const isTeam =
@@ -532,16 +561,22 @@ export class TrashService {
           (item.createdBy && teamIds.includes(item.createdBy)) ||
           (item.deletedBy && teamIds.includes(item.deletedBy));
         if (!isTeam) {
-          throw new HttpError(403, `No tiene permisos para purgar el elemento: ${item.displayName}`);
+          throw new HttpError(
+            403,
+            `No tiene permisos para purgar el elemento: ${item.displayName}`,
+          );
         }
       }
     }
 
-    const grouped = trashItems.reduce((acc, item) => {
-      acc[item.moduleSlug] = acc[item.moduleSlug] || [];
-      acc[item.moduleSlug].push(item);
-      return acc;
-    }, {} as Record<string, typeof trashItems>);
+    const grouped = trashItems.reduce(
+      (acc, item) => {
+        acc[item.moduleSlug] = acc[item.moduleSlug] || [];
+        acc[item.moduleSlug].push(item);
+        return acc;
+      },
+      {} as Record<string, typeof trashItems>,
+    );
 
     let purgedCount = 0;
 

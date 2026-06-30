@@ -172,6 +172,18 @@ export abstract class BaseCrudService<T> {
     });
   }
 
+  async findById(
+    id: string,
+    params: { include?: any; select?: any; scope?: any } = {},
+  ): Promise<T | null> {
+    return this.findFirst({
+      where: { id },
+      include: params.include,
+      select: params.select,
+      scope: params.scope,
+    });
+  }
+
   async findByIdWithContext(id: string, context: any): Promise<T | null> {
     return this.repository.findFirst({
       where: { id, ...context },

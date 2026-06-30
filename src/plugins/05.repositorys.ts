@@ -1,5 +1,6 @@
 import fp from 'fastify-plugin';
 
+import { AuditLogRepository } from '@/modules/audit/audit.repository.js';
 import { CompaniesRepository } from '@/modules/companies/companies.repository.js';
 import { ModuleRepository } from '@/modules/module/module.repository.js';
 import { RoleAssignmentRepository } from '@/modules/rbac/role-assignment.repository.js';
@@ -10,8 +11,6 @@ import { TeamUserRepository } from '@/modules/team/team-user.repository.js';
 import { TeamRepository } from '@/modules/team/team.repository.js';
 import { SessionRepository } from '@/modules/users/session.repository.js';
 import { UsersRepository } from '@/modules/users/users.repository.js';
-import { AuditLogRepository } from '@/modules/audit/audit.repository.js';
-
 
 export default fp(
   async (fastify) => {

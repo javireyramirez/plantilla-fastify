@@ -156,7 +156,9 @@ export class StorageService extends BaseRbacService<any> {
           moduleSlug: this.moduleSlug,
           entityId: document.id,
           displayName: document.fileName,
-          description: options.description || `Solicitud de subida de archivo: ${document.fileName} (${(document.size / 1024).toFixed(2)} KB)`,
+          description:
+            options.description ||
+            `Solicitud de subida de archivo: ${document.fileName} (${(document.size / 1024).toFixed(2)} KB)`,
           ipAddress: options.ipAddress,
           userAgent: options.userAgent,
         },
@@ -183,10 +185,14 @@ export class StorageService extends BaseRbacService<any> {
     const exists = await this.storage.checkFileExists(document.fileKey);
     if (!exists) throw new HttpError(400, 'El archivo aún no se ha subido al almacenamiento');
 
-    return this.updateWithContext(where, { status: 'ACTIVE' }, {
-      ...options,
-      description: `Confirmación de subida de archivo: ${document.fileName}`,
-    });
+    return this.updateWithContext(
+      where,
+      { status: 'ACTIVE' },
+      {
+        ...options,
+        description: `Confirmación de subida de archivo: ${document.fileName}`,
+      },
+    );
   }
 
   // ==========================================
@@ -348,10 +354,13 @@ export class StorageService extends BaseRbacService<any> {
     if (!document) throw new HttpError(404, 'Documento no encontrado en la papelera');
 
     await this.storage.deleteFile(document.fileKey);
-    return this.hardDeleteManyWithContext({ id: documentId }, {
-      ...options,
-      description: `Eliminación permanente física del archivo: ${document.fileName}`,
-    });
+    return this.hardDeleteManyWithContext(
+      { id: documentId },
+      {
+        ...options,
+        description: `Eliminación permanente física del archivo: ${document.fileName}`,
+      },
+    );
   }
 
   async emptyTrash(entityType: string, entityId: string, options: WriteOptions = {}) {
