@@ -1,4 +1,5 @@
 import { z } from 'zod';
+
 import {
   GetListQueryBase,
   GetPaginatedQueryBaseSchema,
@@ -28,10 +29,13 @@ export const AuditLogSchema = z.object({
   ipAddress: z.string().nullable().optional(),
   userAgent: z.string().nullable().optional(),
   createdAt: z.date(),
-  user: z.object({
-    name: z.string().nullable().optional(),
-    email: z.string().nullable().optional(),
-  }).nullable().optional(),
+  user: z
+    .object({
+      name: z.string().nullable().optional(),
+      email: z.string().nullable().optional(),
+    })
+    .nullable()
+    .optional(),
 });
 
 // PARAMS
@@ -73,7 +77,7 @@ export const ResponseListSchema = z.array(
     id: z.string(),
     displayName: z.string().nullable().optional(),
     createdAt: z.date(),
-  })
+  }),
 );
 
 export type AuditLogType = z.infer<typeof AuditLogSchema>;

@@ -1,10 +1,10 @@
+import { env } from '@/config/env.js';
 import {
   withCreatedBy,
   withDeletedBy,
   withRestoredBy,
   withUpdatedBy,
 } from '@/decorators/audit.decorators.js';
-import { env } from '@/config/env.js';
 import { WriteOptions } from '@/types/base.types.js';
 import { HttpError } from '@/utils/http.error.js';
 
@@ -50,16 +50,20 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
   protected scrubSensitiveFields(obj: any): any {
     if (!obj || typeof obj !== 'object') return obj;
     const sensitiveKeys = ['password', 'token', 'secret', 'accessToken', 'refreshToken', 'idToken'];
-    
+
     if (Array.isArray(obj)) {
-      return obj.map(item => this.scrubSensitiveFields(item));
+      return obj.map((item) => this.scrubSensitiveFields(item));
     }
 
     const cleanObj = { ...obj };
     for (const key of Object.keys(cleanObj)) {
       if (sensitiveKeys.includes(key)) {
         cleanObj[key] = '[REDACTED]';
-      } else if (cleanObj[key] && typeof cleanObj[key] === 'object' && !(cleanObj[key] instanceof Date)) {
+      } else if (
+        cleanObj[key] &&
+        typeof cleanObj[key] === 'object' &&
+        !(cleanObj[key] instanceof Date)
+      ) {
         cleanObj[key] = this.scrubSensitiveFields(cleanObj[key]);
       }
     }
@@ -100,7 +104,11 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
       let isDifferent = false;
       if (valBefore instanceof Date && valAfter instanceof Date) {
         isDifferent = valBefore.getTime() !== valAfter.getTime();
-      } else if (valBefore && valAfter && (typeof valBefore === 'object' || typeof valAfter === 'object')) {
+      } else if (
+        valBefore &&
+        valAfter &&
+        (typeof valBefore === 'object' || typeof valAfter === 'object')
+      ) {
         isDifferent = JSON.stringify(valBefore) !== JSON.stringify(valAfter);
       } else {
         isDifferent = valBefore !== valAfter;
@@ -116,7 +124,12 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
     return diff;
   }
 
-  public async auditUpdate(id: string, recordBefore: any, updatedRecord: any, options: WriteOptions = {}) {
+  public async auditUpdate(
+    id: string,
+    recordBefore: any,
+    updatedRecord: any,
+    options: WriteOptions = {},
+  ) {
     try {
       const moduleId = await this.getModuleId();
       await this.repository.prisma.auditLog.create({
@@ -168,7 +181,12 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
     }
   }
 
-  public async auditHardDeleteMany(ids: string[], recordsBefore: any[], count: number, options: WriteOptions = {}) {
+  public async auditHardDeleteMany(
+    ids: string[],
+    recordsBefore: any[],
+    count: number,
+    options: WriteOptions = {},
+  ) {
     try {
       const moduleId = await this.getModuleId();
       await this.repository.prisma.auditLog.create({
@@ -246,7 +264,7 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
       include: { ...(options.include ?? {}) },
     };
 
-    const updatedRecord = await super.update(id, auditedData, auditedOptions) as Promise<T>;
+    const updatedRecord = (await super.update(id, auditedData, auditedOptions)) as Promise<T>;
 
     await this.auditUpdate(id, record, updatedRecord, options);
 
@@ -265,6 +283,35 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
 
     const moduleId = await this.getModuleId();
 
+    const parentName = await (async () => {
+      if (
+        this.moduleSlug === 'documents' &&
+        (record as any).entityType &&
+        (record as any).entityId
+      ) {
+        const modelKeys: Record<string, string> = {
+          companies: 'company',
+          users: 'user',
+          roles: 'role',
+          teams: 'team',
+          modules: 'module',
+        };
+        const modelName = modelKeys[(record as any).entityType];
+        if (modelName && (this.repository.prisma as any)[modelName]) {
+          try {
+            const parent = await (this.repository.prisma as any)[modelName].findFirst({
+              where: { id: (record as any).entityId },
+              select: { name: true },
+            });
+            return parent?.name ?? null;
+          } catch (e) {
+            return null;
+          }
+        }
+      }
+      return null;
+    })();
+
     try {
       const [updatedRecord] = await this.repository.prisma.$transaction([
         (this.repository.prisma[this.repository.modelName] as any).update({
@@ -282,9 +329,21 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
             ownerId: (record as any).ownerId ?? null,
             createdBy: (record as any).createdBy ?? null,
             metadata: {
-              ...((record as any).metadata && typeof (record as any).metadata === 'object' ? (record as any).metadata : {}),
-              ...((record as any).entityType && { parentType: (record as any).entityType }),
-              ...((record as any).entityId && { parentId: (record as any).entityId }),
+              ...((record as any).metadata && typeof (record as any).metadata === 'object'
+                ? (record as any).metadata
+                : {}),
+              ...((record as any).entityType && {
+                parentType: (record as any).entityType,
+                entityType: (record as any).entityType,
+              }),
+              ...((record as any).entityId && {
+                parentId: (record as any).entityId,
+                entityId: (record as any).entityId,
+              }),
+              ...(this.moduleSlug === 'documents' && {
+                documentId: (record as any).id,
+                entityName: parentName,
+              }),
             },
           },
         }),
@@ -421,7 +480,11 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
     }
   }
 
-  async softDeleteWithContext(where: any, userId: string, extraOptions: { ipAddress?: string; userAgent?: string; description?: string } = {}): Promise<T> {
+  async softDeleteWithContext(
+    where: any,
+    userId: string,
+    extraOptions: { ipAddress?: string; userAgent?: string; description?: string } = {},
+  ): Promise<T> {
     const record = await this.repository.findFirst({ where });
     if (!record) throw new HttpError(404, 'Registro no encontrado en este contexto');
 
@@ -429,6 +492,35 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
     expiresAt.setDate(expiresAt.getDate() + this.trashRetentionDays);
 
     const moduleId = await this.getModuleId();
+
+    const parentName = await (async () => {
+      if (
+        this.moduleSlug === 'documents' &&
+        (record as any).entityType &&
+        (record as any).entityId
+      ) {
+        const modelKeys: Record<string, string> = {
+          companies: 'company',
+          users: 'user',
+          roles: 'role',
+          teams: 'team',
+          modules: 'module',
+        };
+        const modelName = modelKeys[(record as any).entityType];
+        if (modelName && (this.repository.prisma as any)[modelName]) {
+          try {
+            const parent = await (this.repository.prisma as any)[modelName].findFirst({
+              where: { id: (record as any).entityId },
+              select: { name: true },
+            });
+            return parent?.name ?? null;
+          } catch (e) {
+            return null;
+          }
+        }
+      }
+      return null;
+    })();
 
     try {
       const [updatedRecord] = await this.repository.prisma.$transaction([
@@ -447,9 +539,21 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
             ownerId: (record as any).ownerId ?? null,
             createdBy: (record as any).createdBy ?? null,
             metadata: {
-              ...((record as any).metadata && typeof (record as any).metadata === 'object' ? (record as any).metadata : {}),
-              ...((record as any).entityType && { parentType: (record as any).entityType }),
-              ...((record as any).entityId && { parentId: (record as any).entityId }),
+              ...((record as any).metadata && typeof (record as any).metadata === 'object'
+                ? (record as any).metadata
+                : {}),
+              ...((record as any).entityType && {
+                parentType: (record as any).entityType,
+                entityType: (record as any).entityType,
+              }),
+              ...((record as any).entityId && {
+                parentId: (record as any).entityId,
+                entityId: (record as any).entityId,
+              }),
+              ...(this.moduleSlug === 'documents' && {
+                documentId: (record as any).id,
+                entityName: parentName,
+              }),
             },
           },
         }),
@@ -475,7 +579,11 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
     }
   }
 
-  async restoreWithContext(where: any, userId?: string, extraOptions: { ipAddress?: string; userAgent?: string; description?: string } = {}): Promise<T> {
+  async restoreWithContext(
+    where: any,
+    userId?: string,
+    extraOptions: { ipAddress?: string; userAgent?: string; description?: string } = {},
+  ): Promise<T> {
     const record = await this.repository.findFirst({ where });
     if (!record) throw new HttpError(404, 'Registro no encontrado en este contexto');
 
@@ -577,6 +685,45 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
 
     const moduleId = await this.getModuleId();
 
+    const parentLookup: Record<string, Record<string, string>> = {};
+    if (this.moduleSlug === 'documents' && records.length > 0) {
+      const modelKeys: Record<string, string> = {
+        companies: 'company',
+        users: 'user',
+        roles: 'role',
+        teams: 'team',
+        modules: 'module',
+      };
+      const groupedParents: Record<string, Set<string>> = {};
+      for (const record of records) {
+        const entityType = (record as any).entityType;
+        const entityId = (record as any).entityId;
+        if (entityType && entityId) {
+          groupedParents[entityType] = groupedParents[entityType] || new Set();
+          groupedParents[entityType].add(entityId);
+        }
+      }
+
+      for (const [entityType, idSet] of Object.entries(groupedParents)) {
+        const modelName = modelKeys[entityType];
+        if (modelName && (this.repository.prisma as any)[modelName]) {
+          const ids = Array.from(idSet);
+          try {
+            const parents = await (this.repository.prisma as any)[modelName].findMany({
+              where: { id: { in: ids } },
+              select: { id: true, name: true },
+            });
+            parentLookup[entityType] = parentLookup[entityType] || {};
+            for (const p of parents) {
+              parentLookup[entityType][p.id] = p.name;
+            }
+          } catch (e) {
+            // silent ignore
+          }
+        }
+      }
+    }
+
     const [updateResult] = await this.repository.prisma.$transaction([
       (this.repository.prisma[this.repository.modelName] as any).updateMany({
         where: { id: { in: validIds } },
@@ -594,8 +741,19 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
           createdBy: record.createdBy ?? null,
           metadata: {
             ...(record.metadata && typeof record.metadata === 'object' ? record.metadata : {}),
-            ...(record.entityType && { parentType: record.entityType }),
-            ...(record.entityId && { parentId: record.entityId }),
+            ...(record.entityType && {
+              parentType: record.entityType,
+              entityType: record.entityType,
+            }),
+            ...(record.entityId && { parentId: record.entityId, entityId: record.entityId }),
+            ...(this.moduleSlug === 'documents' && {
+              documentId: record.id,
+              entityName:
+                (record.entityType &&
+                  record.entityId &&
+                  parentLookup[record.entityType]?.[record.entityId]) ||
+                null,
+            }),
           },
         })),
         skipDuplicates: true,
@@ -681,7 +839,11 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
   // 5. OPERACIONES MASIVAS CON CONTEXTO
   // ==========================================
 
-  async softDeleteManyWithContext(where: any, userId?: string, extraOptions: { ipAddress?: string; userAgent?: string; description?: string } = {}) {
+  async softDeleteManyWithContext(
+    where: any,
+    userId?: string,
+    extraOptions: { ipAddress?: string; userAgent?: string; description?: string } = {},
+  ) {
     const records = await this.repository.findMany({ where });
     if (!records.length) return { count: 0 };
 
@@ -690,6 +852,45 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
     expiresAt.setDate(expiresAt.getDate() + this.trashRetentionDays);
 
     const moduleId = await this.getModuleId();
+
+    const parentLookup: Record<string, Record<string, string>> = {};
+    if (this.moduleSlug === 'documents' && records.length > 0) {
+      const modelKeys: Record<string, string> = {
+        companies: 'company',
+        users: 'user',
+        roles: 'role',
+        teams: 'team',
+        modules: 'module',
+      };
+      const groupedParents: Record<string, Set<string>> = {};
+      for (const record of records) {
+        const entityType = (record as any).entityType;
+        const entityId = (record as any).entityId;
+        if (entityType && entityId) {
+          groupedParents[entityType] = groupedParents[entityType] || new Set();
+          groupedParents[entityType].add(entityId);
+        }
+      }
+
+      for (const [entityType, idSet] of Object.entries(groupedParents)) {
+        const modelName = modelKeys[entityType];
+        if (modelName && (this.repository.prisma as any)[modelName]) {
+          const ids = Array.from(idSet);
+          try {
+            const parents = await (this.repository.prisma as any)[modelName].findMany({
+              where: { id: { in: ids } },
+              select: { id: true, name: true },
+            });
+            parentLookup[entityType] = parentLookup[entityType] || {};
+            for (const p of parents) {
+              parentLookup[entityType][p.id] = p.name;
+            }
+          } catch (e) {
+            // silent ignore
+          }
+        }
+      }
+    }
 
     const [updateResult] = await this.repository.prisma.$transaction([
       (this.repository.prisma[this.repository.modelName] as any).updateMany({
@@ -708,8 +909,19 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
           createdBy: record.createdBy ?? null,
           metadata: {
             ...(record.metadata && typeof record.metadata === 'object' ? record.metadata : {}),
-            ...(record.entityType && { parentType: record.entityType }),
-            ...(record.entityId && { parentId: record.entityId }),
+            ...(record.entityType && {
+              parentType: record.entityType,
+              entityType: record.entityType,
+            }),
+            ...(record.entityId && { parentId: record.entityId, entityId: record.entityId }),
+            ...(this.moduleSlug === 'documents' && {
+              documentId: record.id,
+              entityName:
+                (record.entityType &&
+                  record.entityId &&
+                  parentLookup[record.entityType]?.[record.entityId]) ||
+                null,
+            }),
           },
         })),
         skipDuplicates: true,
@@ -732,7 +944,11 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
     return updateResult;
   }
 
-  async restoreManyWithContext(where: any, userId?: string, extraOptions: { ipAddress?: string; userAgent?: string; description?: string } = {}) {
+  async restoreManyWithContext(
+    where: any,
+    userId?: string,
+    extraOptions: { ipAddress?: string; userAgent?: string; description?: string } = {},
+  ) {
     const records = await this.repository.findMany({ where });
     if (!records.length) return { count: 0 };
 
@@ -774,7 +990,12 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
 
     const result = await super.hardDeleteManyWithContext(where, options);
 
-    await this.auditHardDeleteMany(records.map((r: any) => r.id), records, result.count, options);
+    await this.auditHardDeleteMany(
+      records.map((r: any) => r.id),
+      records,
+      result.count,
+      options,
+    );
 
     return result;
   }

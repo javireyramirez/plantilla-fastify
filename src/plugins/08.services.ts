@@ -1,5 +1,6 @@
 import fp from 'fastify-plugin';
 
+import { AuditLogService } from '@/modules/audit/audit.service.js';
 import { CompaniesService } from '@/modules/companies/companies.service.js';
 import { EmailService } from '@/modules/email/email.service.js';
 import { ModuleService } from '@/modules/module/modules.service.js';
@@ -8,8 +9,6 @@ import { StorageService } from '@/modules/storage/storage.service.js';
 import { TeamService } from '@/modules/team/team.service.js';
 import { TrashService } from '@/modules/trash/trash.service.js';
 import { UsersService } from '@/modules/users/users.service.js';
-import { AuditLogService } from '@/modules/audit/audit.service.js';
-
 
 export default fp(
   async (fastify) => {

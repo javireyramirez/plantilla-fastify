@@ -1,10 +1,6 @@
 import { FastifyInstance } from 'fastify';
 
-import {
-  withDeletedBy,
-  withRestoredBy,
-  withUpdatedBy,
-} from '@/decorators/audit.decorators.js';
+import { withDeletedBy, withRestoredBy, withUpdatedBy } from '@/decorators/audit.decorators.js';
 import { WriteOptions } from '@/types/base.types.js';
 import { ScopeContext } from '@/types/base.types.js';
 import { HttpError } from '@/utils/http.error.js';

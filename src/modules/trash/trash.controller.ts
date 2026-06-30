@@ -1,22 +1,33 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { requireScope } from '@/utils/scope.js';
+
 import { parsePagination } from '@/utils/pagination.js';
-import { GetTrashQuerySchema } from './trash.schema.js';
+import { requireScope } from '@/utils/scope.js';
+
+import { BulkIdsBodySchema, GetTrashQuerySchema } from './trash.schema.js';
 import type { TrashService } from './trash.service.js';
 
 export class TrashController {
   constructor(private readonly trashService: TrashService) {}
 
-  async getTrash(
-    request: FastifyRequest<{ Querystring: any }>,
-    reply: FastifyReply,
-  ) {
+  async getTrash(request: FastifyRequest<{ Querystring: any }>, reply: FastifyReply) {
     const session = request.session;
     if (!session?.user) {
       return reply.status(401).send({ error: 'No autorizado' });
     }
 
-    const { page, limit, search, category, sortBy, sortOrder } = GetTrashQuerySchema.parse(request.query);
+    const {
+      page,
+      limit,
+      search,
+      category,
+      sortBy,
+      sortOrder,
+      moduleId,
+      deletedAtFrom,
+      deletedAtTo,
+      expiresAtFrom,
+      expiresAtTo,
+    } = GetTrashQuerySchema.parse(request.query);
 
     const userContext = request.userContext ?? { teamIds: [] };
 
@@ -30,6 +41,11 @@ export class TrashController {
       search,
       sortBy,
       sortOrder,
+      moduleId,
+      deletedAtFrom,
+      deletedAtTo,
+      expiresAtFrom,
+      expiresAtTo,
     });
 
     const totalPages = Math.ceil(result.total / limit);
@@ -77,10 +93,7 @@ export class TrashController {
     return reply.code(200).send({ success: true, message: 'Registro purgado permanentemente' });
   }
 
-  async triggerCleanup(
-    request: FastifyRequest,
-    reply: FastifyReply,
-  ) {
+  async triggerCleanup(request: FastifyRequest, reply: FastifyReply) {
     const session = request.session;
     if (!session?.user?.isSuperAdmin) {
       return reply.status(403).send({ error: 'Prohibido: Se requieren permisos de administrador' });
@@ -88,5 +101,43 @@ export class TrashController {
 
     const result = await this.trashService.emptyExpiredTrash();
     return reply.send({ success: true, message: 'Limpieza completada', ...result });
+  }
+
+  async restoreMany(request: FastifyRequest, reply: FastifyReply) {
+    const session = request.session;
+    if (!session?.user) {
+      return reply.status(401).send({ error: 'No autorizado' });
+    }
+
+    const { ids } = BulkIdsBodySchema.parse(request.body);
+    const userContext = request.userContext ?? { teamIds: [] };
+
+    const result = await this.trashService.restoreMany(
+      ids,
+      session.user.id,
+      userContext.teamIds,
+      session.user.isSuperAdmin,
+    );
+
+    return reply.send(result);
+  }
+
+  async purgeMany(request: FastifyRequest, reply: FastifyReply) {
+    const session = request.session;
+    if (!session?.user) {
+      return reply.status(401).send({ error: 'No autorizado' });
+    }
+
+    const { ids } = BulkIdsBodySchema.parse(request.body);
+    const userContext = request.userContext ?? { teamIds: [] };
+
+    const result = await this.trashService.purgeMany(
+      ids,
+      session.user.id,
+      userContext.teamIds,
+      session.user.isSuperAdmin,
+    );
+
+    return reply.send(result);
   }
 }

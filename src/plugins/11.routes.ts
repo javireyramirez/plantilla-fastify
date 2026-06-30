@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 
 import { env } from '@/config/env.js';
+import auditRoutes from '@/modules/audit/audit.routes.js';
 import authRoutes from '@/modules/auth/auth.routes.js';
 import companiesRoutes from '@/modules/companies/companies.routes.js';
 import healthRoutes from '@/modules/health/health.routes.js';
@@ -10,9 +11,7 @@ import storageRoutes from '@/modules/storage/storage.routes.js';
 import teamRoutes from '@/modules/team/team.routes.js';
 import trashRoutes from '@/modules/trash/trash.routes.js';
 import usersRoutes from '@/modules/users/users.routes.js';
-import auditRoutes from '@/modules/audit/audit.routes.js';
 import type { RateLimitTier } from '@/plugins/02.security.js';
-
 
 declare module 'fastify' {
   interface FastifyInstance {

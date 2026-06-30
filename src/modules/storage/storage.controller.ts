@@ -1,8 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import { FastifyReply, FastifyRequest } from 'fastify';
 
-import { parsePagination } from '@/utils/pagination.js';
 import { WriteOptions } from '@/types/base.types.js';
+import { parsePagination } from '@/utils/pagination.js';
+
 import {
   BulkAction,
   ConfirmParams,
@@ -218,12 +219,10 @@ export class StorageController {
       documentIds,
     );
 
-    return (
-      reply
-        .header('Content-Type', 'application/zip')
-        .header('Content-Disposition', 'attachment; filename="documentos.zip"')
-        .send(stream)
-    );
+    return reply
+      .header('Content-Type', 'application/zip')
+      .header('Content-Disposition', 'attachment; filename="documentos.zip"')
+      .send(stream);
   }
 
   // ==========================================

@@ -4,10 +4,12 @@ Plantilla de desarrollo con Fastify, Prisma y Better Auth.
 
 ## Auditoría y Logs (AuditLog)
 
-El sistema cuenta con un mecanismo de auditoría unificado y centralizado en la tabla `AuditLog` (`sys_audit_logs`). 
+El sistema cuenta con un mecanismo de auditoría unificado y centralizado en la tabla `AuditLog` (`sys_audit_logs`).
 
 ### Eventos Auditados
+
 El sistema registra automáticamente los siguientes eventos:
+
 - **Autenticación**: Inicios de sesión exitosos y fallidos (`LOGIN`) y cierres de sesión (`LOGOUT`).
 - **CRUD de Entidades**: Creaciones (`CREATE`), actualizaciones (`UPDATE`), borrado suave (`SOFT_DELETE`), restauración (`RESTORE`), y eliminación permanente (`HARD_DELETE`).
 - **Datos de Red**: En cada log se captura automáticamente la dirección IP y el User Agent del cliente que realiza la acción.
@@ -24,4 +26,5 @@ AUDIT_LOG_DETAILS_ENABLED=false
 - **`true`**: Además de la acción básica, registra el objeto antes del cambio (`before`), después (`after`) y calcula las diferencias campo por campo (`changes`) en formato JSON.
 
 ### Seguridad de los Logs
+
 Por motivos de cumplimiento y seguridad, cualquier campo sensible como `password`, `token`, `secret`, `accessToken`, `refreshToken`, o `idToken` es redactado automáticamente y guardado como `[REDACTED]` en la base de datos de auditoría.

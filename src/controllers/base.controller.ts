@@ -61,13 +61,7 @@ export abstract class BaseController<T> {
     const { id } = request.params;
     const scope = requireScope(request);
 
-    const record = await this.service.findFirst({
-      where: {
-        id,
-        ...this.service.getAuditWhere(request.query.isTrash === 'true'),
-      },
-      scope,
-    });
+    const record = await this.service.findById(id, { scope });
 
     if (!record) throw new HttpError(404, 'Registro no encontrado');
 
@@ -105,7 +99,11 @@ export abstract class BaseController<T> {
     const { id } = request.params;
     const scope = requireScope(request);
 
-    const record = await this.service.update(id, request.body, this.getWriteOptions(request, { scope }));
+    const record = await this.service.update(
+      id,
+      request.body,
+      this.getWriteOptions(request, { scope }),
+    );
     return reply.send(record);
   }
 
@@ -180,4 +178,3 @@ export abstract class BaseController<T> {
     return reply.send(result);
   }
 }
-

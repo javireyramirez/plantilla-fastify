@@ -1,12 +1,11 @@
 import fp from 'fastify-plugin';
 
+import { AuditLogController } from '@/modules/audit/audit.controller.js';
 import { CompaniesController } from '@/modules/companies/companies.controller.js';
 import { ModuleController } from '@/modules/module/module.controller.js';
 import { RoleController } from '@/modules/rbac/rbac.controller.js';
 import { TeamController } from '@/modules/team/team.controller.js';
 import { UsersController } from '@/modules/users/users.controller.js';
-import { AuditLogController } from '@/modules/audit/audit.controller.js';
-
 
 export default fp(
   async (fastify) => {

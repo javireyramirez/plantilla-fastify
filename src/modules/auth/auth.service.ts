@@ -27,7 +27,7 @@ export class AuthService {
         data: {
           userId: user?.id || null,
           action: 'LOGIN',
-          displayName: user ? (user.name || data.email) : data.email,
+          displayName: user ? user.name || data.email : data.email,
           description: data.success
             ? 'Inicio de sesión correcto'
             : `Intento de inicio de sesión fallido: ${data.failReason || 'Credenciales inválidas'}`,

@@ -218,8 +218,6 @@ model Key {
 // COMMUNICATIONS
 // ==========================================
 
-
-
 enum EmailType {
   PASSWORD_RESET
   EMAIL_VERIFICATION
@@ -575,24 +573,24 @@ model Company {
 // ==========================================
 
 model AuditLog {
-  id          String      @id @default(uuid(7))
-  userId      String?
-  action      AuditAction
-  
+  id     String      @id @default(uuid(7))
+  userId String?
+  action AuditAction
+
   // Module reference (Option C)
-  moduleId    String?
-  moduleSlug  String?
-  module      Module?     @relation("ModuleAuditLogs", fields: [moduleId], references: [id], onDelete: SetNull)
-  
+  moduleId   String?
+  moduleSlug String?
+  module     Module? @relation("ModuleAuditLogs", fields: [moduleId], references: [id], onDelete: SetNull)
+
   entityId    String?
   displayName String?
-  description String?     @db.Text
+  description String?  @db.Text
   metadata    Json?
   ipAddress   String?
-  userAgent   String?     @db.Text
-  createdAt   DateTime    @default(now())
+  userAgent   String?  @db.Text
+  createdAt   DateTime @default(now())
 
-  user        User?       @relation("UserAuditLogs", fields: [userId], references: [id], onDelete: SetNull)
+  user User? @relation("UserAuditLogs", fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([action])
   @@index([moduleSlug, entityId])
@@ -601,25 +599,25 @@ model AuditLog {
 }
 
 model TrashBin {
-  id          String   @id @default(uuid(7))
-  
+  id String @id @default(uuid(7))
+
   // Module reference (Option C)
-  moduleId    String
-  moduleSlug  String
-  module      Module   @relation("ModuleTrashItems", fields: [moduleId], references: [id], onDelete: Cascade)
-  
-  entityId    String   // The UUID of the soft-deleted row
-  displayName String   // Quick preview to show the user (e.g. name, file name)
+  moduleId   String
+  moduleSlug String
+  module     Module @relation("ModuleTrashItems", fields: [moduleId], references: [id], onDelete: Cascade)
+
+  entityId    String // The UUID of the soft-deleted row
+  displayName String // Quick preview to show the user (e.g. name, file name)
   deletedAt   DateTime @default(now())
   deletedBy   String?
   expiresAt   DateTime // Date when this item will be permanently purged
-  metadata    Json?    // Optional extra context
+  metadata    Json? // Optional extra context
 
   // Ownership mirrors (for RBAC)
-  ownerId     String?
-  createdBy   String?
+  ownerId   String?
+  createdBy String?
 
-  deletor     User?    @relation("TrashDeletions", fields: [deletedBy], references: [id], onDelete: SetNull)
+  deletor User? @relation("TrashDeletions", fields: [deletedBy], references: [id], onDelete: SetNull)
 
   @@unique([moduleSlug, entityId])
   @@index([expiresAt])
@@ -636,4 +634,3 @@ enum AuditAction {
   LOGIN
   LOGOUT
 }
-

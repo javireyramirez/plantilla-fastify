@@ -1,4 +1,6 @@
+import { PermissionAction, PermissionScope } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
+
 import { HttpError } from '@/utils/http.error.js';
 
 export class TrashService {
@@ -16,7 +18,10 @@ export class TrashService {
     return servicesMap[moduleSlug];
   }
 
-  async getUserPermissions(userId: string, teamIds: string[] = []): Promise<Record<string, { scope: string }>> {
+  async getUserPermissions(
+    userId: string,
+    teamIds: string[] = [],
+  ): Promise<Record<string, { scope: string }>> {
     const assignments = await this.fastify.prisma.roleAssignment.findMany({
       where: {
         OR: [{ userId }, ...(teamIds.length > 0 ? [{ teamId: { in: teamIds } }] : [])],
@@ -69,6 +74,11 @@ export class TrashService {
     search?: string;
     sortBy: string;
     sortOrder: 'asc' | 'desc';
+    moduleId?: string;
+    deletedAtFrom?: Date;
+    deletedAtTo?: Date;
+    expiresAtFrom?: Date;
+    expiresAtTo?: Date;
   }) {
     let allowedModules: Record<string, { scope: string }> = {};
 
@@ -128,12 +138,38 @@ export class TrashService {
       };
     }
 
+    if (params.moduleId) {
+      whereClause.moduleId = params.moduleId;
+    }
+
+    if (params.deletedAtFrom || params.deletedAtTo) {
+      whereClause.deletedAt = {
+        ...(params.deletedAtFrom && { gte: params.deletedAtFrom }),
+        ...(params.deletedAtTo && { lte: params.deletedAtTo }),
+      };
+    }
+
+    if (params.expiresAtFrom || params.expiresAtTo) {
+      whereClause.expiresAt = {
+        ...(params.expiresAtFrom && { gte: params.expiresAtFrom }),
+        ...(params.expiresAtTo && { lte: params.expiresAtTo }),
+      };
+    }
+
     const skip = (params.page - 1) * params.limit;
     const take = params.limit;
 
     const [data, total] = await this.fastify.prisma.$transaction([
       this.fastify.prisma.trashBin.findMany({
         where: whereClause,
+        include: {
+          deletor: {
+            select: {
+              name: true,
+              email: true,
+            },
+          },
+        },
         orderBy: { [params.sortBy]: params.sortOrder },
         skip,
         take,
@@ -141,7 +177,84 @@ export class TrashService {
       this.fastify.prisma.trashBin.count({ where: whereClause }),
     ]);
 
-    return { data, total };
+    const modelKeys: Record<string, string> = {
+      companies: 'company',
+      users: 'user',
+      roles: 'role',
+      teams: 'team',
+      modules: 'module',
+    };
+
+    const documentsToResolve = data.filter((item) => {
+      if (item.moduleSlug !== 'documents') return false;
+      const meta = item.metadata as Record<string, any> | null;
+      return meta && !meta.entityName;
+    });
+
+    const parentLookup: Record<string, Record<string, string>> = {};
+
+    if (documentsToResolve.length > 0) {
+      const groupedParents: Record<string, Set<string>> = {};
+      for (const item of documentsToResolve) {
+        const meta = item.metadata as Record<string, any>;
+        const entityType = meta.entityType ?? meta.parentType;
+        const entityId = meta.entityId ?? meta.parentId;
+        if (entityType && entityId) {
+          groupedParents[entityType] = groupedParents[entityType] || new Set();
+          groupedParents[entityType].add(entityId);
+        }
+      }
+
+      for (const [entityType, idSet] of Object.entries(groupedParents)) {
+        const modelName = modelKeys[entityType];
+        if (modelName && (this.fastify.prisma as any)[modelName]) {
+          const ids = Array.from(idSet);
+          try {
+            const records = await (this.fastify.prisma as any)[modelName].findMany({
+              where: { id: { in: ids } },
+              select: { id: true, name: true },
+            });
+            parentLookup[entityType] = parentLookup[entityType] || {};
+            for (const r of records) {
+              parentLookup[entityType][r.id] = r.name;
+            }
+          } catch (e) {
+            this.fastify.log.error(e, `Error fetching parent names for ${entityType}`);
+          }
+        }
+      }
+    }
+
+    const mappedData = data.map((item) => {
+      let metadata = item.metadata;
+      if (item.moduleSlug === 'documents' && metadata && typeof metadata === 'object') {
+        const metaObj = metadata as Record<string, any>;
+        const entityType = metaObj.entityType ?? metaObj.parentType ?? null;
+        const entityId = metaObj.entityId ?? metaObj.parentId ?? null;
+        const documentId = metaObj.documentId ?? item.entityId;
+
+        let entityName = metaObj.entityName ?? null;
+        if (!entityName && entityType && entityId && parentLookup[entityType]) {
+          entityName = parentLookup[entityType][entityId] ?? null;
+        }
+
+        metadata = {
+          ...metaObj,
+          entityType,
+          entityId,
+          entityName,
+          documentId,
+        };
+      }
+      return {
+        ...item,
+        metadata,
+        deletedByName: item.deletor?.name ?? null,
+        deletedByEmail: item.deletor?.email ?? null,
+      };
+    });
+
+    return { data: mappedData, total };
   }
 
   async restore(moduleSlug: string, id: string, userId: string, scope?: any) {
@@ -204,11 +317,14 @@ export class TrashService {
 
     if (expiredItems.length === 0) return { count: 0 };
 
-    const grouped = expiredItems.reduce((acc, item) => {
-      acc[item.moduleSlug] = acc[item.moduleSlug] || [];
-      acc[item.moduleSlug].push(item);
-      return acc;
-    }, {} as Record<string, typeof expiredItems>);
+    const grouped = expiredItems.reduce(
+      (acc, item) => {
+        acc[item.moduleSlug] = acc[item.moduleSlug] || [];
+        acc[item.moduleSlug].push(item);
+        return acc;
+      },
+      {} as Record<string, typeof expiredItems>,
+    );
 
     let purgedCount = 0;
 
@@ -237,11 +353,257 @@ export class TrashService {
               displayName: item.displayName,
               description: 'Automatic purge after retention period expired',
             },
-          })
+          }),
         ),
       ]);
 
       purgedCount += items.length;
+    }
+
+    return { count: purgedCount };
+  }
+
+  async getUserPermissionsForAction(
+    userId: string,
+    teamIds: string[],
+    action: PermissionAction,
+  ): Promise<Record<string, { scope: PermissionScope }>> {
+    const assignments = await this.fastify.prisma.roleAssignment.findMany({
+      where: {
+        OR: [{ userId }, ...(teamIds.length > 0 ? [{ teamId: { in: teamIds } }] : [])],
+      },
+      include: {
+        role: {
+          include: {
+            permissions: {
+              where: {
+                action,
+              },
+              include: {
+                module: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const permissions: Record<string, { scope: PermissionScope }> = {};
+
+    for (const assignment of assignments) {
+      for (const perm of assignment.role.permissions) {
+        const moduleSlug = perm.module.slug;
+        const currentScope = perm.scope;
+
+        if (!permissions[moduleSlug]) {
+          permissions[moduleSlug] = { scope: currentScope };
+        } else {
+          const SCOPE_PRIORITY: Record<PermissionScope, number> = { GLOBAL: 3, TEAM: 2, OWN: 1 };
+          const best = permissions[moduleSlug].scope;
+          if (SCOPE_PRIORITY[currentScope] > SCOPE_PRIORITY[best]) {
+            permissions[moduleSlug].scope = currentScope;
+          }
+        }
+      }
+    }
+
+    return permissions;
+  }
+
+  async restoreMany(
+    ids: string[],
+    userId: string,
+    teamIds: string[],
+    isSuperAdmin: boolean,
+  ): Promise<{ count: number }> {
+    if (!ids.length) return { count: 0 };
+
+    const trashItems = await this.fastify.prisma.trashBin.findMany({
+      where: { id: { in: ids } },
+    });
+
+    if (!trashItems.length) return { count: 0 };
+
+    let allowedModules: Record<string, { scope: PermissionScope }> = {};
+    if (isSuperAdmin) {
+      const modules = await this.fastify.prisma.module.findMany({
+        select: { slug: true },
+      });
+      for (const mod of modules) {
+        allowedModules[mod.slug] = { scope: 'GLOBAL' };
+      }
+    } else {
+      allowedModules = await this.getUserPermissionsForAction(
+        userId,
+        teamIds,
+        PermissionAction.RESTORE,
+      );
+    }
+
+    for (const item of trashItems) {
+      const perm = allowedModules[item.moduleSlug];
+      if (!perm) {
+        throw new HttpError(
+          403,
+          `No tiene permisos para restaurar elementos del módulo: ${item.moduleSlug}`,
+        );
+      }
+
+      const scope = perm.scope;
+      if (scope === 'OWN') {
+        const isOwner =
+          item.ownerId === userId || item.createdBy === userId || item.deletedBy === userId;
+        if (!isOwner) {
+          throw new HttpError(
+            403,
+            `No tiene permisos para restaurar el elemento: ${item.displayName}`,
+          );
+        }
+      } else if (scope === 'TEAM') {
+        const isTeam =
+          (item.ownerId && teamIds.includes(item.ownerId)) ||
+          (item.createdBy && teamIds.includes(item.createdBy)) ||
+          (item.deletedBy && teamIds.includes(item.deletedBy));
+        if (!isTeam) {
+          throw new HttpError(
+            403,
+            `No tiene permisos para restaurar el elemento: ${item.displayName}`,
+          );
+        }
+      }
+    }
+
+    const grouped = trashItems.reduce(
+      (acc, item) => {
+        acc[item.moduleSlug] = acc[item.moduleSlug] || [];
+        acc[item.moduleSlug].push(item);
+        return acc;
+      },
+      {} as Record<string, typeof trashItems>,
+    );
+
+    let restoredCount = 0;
+
+    for (const [moduleSlug, items] of Object.entries(grouped)) {
+      const entityIds = items.map((item) => item.entityId);
+      const service = this.getService(moduleSlug);
+
+      if (!service) {
+        throw new HttpError(500, `Servicio no configurado para el módulo: ${moduleSlug}`);
+      }
+
+      const perm = allowedModules[moduleSlug];
+      const scopeContext = {
+        scope: perm.scope,
+        userId,
+        teamIds,
+      };
+
+      const restoreResult = await service.restoreMany(entityIds, { userId, scope: scopeContext });
+      restoredCount += restoreResult.count;
+    }
+
+    return { count: restoredCount };
+  }
+
+  async purgeMany(
+    ids: string[],
+    userId: string,
+    teamIds: string[],
+    isSuperAdmin: boolean,
+  ): Promise<{ count: number }> {
+    if (!ids.length) return { count: 0 };
+
+    const trashItems = await this.fastify.prisma.trashBin.findMany({
+      where: { id: { in: ids } },
+    });
+
+    if (!trashItems.length) return { count: 0 };
+
+    let allowedModules: Record<string, { scope: PermissionScope }> = {};
+    if (isSuperAdmin) {
+      const modules = await this.fastify.prisma.module.findMany({
+        select: { slug: true },
+      });
+      for (const mod of modules) {
+        allowedModules[mod.slug] = { scope: 'GLOBAL' };
+      }
+    } else {
+      allowedModules = await this.getUserPermissionsForAction(
+        userId,
+        teamIds,
+        PermissionAction.DELETE,
+      );
+    }
+
+    for (const item of trashItems) {
+      const perm = allowedModules[item.moduleSlug];
+      if (!perm) {
+        throw new HttpError(
+          403,
+          `No tiene permisos para purgar elementos del módulo: ${item.moduleSlug}`,
+        );
+      }
+
+      const scope = perm.scope;
+      if (scope === 'OWN') {
+        const isOwner =
+          item.ownerId === userId || item.createdBy === userId || item.deletedBy === userId;
+        if (!isOwner) {
+          throw new HttpError(
+            403,
+            `No tiene permisos para purgar el elemento: ${item.displayName}`,
+          );
+        }
+      } else if (scope === 'TEAM') {
+        const isTeam =
+          (item.ownerId && teamIds.includes(item.ownerId)) ||
+          (item.createdBy && teamIds.includes(item.createdBy)) ||
+          (item.deletedBy && teamIds.includes(item.deletedBy));
+        if (!isTeam) {
+          throw new HttpError(
+            403,
+            `No tiene permisos para purgar el elemento: ${item.displayName}`,
+          );
+        }
+      }
+    }
+
+    const grouped = trashItems.reduce(
+      (acc, item) => {
+        acc[item.moduleSlug] = acc[item.moduleSlug] || [];
+        acc[item.moduleSlug].push(item);
+        return acc;
+      },
+      {} as Record<string, typeof trashItems>,
+    );
+
+    let purgedCount = 0;
+
+    for (const [moduleSlug, items] of Object.entries(grouped)) {
+      const entityIds = items.map((item) => item.entityId);
+      const service = this.getService(moduleSlug);
+
+      if (!service) {
+        throw new HttpError(500, `Servicio no configurado para el módulo: ${moduleSlug}`);
+      }
+
+      const perm = allowedModules[moduleSlug];
+      const scopeContext = {
+        scope: perm.scope,
+        userId,
+        teamIds,
+      };
+
+      await this.fastify.prisma.trashBin.deleteMany({
+        where: {
+          moduleSlug,
+          entityId: { in: entityIds },
+        },
+      });
+
+      const deleteResult = await service.hardDeleteMany(entityIds, { userId, scope: scopeContext });
+      purgedCount += deleteResult.count;
     }
 
     return { count: purgedCount };

@@ -4,6 +4,7 @@ import { ZodTypeProvider } from 'fastify-type-provider-zod';
 
 import { buildPreHandler } from '@/hooks/buildPreHandler.js';
 import { BaseRoutesOptions } from '@/types/base-routes.types.js';
+
 import {
   AuditLogIdParamsSchema,
   AuditLogResponseSchema,
