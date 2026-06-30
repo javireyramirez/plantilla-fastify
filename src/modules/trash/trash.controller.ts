@@ -16,7 +16,19 @@ export class TrashController {
       return reply.status(401).send({ error: 'No autorizado' });
     }
 
-    const { page, limit, search, category, sortBy, sortOrder } = GetTrashQuerySchema.parse(request.query);
+    const {
+      page,
+      limit,
+      search,
+      category,
+      sortBy,
+      sortOrder,
+      moduleId,
+      deletedAtFrom,
+      deletedAtTo,
+      expiresAtFrom,
+      expiresAtTo,
+    } = GetTrashQuerySchema.parse(request.query);
 
     const userContext = request.userContext ?? { teamIds: [] };
 
@@ -30,6 +42,11 @@ export class TrashController {
       search,
       sortBy,
       sortOrder,
+      moduleId,
+      deletedAtFrom,
+      deletedAtTo,
+      expiresAtFrom,
+      expiresAtTo,
     });
 
     const totalPages = Math.ceil(result.total / limit);

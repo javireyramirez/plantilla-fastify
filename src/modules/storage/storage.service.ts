@@ -100,12 +100,16 @@ export class StorageService extends BaseRbacService<any> {
     operation: 'view' | 'download' = 'view',
   ) {
     const doc = await this.getDocument(entityType, entityId, documentId);
-    if (doc.status !== 'ACTIVE') {
+    if (doc.status !== 'ACTIVE' && doc.status !== 'TRASHED') {
       throw new HttpError(400, 'El documento no está activo');
     }
 
     const url = await this.storage.generateDownloadUrl(doc.fileKey, doc.fileName, operation);
-    return { url, expiresAt: new Date(Date.now() + 15 * 60 * 1000) }; // 15 min
+    return {
+      downloadUrl: url,
+      contentType: doc.contentType,
+      fileName: doc.fileName,
+    };
   }
 
   // ==========================================

@@ -70,6 +70,11 @@ export class TrashService {
     search?: string;
     sortBy: string;
     sortOrder: 'asc' | 'desc';
+    moduleId?: string;
+    deletedAtFrom?: Date;
+    deletedAtTo?: Date;
+    expiresAtFrom?: Date;
+    expiresAtTo?: Date;
   }) {
     let allowedModules: Record<string, { scope: string }> = {};
 
@@ -129,12 +134,38 @@ export class TrashService {
       };
     }
 
+    if (params.moduleId) {
+      whereClause.moduleId = params.moduleId;
+    }
+
+    if (params.deletedAtFrom || params.deletedAtTo) {
+      whereClause.deletedAt = {
+        ...(params.deletedAtFrom && { gte: params.deletedAtFrom }),
+        ...(params.deletedAtTo && { lte: params.deletedAtTo }),
+      };
+    }
+
+    if (params.expiresAtFrom || params.expiresAtTo) {
+      whereClause.expiresAt = {
+        ...(params.expiresAtFrom && { gte: params.expiresAtFrom }),
+        ...(params.expiresAtTo && { lte: params.expiresAtTo }),
+      };
+    }
+
     const skip = (params.page - 1) * params.limit;
     const take = params.limit;
 
     const [data, total] = await this.fastify.prisma.$transaction([
       this.fastify.prisma.trashBin.findMany({
         where: whereClause,
+        include: {
+          deletor: {
+            select: {
+              name: true,
+              email: true,
+            },
+          },
+        },
         orderBy: { [params.sortBy]: params.sortOrder },
         skip,
         take,
@@ -142,7 +173,84 @@ export class TrashService {
       this.fastify.prisma.trashBin.count({ where: whereClause }),
     ]);
 
-    return { data, total };
+    const modelKeys: Record<string, string> = {
+      companies: 'company',
+      users: 'user',
+      roles: 'role',
+      teams: 'team',
+      modules: 'module',
+    };
+
+    const documentsToResolve = data.filter((item) => {
+      if (item.moduleSlug !== 'documents') return false;
+      const meta = item.metadata as Record<string, any> | null;
+      return meta && !meta.entityName;
+    });
+
+    const parentLookup: Record<string, Record<string, string>> = {};
+
+    if (documentsToResolve.length > 0) {
+      const groupedParents: Record<string, Set<string>> = {};
+      for (const item of documentsToResolve) {
+        const meta = item.metadata as Record<string, any>;
+        const entityType = meta.entityType ?? meta.parentType;
+        const entityId = meta.entityId ?? meta.parentId;
+        if (entityType && entityId) {
+          groupedParents[entityType] = groupedParents[entityType] || new Set();
+          groupedParents[entityType].add(entityId);
+        }
+      }
+
+      for (const [entityType, idSet] of Object.entries(groupedParents)) {
+        const modelName = modelKeys[entityType];
+        if (modelName && (this.fastify.prisma as any)[modelName]) {
+          const ids = Array.from(idSet);
+          try {
+            const records = await (this.fastify.prisma as any)[modelName].findMany({
+              where: { id: { in: ids } },
+              select: { id: true, name: true },
+            });
+            parentLookup[entityType] = parentLookup[entityType] || {};
+            for (const r of records) {
+              parentLookup[entityType][r.id] = r.name;
+            }
+          } catch (e) {
+            this.fastify.log.error(e, `Error fetching parent names for ${entityType}`);
+          }
+        }
+      }
+    }
+
+    const mappedData = data.map((item) => {
+      let metadata = item.metadata;
+      if (item.moduleSlug === 'documents' && metadata && typeof metadata === 'object') {
+        const metaObj = metadata as Record<string, any>;
+        const entityType = metaObj.entityType ?? metaObj.parentType ?? null;
+        const entityId = metaObj.entityId ?? metaObj.parentId ?? null;
+        const documentId = metaObj.documentId ?? item.entityId;
+
+        let entityName = metaObj.entityName ?? null;
+        if (!entityName && entityType && entityId && parentLookup[entityType]) {
+          entityName = parentLookup[entityType][entityId] ?? null;
+        }
+
+        metadata = {
+          ...metaObj,
+          entityType,
+          entityId,
+          entityName,
+          documentId,
+        };
+      }
+      return {
+        ...item,
+        metadata,
+        deletedByName: item.deletor?.name ?? null,
+        deletedByEmail: item.deletor?.email ?? null,
+      };
+    });
+
+    return { data: mappedData, total };
   }
 
   async restore(moduleSlug: string, id: string, userId: string, scope?: any) {

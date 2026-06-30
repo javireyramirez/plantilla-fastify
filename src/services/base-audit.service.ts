@@ -265,6 +265,31 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
 
     const moduleId = await this.getModuleId();
 
+    const parentName = await (async () => {
+      if (this.moduleSlug === 'documents' && (record as any).entityType && (record as any).entityId) {
+        const modelKeys: Record<string, string> = {
+          companies: 'company',
+          users: 'user',
+          roles: 'role',
+          teams: 'team',
+          modules: 'module',
+        };
+        const modelName = modelKeys[(record as any).entityType];
+        if (modelName && (this.repository.prisma as any)[modelName]) {
+          try {
+            const parent = await (this.repository.prisma as any)[modelName].findFirst({
+              where: { id: (record as any).entityId },
+              select: { name: true },
+            });
+            return parent?.name ?? null;
+          } catch (e) {
+            return null;
+          }
+        }
+      }
+      return null;
+    })();
+
     try {
       const [updatedRecord] = await this.repository.prisma.$transaction([
         (this.repository.prisma[this.repository.modelName] as any).update({
@@ -283,8 +308,9 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
             createdBy: (record as any).createdBy ?? null,
             metadata: {
               ...((record as any).metadata && typeof (record as any).metadata === 'object' ? (record as any).metadata : {}),
-              ...((record as any).entityType && { parentType: (record as any).entityType }),
-              ...((record as any).entityId && { parentId: (record as any).entityId }),
+              ...((record as any).entityType && { parentType: (record as any).entityType, entityType: (record as any).entityType }),
+              ...((record as any).entityId && { parentId: (record as any).entityId, entityId: (record as any).entityId }),
+              ...(this.moduleSlug === 'documents' && { documentId: (record as any).id, entityName: parentName }),
             },
           },
         }),
@@ -430,6 +456,31 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
 
     const moduleId = await this.getModuleId();
 
+    const parentName = await (async () => {
+      if (this.moduleSlug === 'documents' && (record as any).entityType && (record as any).entityId) {
+        const modelKeys: Record<string, string> = {
+          companies: 'company',
+          users: 'user',
+          roles: 'role',
+          teams: 'team',
+          modules: 'module',
+        };
+        const modelName = modelKeys[(record as any).entityType];
+        if (modelName && (this.repository.prisma as any)[modelName]) {
+          try {
+            const parent = await (this.repository.prisma as any)[modelName].findFirst({
+              where: { id: (record as any).entityId },
+              select: { name: true },
+            });
+            return parent?.name ?? null;
+          } catch (e) {
+            return null;
+          }
+        }
+      }
+      return null;
+    })();
+
     try {
       const [updatedRecord] = await this.repository.prisma.$transaction([
         (this.repository.prisma[this.repository.modelName] as any).update({
@@ -448,8 +499,9 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
             createdBy: (record as any).createdBy ?? null,
             metadata: {
               ...((record as any).metadata && typeof (record as any).metadata === 'object' ? (record as any).metadata : {}),
-              ...((record as any).entityType && { parentType: (record as any).entityType }),
-              ...((record as any).entityId && { parentId: (record as any).entityId }),
+              ...((record as any).entityType && { parentType: (record as any).entityType, entityType: (record as any).entityType }),
+              ...((record as any).entityId && { parentId: (record as any).entityId, entityId: (record as any).entityId }),
+              ...(this.moduleSlug === 'documents' && { documentId: (record as any).id, entityName: parentName }),
             },
           },
         }),
@@ -577,6 +629,45 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
 
     const moduleId = await this.getModuleId();
 
+    const parentLookup: Record<string, Record<string, string>> = {};
+    if (this.moduleSlug === 'documents' && records.length > 0) {
+      const modelKeys: Record<string, string> = {
+        companies: 'company',
+        users: 'user',
+        roles: 'role',
+        teams: 'team',
+        modules: 'module',
+      };
+      const groupedParents: Record<string, Set<string>> = {};
+      for (const record of records) {
+        const entityType = (record as any).entityType;
+        const entityId = (record as any).entityId;
+        if (entityType && entityId) {
+          groupedParents[entityType] = groupedParents[entityType] || new Set();
+          groupedParents[entityType].add(entityId);
+        }
+      }
+
+      for (const [entityType, idSet] of Object.entries(groupedParents)) {
+        const modelName = modelKeys[entityType];
+        if (modelName && (this.repository.prisma as any)[modelName]) {
+          const ids = Array.from(idSet);
+          try {
+            const parents = await (this.repository.prisma as any)[modelName].findMany({
+              where: { id: { in: ids } },
+              select: { id: true, name: true },
+            });
+            parentLookup[entityType] = parentLookup[entityType] || {};
+            for (const p of parents) {
+              parentLookup[entityType][p.id] = p.name;
+            }
+          } catch (e) {
+            // silent ignore
+          }
+        }
+      }
+    }
+
     const [updateResult] = await this.repository.prisma.$transaction([
       (this.repository.prisma[this.repository.modelName] as any).updateMany({
         where: { id: { in: validIds } },
@@ -594,8 +685,12 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
           createdBy: record.createdBy ?? null,
           metadata: {
             ...(record.metadata && typeof record.metadata === 'object' ? record.metadata : {}),
-            ...(record.entityType && { parentType: record.entityType }),
-            ...(record.entityId && { parentId: record.entityId }),
+            ...(record.entityType && { parentType: record.entityType, entityType: record.entityType }),
+            ...(record.entityId && { parentId: record.entityId, entityId: record.entityId }),
+            ...(this.moduleSlug === 'documents' && {
+              documentId: record.id,
+              entityName: (record.entityType && record.entityId && parentLookup[record.entityType]?.[record.entityId]) || null
+            }),
           },
         })),
         skipDuplicates: true,
@@ -691,6 +786,45 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
 
     const moduleId = await this.getModuleId();
 
+    const parentLookup: Record<string, Record<string, string>> = {};
+    if (this.moduleSlug === 'documents' && records.length > 0) {
+      const modelKeys: Record<string, string> = {
+        companies: 'company',
+        users: 'user',
+        roles: 'role',
+        teams: 'team',
+        modules: 'module',
+      };
+      const groupedParents: Record<string, Set<string>> = {};
+      for (const record of records) {
+        const entityType = (record as any).entityType;
+        const entityId = (record as any).entityId;
+        if (entityType && entityId) {
+          groupedParents[entityType] = groupedParents[entityType] || new Set();
+          groupedParents[entityType].add(entityId);
+        }
+      }
+
+      for (const [entityType, idSet] of Object.entries(groupedParents)) {
+        const modelName = modelKeys[entityType];
+        if (modelName && (this.repository.prisma as any)[modelName]) {
+          const ids = Array.from(idSet);
+          try {
+            const parents = await (this.repository.prisma as any)[modelName].findMany({
+              where: { id: { in: ids } },
+              select: { id: true, name: true },
+            });
+            parentLookup[entityType] = parentLookup[entityType] || {};
+            for (const p of parents) {
+              parentLookup[entityType][p.id] = p.name;
+            }
+          } catch (e) {
+            // silent ignore
+          }
+        }
+      }
+    }
+
     const [updateResult] = await this.repository.prisma.$transaction([
       (this.repository.prisma[this.repository.modelName] as any).updateMany({
         where: { id: { in: validIds } },
@@ -708,8 +842,12 @@ export abstract class BaseAuditService<T> extends BaseCrudService<T> {
           createdBy: record.createdBy ?? null,
           metadata: {
             ...(record.metadata && typeof record.metadata === 'object' ? record.metadata : {}),
-            ...(record.entityType && { parentType: record.entityType }),
-            ...(record.entityId && { parentId: record.entityId }),
+            ...(record.entityType && { parentType: record.entityType, entityType: record.entityType }),
+            ...(record.entityId && { parentId: record.entityId, entityId: record.entityId }),
+            ...(this.moduleSlug === 'documents' && {
+              documentId: record.id,
+              entityName: (record.entityType && record.entityId && parentLookup[record.entityType]?.[record.entityId]) || null
+            }),
           },
         })),
         skipDuplicates: true,
