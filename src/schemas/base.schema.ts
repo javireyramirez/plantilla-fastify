@@ -100,3 +100,15 @@ export function createPaginatedResponseSchema<T extends z.ZodTypeAny>(dataSchema
     }),
   });
 }
+
+export const ExportFormatSchema = z.enum(['csv', 'excel', 'json']);
+
+export const ExportRequestSchema = z.object({
+  ids: z.array(z.string().uuid()).optional(),
+  filters: z.record(z.string(), z.any()).optional(),
+  columns: z.array(z.string()).optional(),
+  format: ExportFormatSchema.default('csv'),
+  sortBy: z.string().optional(),
+  sortOrder: z.enum(['asc', 'desc']).optional(),
+  isTrash: z.boolean().optional().default(false),
+});

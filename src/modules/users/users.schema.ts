@@ -73,7 +73,19 @@ export const GetUsersQuerySchema = GetPaginatedQueryBaseSchema.extend({
       return v === 'true' || v === true;
     }, z.boolean().optional())
     .optional(),
-  sortBy: z.enum(['name', 'email', 'createdAt', 'updatedAt']).optional().default('createdAt'),
+  sortBy: z
+    .enum([
+      'name',
+      'email',
+      'createdAt',
+      'updatedAt',
+      'isActive',
+      'isSystem',
+      'emailVerified',
+      'isSuperAdmin',
+    ])
+    .optional()
+    .default('createdAt'),
 });
 
 export const GetListQuery = GetListQueryBase;

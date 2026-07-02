@@ -6,6 +6,7 @@ import {
   withUpdatedBy,
 } from '@/decorators/audit.decorators.js';
 import { WriteOptions } from '@/types/base.types.js';
+import { convertToCSV, convertToExcel } from '@/utils/export.utils.js';
 import { HttpError } from '@/utils/http.error.js';
 
 import { BaseCrudService } from './base-crud.service.js';
@@ -13,6 +14,82 @@ import { BaseCrudService } from './base-crud.service.js';
 export abstract class BaseAuditService<T> extends BaseCrudService<T> {
   protected abstract readonly moduleSlug: string;
   protected trashRetentionDays = 90;
+  protected exportLimit = env.EXPORT_LIMIT;
+
+  public getModuleSlug(): string {
+    return this.moduleSlug;
+  }
+
+  public getExportLimit(): number {
+    return this.exportLimit;
+  }
+
+  async exportData(params: {
+    ids?: string[];
+    filters?: Record<string, any>;
+    columns?: string[];
+    format?: 'csv' | 'excel' | 'json';
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    isTrash?: boolean;
+    scope?: any;
+  }): Promise<{ filename: string; contentType: string; content: string | Buffer }> {
+    const {
+      ids,
+      filters = {},
+      columns,
+      format = 'csv',
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      isTrash = false,
+      scope,
+    } = params;
+
+    const orderBy = this.buildOrderBy(sortBy, sortOrder);
+
+    let where: any;
+    if (ids && ids.length > 0) {
+      where = {
+        id: { in: ids },
+        ...this.getAuditWhere(isTrash, {}),
+      };
+    } else {
+      where = this.getAuditWhere(isTrash, filters);
+    }
+
+    const result = await this.findManyWithCount({
+      where,
+      orderBy,
+      take: this.exportLimit,
+      scope,
+    });
+
+    const data = result.data;
+    const timestamp = new Date().toISOString().replace(/:/g, '-');
+    const filenameBase = `${this.moduleSlug}_${timestamp}`;
+
+    if (format === 'excel') {
+      const content = convertToExcel(data, columns);
+      return {
+        filename: `${filenameBase}.xlsx`,
+        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        content,
+      };
+    } else if (format === 'csv') {
+      const content = convertToCSV(data, columns);
+      return {
+        filename: `${filenameBase}.csv`,
+        contentType: 'text/csv; charset=utf-8',
+        content,
+      };
+    } else {
+      return {
+        filename: `${filenameBase}.json`,
+        contentType: 'application/json',
+        content: JSON.stringify(data),
+      };
+    }
+  }
 
   private cachedModuleId: string | null = null;
 

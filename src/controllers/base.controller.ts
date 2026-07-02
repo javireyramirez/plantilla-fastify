@@ -1,6 +1,6 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
 
-import { CreateSchema } from '@/schemas/base.schema.js';
+import { CreateSchema, ExportRequestSchema } from '@/schemas/base.schema.js';
 import { BaseAuditService } from '@/services/base-audit.service.js';
 import { BaseRbacService } from '@/services/base-owned.service.js';
 import { WriteOptions } from '@/types/base.types.js';
@@ -80,6 +80,21 @@ export abstract class BaseController<T> {
     });
 
     return reply.send(result);
+  }
+
+  async export(request: FastifyRequest<{ Body: any }>, reply: FastifyReply) {
+    const body = ExportRequestSchema.parse(request.body);
+    const scope = requireScope(request);
+
+    const { filename, contentType, content } = await this.service.exportData({
+      ...body,
+      scope,
+    });
+
+    return reply
+      .header('Content-Type', contentType)
+      .header('Content-Disposition', `attachment; filename="${filename}"`)
+      .send(content);
   }
 
   // ==========================================

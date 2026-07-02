@@ -7,7 +7,9 @@ export const GetTrashQuerySchema = z.object({
   limit: z.coerce.number().min(1).max(100).default(10),
   search: z.string().optional(),
   category: z.enum(['entities', 'documents']).default('entities'),
-  sortBy: z.enum(['deletedAt', 'expiresAt', 'displayName']).default('deletedAt'),
+  sortBy: z
+    .enum(['deletedAt', 'expiresAt', 'deletedAt', 'displayName', 'moduleSlug'])
+    .default('deletedAt'),
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
   moduleId: z.uuidv7().optional(),
   deletedAtFrom: dateQueryBase,

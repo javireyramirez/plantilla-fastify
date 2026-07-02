@@ -30,6 +30,7 @@ export interface BaseRoutesOptions {
      */
     bulkCreateBody?: any; // z.array(createBody)
     bulkIdsBody?: any; // z.object({ ids: z.array(z.string()) })
+    exportBody?: any;
 
     /**
      * INDIVIDUAL RESPONSES

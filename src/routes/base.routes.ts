@@ -4,6 +4,7 @@ import { ZodTypeProvider } from 'fastify-type-provider-zod';
 
 import { BaseController } from '@/controllers/base.controller.js';
 import { buildPreHandler } from '@/hooks/buildPreHandler.js';
+import { ExportRequestSchema } from '@/schemas/base.schema.js';
 import { BaseRoutesOptions } from '@/types/base-routes.types.js';
 
 export function registerBaseRoutes<T>(
@@ -81,6 +82,18 @@ export function registerBaseRoutes<T>(
   // ==========================================
   // LECTURA
   // ==========================================
+
+  app.post(
+    '/export',
+    {
+      schema: {
+        tags,
+        body: s.exportBody ?? ExportRequestSchema,
+      },
+      preHandler: buildPreHandler(resource, PermissionAction.READ, options),
+    },
+    (req, reply) => controller.export(req as any, reply),
+  );
 
   app.get(
     '/',

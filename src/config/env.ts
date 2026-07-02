@@ -49,6 +49,9 @@ export const baseSchema = z.object({
   EMAIL_BODY_ENABLED: z
     .preprocess((val) => val === 'true' || val === true, z.boolean())
     .default(false),
+
+  // Exportación
+  EXPORT_LIMIT: z.coerce.number().default(50000),
 });
 
 const s3Schema = baseSchema.extend({
